@@ -17,6 +17,9 @@ The Principal Investigator fills in this template to produce `05-methodology.md`
 
 ## Baseline
 
+**Measure:** <harness invocation that prints the metric>
+**Checks:** <correctness-check command>
+
 - **Current value:** <measured baseline>
 - **Measurement method:** <how the metric is captured>
 - **Measurement harness:** <path to measure script or command>

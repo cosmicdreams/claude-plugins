@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.0.2 — 2026-11-04
+
+- Add executable Measure and Checks placeholders to the optimize methodology handoff.
+
 ## 4.0.1 — 2026-11-04
 
 - `optimize` preloads `strategy=climb scorer=scripted` when it hands off to `research-lab:experiment`, so the experiment runs unattended instead of stopping at research-lab 5.1.0's new strategy router.

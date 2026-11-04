@@ -159,7 +159,11 @@ def main(argv=None):
             code = 0
         except (ValueError, OSError) as error:
             result, code = {'status': 'refused', 'reason': str(error)}, 1
-        print(json.dumps(result, sort_keys=True))
+        if a.command == 'status' and code == 0:
+            for row in result:
+                print(json.dumps(row, sort_keys=True))
+        else:
+            print(json.dumps(result, sort_keys=True))
         return code
     result = check(a.strategy, a.scorer, a.methodology)
     print(json.dumps(result, sort_keys=True))

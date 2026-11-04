@@ -1,0 +1,27 @@
+{
+    "description": "Continue running scripted experiments and restore context.",
+    "hooks": {
+        "Stop": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/keepgoing.py\" stop",
+                        "timeout": 5
+                    }
+                ]
+            }
+        ],
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/keepgoing.py\" start",
+                        "timeout": 5
+                    }
+                ]
+            }
+        ]
+    }
+}

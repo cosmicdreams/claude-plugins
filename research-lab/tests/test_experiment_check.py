@@ -157,8 +157,9 @@ class CheckTests(unittest.TestCase):
         body = TEMPLATE.read_text().split('```markdown', 1)[1].rsplit('```', 1)[0]
         filled = (body.replace('<Numeric target value>', '0.95')
                       .replace('<"higher is better" or "lower is better">', 'higher is better')
-                      .replace('<max iterations, e.g., 20>', '20'))
-        filled += '\nMeasure: echo 0.9\nChecks: true\n'
+                      .replace('<max iterations, e.g., 20>', '20')
+                      .replace('<harness invocation that prints the metric>', 'echo 0.9')
+                      .replace('<correctness-check command>', 'true'))
         flags = [x for k in ('strategy', 'scorer') if k in args for x in (f'--{k}', args[k])]
         code, out = self.run_check(*flags, '--methodology', self.method(filled))
         self.assertEqual(code, 0, out)

@@ -1,4 +1,5 @@
 """Persistent scripted experiment loop. No external Python dependencies."""
+from datetime import datetime, timezone
 import hashlib
 import json
 import math
@@ -270,10 +271,13 @@ def evaluate(e, s, c, command):
         metric_better = delta > (0 if s['strategy'] == 'remediate' else s['margin'])
         better = metric_better
         tie = None
+        tie_before = s.get('tiebreak')
+        readable = False
         reason = 'gain beyond margin' if better else f"no gain beyond margin {s['margin']:g}"
         if s['strategy'] == 'climb' and abs(delta) <= s['margin'] and c['Tiebreak']:
             tie = number(w, c['Tiebreak'])
-            if tie < s['tiebreak'] and shell(w, c['Readability']).returncode == 0:
+            readable = tie < s['tiebreak'] and shell(w, c['Readability']).returncode == 0
+            if tie < s['tiebreak'] and readable:
                 better, reason = True, 'simplicity tie-break'
         if not checks or not guard:
             reason = 'checks failed' if not checks else 'Score guardrail regression'
@@ -303,7 +307,8 @@ def evaluate(e, s, c, command):
         s['trials_used'] += 1
         if s['trials_used'] >= c['Budget'] and not goal(s, c) and s['status'] == 'running':
             ending(s, 'paused', 'budget spent')
-        log(e, s, c, m, decision, reason, before, extras={'score': score},
+        log(e, s, c, m, decision, reason, before, extras={'score': score, 'tiebreak_before': tie_before,
+                                   'tiebreak_after': tie, 'readable': readable},
             gate='pass' if checks and guard else 'fail')
         s['trial'] = None
         save(e, s)
@@ -313,12 +318,38 @@ def evaluate(e, s, c, command):
 
 
 def dispatch(a, check):
+    if a.command == 'status':
+        from experiment_report import status
+        return status(a.repo)
     e = Path(a.engagement).resolve()
     if a.command == 'init':
         return init(a, e, check)
     s = json.loads((e / 'state.json').read_text())
     require(s['version'] == 1, 'unsupported state version')
     c = config(Path(s['methodology']).read_text(), s['strategy'])
+    c['Budget'] = s.get('budget_override', c['Budget'])
+    if a.command == 'report':
+        from experiment_report import report
+        return report(e, s, c)
+    if a.command == 'resume':
+        require(s['status'] == 'paused', 'only paused engagements can resume')
+        require(a.note.strip(), 'resolution note required')
+        previous = s['ending']
+        require(not previous or previous['detail'] != 'budget spent' or a.budget is not None,
+                'budget spent: resume requires --budget')
+        if a.budget is not None:
+            require(a.budget > s['trials_used'], 'new budget must exceed trials_used')
+            s['budget_override'] = c['Budget'] = a.budget
+        require(s['trials_used'] < c['Budget'], 'resume requires --budget greater than trials_used')
+        if previous and 'escalation ladder exhausted' in previous['detail']:
+            s['escalation'] = 0
+        s.pop('unresolved', None)
+        s.update(status='running', ending=None, stop_blocks=0)
+        with (e / 'resolutions.jsonl').open('a') as f:
+            f.write(json.dumps(dict(timestamp=datetime.now(timezone.utc).isoformat(),
+                                    note=a.note, previous_ending=previous)) + '\n')
+        save(e, s)
+        return next_action(e, s, c)
     if a.command == 'next':
         return next_action(e, s, c)
     require(s['status'] == 'running', 'engagement is not running')
@@ -374,7 +405,7 @@ def dispatch(a, check):
 
 
 def add_commands(sub):
-    for name in ('init', 'next', 'baseline', 'trial', 'confirm', 'conclude', 'exception'):
+    for name in ('init', 'next', 'baseline', 'trial', 'confirm', 'conclude', 'exception', 'report', 'resume'):
         p = sub.add_parser(name)
         if name in ('trial', 'exception'):
             children = p.add_subparsers(dest=name + '_command', required=True)
@@ -384,6 +415,9 @@ def add_commands(sub):
             parsers = [p]
         for child in parsers:
             child.add_argument('--engagement', required=True)
+        if name == 'resume':
+            p.add_argument('--note', required=True)
+            p.add_argument('--budget', type=int)
         if name == 'init':
             for arg in ('worktree', 'methodology'):
                 p.add_argument('--' + arg, required=True)
@@ -398,3 +432,6 @@ def add_commands(sub):
             child.add_argument('--evidence', required=True)
             if name == 'exception':
                 child.add_argument('--finding', required=True)
+    p = sub.add_parser('status')
+    p.add_argument('--all', action='store_true', required=True)
+    p.add_argument('--repo', required=True)
