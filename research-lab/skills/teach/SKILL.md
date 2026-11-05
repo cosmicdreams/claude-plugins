@@ -1,18 +1,7 @@
 ---
 name: teach
 description: >
-  Make a formed claim land with someone who wasn't there: produce the briefing, deck,
-  audio overview, or infographic, then certify it with a Feynman gate — a fresh no-context
-  agent is quizzed using only the artifact. Artifacts must supply context, unlike
-  synthesize. Needs a formed claim and a named audience.
-triggers:
-  - "teach this"
-  - "make a briefing"
-  - "explain this to"
-  - "build a deck for"
-  - "make this land"
-  - "create an audio overview"
-  - "research-lab:teach"
+  Trigger this if the user says "teach this", "make a briefing", or "audio overview". Not for insiders who share the context (research-lab:synthesize).
 allowed-tools: Bash, Read, Write, Workflow
 ---
 
@@ -28,9 +17,7 @@ Make a formed, hardened claim land with an outside audience. **The back** of the
 
 **The test is the spine; the materials are the deliverable; the spine certifies the deliverable.**
 
-**Stance:** learner — play the naive student who won't accept jargon and has none of your context.
-**Notebook persona:** `nlm chat configure NOTEBOOK_ID --goal learning_guide`.
-**Audience:** outsiders — every artifact must **supply** context, never assume it.
+**Stance:** learner — play the naive student who won't accept jargon and has none of your context. **Notebook persona:** `nlm chat configure NOTEBOOK_ID --goal learning_guide`. **Audience:** outsiders — every artifact must **supply** context, never assume it.
 
 ---
 
@@ -73,9 +60,7 @@ Report formats: `"Briefing Doc"`, `"Study Guide"`, `"Blog Post"`, `"Create Your 
 | async / commute | audio overview |
 | exec one-pager | infographic |
 
-If a Studio generator (audio/video/slides/infographic) fails server-side, check what state it is in
-with `nlm studio status NOTEBOOK_ID --json` before spending quota again. `nlm` exposes no in-place
-retry equivalent to the retired `artifact retry`, so a genuinely failed artifact has to be re-created.
+If a Studio generator (audio/video/slides/infographic) fails server-side, check what state it is in with `nlm studio status NOTEBOOK_ID --json` before spending quota again. `nlm` exposes no in-place retry equivalent to the retired `artifact retry`, so a genuinely failed artifact has to be re-created.
 
 When there is no notebook, produce the artifact from the material directly as prose or markdown.
 
@@ -85,28 +70,16 @@ When there is no notebook, produce the artifact from the material directly as pr
 
 Build 3–5 comprehension questions and reference answers from the material (not invented):
 
-- **Notebook in play:** `nlm quiz create NOTEBOOK_ID --count 5 --difficulty 3 --confirm` — parse into
-  `[{q, answer}]`. Difficulty is now numeric, not a `medium`-style word.
+- **Notebook in play:** `nlm quiz create NOTEBOOK_ID --count 5 --difficulty 3 --confirm` — parse into `[{q, answer}]`. Difficulty is now numeric, not a `medium`-style word.
 - **No notebook:** write questions directly from the material into the same `[{q, answer}]` shape.
 
 ---
 
 ## Step 3 — Run the Feynman gate (Workflow)
 
-The user invoked this skill, which **explicitly instructs a Workflow call**. The gate makes **two
-separate fresh, context-isolated `agent()` calls**: a blind learner answers, then a judge grades
-those actual answers. The learner receives only the audience, produced artifact and question
-IDs/text — no reference answers, underlying material, grading rubric or prior conversation.
-The judge receives the named audience, reference quiz and captured learner response, not the conversation.
-Run only where the Workflow host provides that isolation; prompt wording alone cannot create it.
-If isolation is unavailable, or either stage fails, report an execution error: **no certification**.
+The user invoked this skill, which **explicitly instructs a Workflow call**. The gate makes **two separate fresh, context-isolated `agent()` calls**: a blind learner answers, then a judge grades those actual answers. The learner receives only the audience, produced artifact and question IDs/text — no reference answers, underlying material, grading rubric or prior conversation. The judge receives the named audience, reference quiz and captured learner response, not the conversation. Run only where the Workflow host provides that isolation; prompt wording alone cannot create it. If isolation is unavailable, or either stage fails, report an execution error: **no certification**.
 
-`score` retains its historical meaning: fraction correct, 0..1. `misses` identifies context gaps;
-`lands` / `revise` remains the judge's qualitative assessment of whether the explanation transfers.
-The historical gate specified no numeric passing threshold; do not invent one (or require all
-answers correct). The judge must grade what the learner actually said, never repair an answer
-using its own knowledge or the key. Explicit inability to answer is evidence of a gap, not a
-missing execution response.
+`score` retains its historical meaning: fraction correct, 0..1. `misses` identifies context gaps; `lands` / `revise` remains the judge's qualitative assessment of whether the explanation transfers. The historical gate specified no numeric passing threshold; do not invent one (or require all answers correct). The judge must grade what the learner actually said, never repair an answer using its own knowledge or the key. Explicit inability to answer is evidence of a gap, not a missing execution response.
 
 ```javascript
 export const meta = {
@@ -204,8 +177,7 @@ if (!grade || typeof grade.score !== 'number' || !Number.isFinite(grade.score) |
 return { score: grade.score, misses: grade.misses, verdict: grade.verdict }
 ```
 
-If `verdict` is `revise`, fix the `misses` in the artifact and re-run. Each miss is a place the
-explanation leaked your context.
+If `verdict` is `revise`, fix the `misses` in the artifact and re-run. Each miss is a place the explanation leaked your context.
 
 ---
 
@@ -213,6 +185,5 @@ explanation leaked your context.
 
 `teach` is usually terminal. Suggest (never auto-invoke):
 
-- **If the gate keeps returning `revise`** → `research-lab:interrogate` to re-check the claim, or
-  `research-lab:synthesize` to reshape it.
+- **If the gate keeps returning `revise`** → `research-lab:interrogate` to re-check the claim, or `research-lab:synthesize` to reshape it.
 - **To publish the engagement notebook:** `nlm share public NOTEBOOK_ID`
