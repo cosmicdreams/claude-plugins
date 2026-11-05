@@ -61,7 +61,7 @@ Before each `open`, build `E/panel.json` (after `validate --worktree W`, which k
 
 Council `compare` uses the same panel and transports but its own pairwise loop and `EXP record`; see `strategies/compare.md`. Everything else on this page is the judged climb.
 
-T3 `delegate_task` is the default transport; invocation provenance comes from the host result. Without T3, run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/council_call.py --request DIR --role ROLE --panel panel.json` for each prepared request. Direct provenance is the panel entry with an exact pinned model name; aliases such as `opus`, `sonnet`, `haiku` and names ending in `-latest` are refused. A reported model mismatch invalidates the return. The helper records errors and raw output and times out after 600 seconds; it never asks a judge its model name.
+T3 `delegate_task` is the default transport; invocation provenance comes from the host result. Without T3, run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/council_call.py --request DIR --role ROLE --panel panel.json` for each prepared request. Direct provenance is the panel entry with an exact pinned model name; aliases such as `opus`, `sonnet`, `haiku` and names ending in `-latest` are refused. A reported model mismatch invalidates the return. An unreported model is accepted only for Codex, using its pinned model name. The helper records errors and raw output and times out after 600 seconds; it never asks a judge its model name.
 
 Use `validate --host t3|direct`. Pass `open --transport t3|direct` and the same `--transport` to `next` (both default to `t3`); each evaluation records its transport. Calibration is per transport: changing transport makes the calibration stale, including an otherwise identical panel. Older evaluation metadata without a transport is treated as `t3`.
 
@@ -83,7 +83,7 @@ A **confirmation** re-scores the incumbent before `stop target`, because the mea
 
 ## Drift
 
-A measurement or confirmation in which any reference cell moves more than max(2*m*, 1, *s*) from the calibration's baseline is **invalid**, where *s* is the largest change in any reference cell between the calibration's two requests (a reference that already wobbles cannot flag drift by less) (`drift: true`): no keep, no discard. It is logged `invalid` and the run pauses. Without references drift is unmonitored and the report says so.
+A measurement or confirmation in which any reference cell moves more than max(2*m*, 1, *s*) from the calibration's baseline is **invalid**, where *s* is that same reference cell’s absolute change between the calibration's two requests (a reference that already wobbles cannot flag drift by less) (`drift: true`): no keep, no discard. It is logged `invalid` and the run pauses. Without references drift is unmonitored and the report says so.
 
 ## Budget
 

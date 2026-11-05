@@ -68,6 +68,77 @@ class CouncilTests(unittest.TestCase):
         self.assertEqual(self.f.git('symbolic-ref', '--short', 'HEAD').stdout.strip(), 'experiment')
         self.assertEqual(self.f.head(), self.f.base)
 
+    def test_scorer_hashes_block_changed_external_scripts(self):
+        self.init()
+        state = json.loads((self.f.engagement / 'state.json').read_text())
+        self.assertEqual(set(state['scorer_sha256']),
+                         {str(self.f.methodology_dir / name) for name in ('capture.sh', 'guard.sh')})
+        for name in ('a', 'b'):
+            self.command('variant', 'begin', '--name', name, '--tradeoff', name, '--description', name)
+            (self.f.work / 'doc.md').write_text(name)
+            self.command('variant', 'commit')
+        (self.f.methodology_dir / 'guard.sh').write_text('#!/bin/sh\nexit 1\n')
+        self.assertIn('scorer changed', self.command('measure', '--panel', self.f.panel_path, ok=False)['reason'])
+
+    def test_variant_scorer_copy_cannot_score_itself(self):
+        import shutil
+        shutil.copytree(self.f.methodology_dir, self.f.work / 'methodology')
+        self.f.git('add', 'methodology')
+        self.f.git('commit', '-m', 'base methodology')
+        self.f.base = self.f.head()
+        self.method = self.f.work / 'methodology/methodology.md'
+        self.f.protocol['artifact_command'] = str(self.method.parent / 'capture.sh')
+        # Write compare methodology before init's clean-worktree check.
+        text = ('## Objective\n## Scope Constraints\n## Working Directory\n'
+                'Checks: true\nVariants: generated\nCount: 2\nIdea: text variants\nBudget: 4\n'
+                '```judging-protocol\n' + json.dumps(self.f.protocol) + '\n```\n')
+        self.method.write_text(text)
+        self.f.git('add', 'methodology/methodology.md')
+        self.f.git('commit', '-m', 'prepare compare')
+        self.f.base = self.f.head()
+        self.init()
+        for name in ('a', 'b'):
+            self.command('variant', 'begin', '--name', name, '--tradeoff', name, '--description', name)
+            (self.f.work / 'doc.md').write_text(name)
+            if name == 'a':
+                (self.method.parent / 'capture.sh').write_text('#!/bin/sh\ntouch '+str(self.f.root / 'ran-variant')+'\nexit 1\n')
+            self.command('variant', 'commit')
+        opened = self.command('measure', '--panel', self.f.panel_path)
+        self.assertEqual(opened['requests'], [])
+        state = json.loads((self.f.engagement / 'state.json').read_text())
+        self.assertEqual(state['variants']['a']['status'], 'invalid')
+        self.assertEqual(state['variants']['b']['status'], 'measured')
+        self.assertFalse((self.f.root / 'ran-variant').exists())
+
+    def test_report_validity_hash_failure_and_missing_worktree_banner(self):
+        import shutil
+        opened = self.build()
+        self.returns(opened, lambda r, m: 'a')
+        self.command('score')
+        self.command('report')
+        report = (self.f.engagement / 'report.md').read_text()
+        self.assertIn('Scorer files unchanged: PASS', report)
+        (self.f.methodology_dir / 'capture.sh').write_text('changed')
+        self.command('report')
+        self.assertIn('Scorer files unchanged: FAIL', (self.f.engagement / 'report.md').read_text())
+        shutil.rmtree(self.f.work)
+        self.command('report')
+        self.assertIn('VALIDITY NOT RE-VERIFIED', (self.f.engagement / 'report.md').read_text())
+
+    def test_malformed_return_pauses_without_recovery(self):
+        opened = self.build()
+        self.returns(opened, lambda r, m: 'a')
+        (Path(opened['requests'][0]['dir']) / 'return.json').write_text('{')
+        out = self.command('score')
+        self.assertEqual(out['ending']['kind'], 'paused')
+        self.assertIn('not running', self.command('score', ok=False)['reason'])
+
+    def test_trials_used_matches_updated_request_budget(self):
+        self.build(count=3)
+        state = json.loads((self.f.engagement / 'state.json').read_text())
+        self.assertEqual(state['measurements_used'], 12)
+        self.assertEqual(state['trials_used'], state['measurements_used'])
+
     def test_position_bias_is_tie(self):
         opened = self.build()
         self.returns(opened, lambda r, m: 'X')

@@ -34,6 +34,8 @@ class CouncilCallTests(unittest.TestCase):
                         CAPTURE=str(self.root / 'capture'), HEADER='')
 
     def run_cli(self, provider='codex', model='gpt-6.1-sol', options=None, reply=None, **env):
+        for name in ('return.json', 'return.prev.json', 'invocation.json', 'invocation.prev.json'):
+            (self.request / name).unlink(missing_ok=True)
         entry = dict(provider=provider, model=model, options=options or {})
         self.panel.write_text(json.dumps({'second': entry}))
         self.env.update(env)
@@ -52,7 +54,7 @@ class CouncilCallTests(unittest.TestCase):
             ('claudeAgent_work', 'claude-opus-5-5', {'effort': 'medium', 'fastMode': False},
              json.dumps({'result': '```json\n{"items":{}}\n```', 'modelUsage': {'claude-opus-5-5': {}}}), None),
             ('claudeAgent', 'claude-opus-5-5', {'effort': 'medium'},
-             json.dumps({'result': '{"items":{}}'}), None),
+             json.dumps({'result': '{"items":{}}', 'modelUsage': {'claude-opus-5-5': {}}}), None),
             ('gemini', 'gemini-4-argon', {}, json.dumps({'response': '{"items":{}}', 'stats': {'models': {'gemini-4-argon': {}}}}),
              ['gemini', '-m', 'gemini-4-argon', '-p', 'Judge the request on stdin.', '--approval-mode', 'plan', '--output-format', 'json']),
         ]
@@ -80,7 +82,7 @@ class CouncilCallTests(unittest.TestCase):
     def test_model_mismatch(self):
         for provider, model, reply, header in [
             ('codex', 'gpt-6.1-sol', '{"items":{}}', 'model: gpt-6-luna\n'),
-            ('claudeAgent', 'claude-opus-5-5', '{"model":"claude-sonnet-5-5","result":"{}"}', ''),
+            ('claudeAgent', 'claude-opus-5-5', '{"model":"claude-sonnet-5-5","result":"{}","modelUsage":{"claude-opus-5-5":{}}}', ''),
             ('gemini', 'gemini-4-argon', '{"response":"{}","stats":{"models":{"other":{}}}}', ''),
         ]:
             with self.subTest(provider=provider):
@@ -112,6 +114,49 @@ class CouncilCallTests(unittest.TestCase):
         result, value, _ = self.run_cli('gemini', 'gemini-4-argon', {'reasoningEffort': 'medium'})
         self.assertEqual(result.returncode, 1)
         self.assertIn('unsupported options', value['error'])
+
+    def test_unreported_model_refused_except_codex(self):
+        for provider, model, key in [('claudeAgent', 'claude-opus-5-5', 'result'),
+                                     ('claudeAgent_work', 'claude-opus-5-5', 'result'),
+                                     ('gemini', 'gemini-4-argon', 'response')]:
+            for extra in ({}, {'modelUsage': {}, 'stats': {'models': {}}}):
+                result, value, _ = self.run_cli(provider, model, reply=json.dumps({key: '{}', **extra}))
+                self.assertEqual(result.returncode, 1)
+                self.assertIn('unreported model', value['error'])
+        result, value, _ = self.run_cli(reply='{}')
+        self.assertEqual(result.returncode, 0, value)
+
+    def test_existing_return_and_one_error_retry(self):
+        _, _, entry = self.run_cli(reply='{}')
+        original = (self.request / 'return.json').read_bytes()
+        with patch.object(council.subprocess, 'run') as run:
+            self.assertEqual(council.dispatch(self.request, 'second', self.panel), 1)
+            run.assert_not_called()
+        self.assertEqual((self.request / 'return.json').read_bytes(), original)
+        (self.request / 'return.json').write_text('{"error":"offline"}')
+        with patch.object(council.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '{}', '')) as run:
+            self.assertEqual(council.dispatch(self.request, 'second', self.panel), 0)
+            self.assertEqual(run.call_count, 1)
+        self.assertEqual(json.loads((self.request / 'return.prev.json').read_text()), {'error': 'offline'})
+        self.assertEqual(json.loads((self.request / 'invocation.prev.json').read_text()), entry)
+        (self.request / 'return.json').write_text('{"error":"again"}')
+        with patch.object(council.subprocess, 'run') as run:
+            self.assertEqual(council.dispatch(self.request, 'second', self.panel), 1)
+            run.assert_not_called()
+        self.assertEqual(json.loads((self.request / 'return.json').read_text()), {'error': 'again'})
+
+    def test_provider_specific_exact_names(self):
+        for provider, model in [('codex', 'gpt-auto'), ('codex', 'claude-opus-5-5'),
+                                ('claudeAgent', 'claude-opus-5'), ('claudeAgent_work', 'gpt-6-sol'),
+                                ('gemini', 'gemini-auto')]:
+            with self.subTest(provider=provider, model=model), self.assertRaises(ValueError):
+                council.command(dict(provider=provider, model=model, options={}))
+
+    def test_nonhaiku_extra_claude_model_refused(self):
+        reply = json.dumps({'result': '{}', 'modelUsage': {'claude-opus-5-5': {}, 'claude-sonnet-5-5': {}}})
+        result, value, _ = self.run_cli('claudeAgent', 'claude-opus-5-5', reply=reply)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('model mismatch', value['error'])
 
     def test_timeout(self):
         self.panel.write_text(json.dumps({'second': dict(provider='codex', model='gpt-6.1-sol', options={})}))

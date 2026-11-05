@@ -65,6 +65,9 @@ def initialize(s, c, text):
     s.update(compare=configuration(text, c), base=s['incumbent'], variants={},
              seed=random.SystemRandom().randrange(2**32), order=[], measurements_used=0,
              building=None, confirmation=None, group=None)
+    if s['scorer'] == 'council':
+        from experiment_council import initialize
+        initialize(s, text)
     if s['compare']['include_incumbent']:
         s['variants']['incumbent'] = dict(commit=s['base'], branch=s['branch'],
             description='Unchanged base', tradeoff='Existing implementation', status='pending', runs=[])

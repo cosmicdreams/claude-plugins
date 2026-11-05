@@ -47,3 +47,5 @@ With `scorer=council`, judges compare the variants two at a time instead of a sc
 4. `EXP next --engagement E` returns `record` with the requests still missing, then `score`: run `EXP score --engagement E`.
 
 A judge's preference counts only when it picks the same variant in both orders; picking whichever came first is a tie. A pair is won only when every judge consistently prefers the same variant; one consistent judge and one tie is a tie. A variant that wins every pair wins (`council: unanimous`); otherwise the unbeaten variants go to `decide` on trade-offs, and an unbeaten incumbent ends in no path to pursue. The report shows every preference by judge and order, and how often each judge was swayed by position; when a decision rests on one judge because the other tied, say so in the `decide` reason. No reference drift is monitored in council compare.
+
+A malformed return pauses a council round; v1 has no automatic recovery, so start a new engagement.

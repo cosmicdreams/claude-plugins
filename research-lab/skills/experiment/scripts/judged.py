@@ -348,8 +348,11 @@ def score_eval(eng, dest, meta, p):
         roles = list(meta['panel']); cats = list(p['categories'])
         baseline = {r: {ref: {c: sum(raw[(r,k)][ref][c] for k in (1,2)) / 2 for c in cats} for ref in refs} for r in roles} if meta['purpose'] != 'measure' else None
         cal = read_json(eng / 'evals' / (meta.get('calibration') or '') / 'result.json', {})
+        spread = cal.get('reference_spread', 0)
+        def reference_spread(role, ref, category):
+            return spread.get(role, {}).get(ref, {}).get(category, 0) if isinstance(spread, dict) else spread
         drift = meta['purpose'] != 'calibrate' and max((
-            abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > max(2 * cal['margin'], 1, cal.get('reference_spread', 0))
+            abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > max(2 * cal['margin'], 1, reference_spread(r, ref, c))
             for (r, k), vals in raw.items() for ref in refs for c in cats), default=False)
         def value(vals, item, cat):
             return vals[item][cat] - (max(vals[ref][cat] for ref in refs) if p['relative_to'] == 'references' else 0)
@@ -368,7 +371,8 @@ def score_eval(eng, dest, meta, p):
                     cells[r][c] = sum(v.values()) / 4
                     noise = max(noise, *(abs(v[(1,k)]-v[(2,k)]) for k in (1,2)), *(abs(v[(i,1)]-v[(i,2)]) for i in (1,2)))
             # A reference that already moves between the two calibration requests cannot flag drift by less than that.
-            spread = max((abs(raw[(r,1)][ref][c] - raw[(r,2)][ref][c]) for r in roles for ref in refs for c in cats), default=0)
+            spread = {r: {ref: {c: abs(raw[(r,1)][ref][c] - raw[(r,2)][ref][c])
+                               for c in cats} for ref in refs} for r in roles}
             result = dict(status='valid', reason='', metric=min(cells[r][c] for r in roles for c in cats), margin=max(p['margin_floor'], noise), noise=noise, reference_baseline=baseline, reference_spread=spread, cells=cells, panel=meta['panel'])
         write_json(dest / 'critiques.json', critiques)
     except (ValueError, KeyError, TypeError, OSError) as e:

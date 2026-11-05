@@ -1,4 +1,6 @@
 """Blind, position-swapped pairwise council adapter for compare engagements."""
+from contextlib import contextmanager
+import io
 import itertools
 import json
 from pathlib import Path
@@ -6,6 +8,7 @@ import random
 import re
 import shlex
 import subprocess
+import tarfile
 import tempfile
 
 import judged
@@ -25,6 +28,53 @@ def protocol(text):
     p.setdefault('references', [])
     p.setdefault('guardrails', [])
     return p
+
+
+def base_blob(s, path, commit=None):
+    rel = path.relative_to(Path(s['worktree'])).as_posix()
+    result = subprocess.run(['git', '-C', s['worktree'], 'show', (commit or s['base']) + ':' + rel], capture_output=True)
+    require(result.returncode == 0, 'scorer missing from base: ' + rel)
+    return result.stdout
+
+
+def initialize(s, text):
+    base = Path(s['methodology']).parent
+    p = protocol(text)
+    work = Path(s['worktree'])
+    for command in [p['artifact_command'], *p['guardrails']]:
+        path = Path(judged.command_parts(command, base)[0])
+        if path.is_file():
+            data = base_blob(s, path) if path.is_relative_to(work) else path.read_bytes()
+            s['scorer_sha256'][str(path)] = judged.digest(data)
+
+
+def scorer_unchanged(s, commit=None):
+    work = Path(s['worktree'])
+    for name, sha in s['scorer_sha256'].items():
+        path = Path(name)
+        try:
+            data = base_blob(s, path, commit) if commit and path.is_relative_to(work) else path.read_bytes()
+            if judged.digest(data) != sha:
+                return False
+        except (ValueError, OSError):
+            return False
+    return True
+
+
+@contextmanager
+def scorer_base(s):
+    """Run in-tree methodology helpers from the recorded base, never a variant."""
+    base = Path(s['methodology']).parent
+    work = Path(s['worktree'])
+    if not base.is_relative_to(work):
+        yield base
+        return
+    with tempfile.TemporaryDirectory(prefix='council-base-') as tmp:
+        root = Path(tmp)
+        archive = subprocess.check_output(['git', '-C', str(work), 'archive', s['base']])
+        with tarfile.open(fileobj=io.BytesIO(archive)) as files:
+            files.extractall(root, filter='data')
+        yield root / base.relative_to(work)
 
 
 def artifact(s, p, base):
@@ -49,13 +99,32 @@ def artifact(s, p, base):
 
 def open_round(a, e, s, c):
     from experiment import council_transport
-    from experiment_compare import next_action, restore
+    from experiment_compare import next_action
     council_transport(s['transport'])
     require(next_action(s, c)['action'] == 'measure', 'build all variants first')
     require(a.panel, 'measure council requires --panel')
     ownership(s, s['base'])
-    base = Path(s['methodology']).parent
     p = protocol(Path(s['methodology']).read_text())
+    require(scorer_unchanged(s), 'scorer changed since init')
+    with scorer_base(s) as base:
+        original = Path(s['methodology']).parent
+        work = Path(s['worktree'])
+        root = base
+        if original.is_relative_to(work):
+            for _ in original.relative_to(work).parts:
+                root = root.parent
+        def frozen(command):
+            parts = judged.command_parts(command, original)
+            path = Path(parts[0])
+            if path.is_relative_to(work) and original.is_relative_to(work):
+                parts[0] = str(root / path.relative_to(work))
+            return shlex.join(parts)
+        p = dict(p, artifact_command=frozen(p['artifact_command']), guardrails=[frozen(g) for g in p['guardrails']])
+        return capture_round(a, e, s, c, p, base)
+
+
+def capture_round(a, e, s, c, p, base):
+    from experiment_compare import restore
     panel = judged.load_panel(Path(a.panel), p)
     # Freeze inputs before running any variant commands.
     references = [(base / name).read_text(encoding='utf-8') for name in p['references']]
@@ -66,11 +135,13 @@ def open_round(a, e, s, c):
                 continue
             try:
                 git(s['worktree'], 'switch', '--detach', v['commit'])
+                require(scorer_unchanged(s), 'scorer changed since init')
                 passed = all(shell(s['worktree'], cmd).returncode == 0
                              for cmd in [c['Checks'], *[shlex.join(judged.command_parts(g, base)) for g in p['guardrails']]])
                 v['checks'] = passed
                 require_clean(s['worktree'], measurement=True)
                 require(passed, 'Checks failed')
+                require(scorer_unchanged(s), 'scorer changed since init')
                 texts[name] = artifact(s, p, base)
                 require_clean(s['worktree'], measurement=True)
                 v.update(status='measured', checks=True)
@@ -102,8 +173,8 @@ def open_round(a, e, s, c):
                     text += '\n\n' + '\n\n'.join(f'## Reference {j}\n{ref}' for j, ref in enumerate(references, 1))
                     meta['request_list'].append(judged.prepare_request(dest / f'{role}-{k}', role, k, mapping, text))
         judged.write_json(dest / 'eval.json', meta)
-        s.update(council_round=dest.name, measurements_used=s['measurements_used'] + cost,
-                 trials_used=s['measurements_used'] + cost)
+        s.update(council_round=dest.name, measurements_used=s['measurements_used'] + cost)
+        s['trials_used'] = s['measurements_used']
         save(e, s)
         return dict(action='dispatch', eval=dest.name, transport=s['transport'], requests=meta['request_list'])
     finally:
@@ -187,7 +258,10 @@ def score_round(e, s, c):
 
 def report(e, s, c):
     from experiment_report import cell
-    ownership(s, s['base'])
+    available = Path(s['worktree']).is_dir()
+    if available or s['status'] == 'running':
+        ownership(s, s['base'])
+    require(not s['building'], 'finish open variant before reporting')
     result = s.get('council_result', {})
     end = s.get('ending') or {}
     lines = ['## Council comparison', '', f"Ending: {end.get('kind', 'running')}; {end.get('detail', '')}",
@@ -210,6 +284,21 @@ def report(e, s, c):
         lines.append('| ' + ' | '.join(cell(str(x)) for x in
             [name, v['status'], checks, v['tradeoff'], v.get('reason', ''), v['commit'], '_']) + ' |')
     lines += ['', 'Unbeaten review group: ' + ', '.join(s.get('group') or [])]
+    lines += ['', '## Validity', '']
+    if not available:
+        lines += ['**VALIDITY NOT RE-VERIFIED:** the experiment worktree is gone; git-based checks could not run.', '']
+    unchanged = scorer_unchanged(s)
+    if available:
+        unchanged = unchanged and all(scorer_unchanged(s, v['commit']) for v in s['variants'].values() if v['commit'])
+    one_commit = available and all(n == 'incumbent' or not v['commit'] or
+        git(s['worktree'], 'rev-list', '--parents', '-n', '1', v['commit']).split() == [v['commit'], s['base']]
+        for n, v in s['variants'].items())
+    for label, ok in [('Scorer files unchanged', unchanged), ('Each variant is one commit on base', one_commit),
+                      ('Experiment branch never moved', available and git(s['worktree'], 'rev-parse', s['branch']) == s['base'])]:
+        status = ('PASS' if ok else 'FAIL') if available else 'n/a (worktree unavailable)'
+        lines.append(f'- {label}: {status}')
+    lines += ['- Measurement order interleaved: n/a (position-swapped pairwise council)',
+              '- Confirmation present: n/a (council comparison)']
     path = e / 'report.md'
     path.write_text('\n'.join(lines) + '\n')
     return dict(path=str(path))

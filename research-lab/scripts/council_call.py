@@ -12,6 +12,12 @@ def command(entry):
     provider, model, options = entry['provider'], entry['model'], entry['options']
     if not isinstance(model, str) or not model or model in ('opus', 'sonnet', 'haiku', 'fable', 'auto') or model.endswith(('-latest', '-preview')):
         raise ValueError('alias model refused: exact model name required')
+    patterns = {'codex': r'gpt-\d+(\.\d+)?-[a-z]+',
+                'claudeAgent': r'claude-[a-z]+-\d+-\d+',
+                'claudeAgent_work': r'claude-[a-z]+-\d+-\d+',
+                'gemini': r'gemini-\d+(\.\d+)?-[a-z]+.*'}
+    if provider in patterns and not re.fullmatch(patterns[provider], model):
+        raise ValueError('alias model refused: exact provider model name required')
     if not isinstance(options, dict):
         raise ValueError('options must be an object')
     env = os.environ.copy()
@@ -65,12 +71,18 @@ def reply_text(provider, stdout, stderr, model):
             raise ValueError('CLI output must be a JSON object')
         if isinstance(envelope.get('model'), str):
             reported.append(envelope['model'])
-        # Claude Code also bills background helpers (e.g. Haiku) in modelUsage; the
-        # pinned model must be among them, and it must be the one that answered.
-        usage = list(envelope.get('modelUsage', {}))
-        if usage and model not in usage:
-            raise ValueError(f'model mismatch: pinned {model}, reported {usage}')
-        reported.extend(envelope.get('stats', {}).get('models', {}))
+        if provider.startswith('claudeAgent'):
+            usage = envelope.get('modelUsage')
+            if not isinstance(usage, dict) or not usage:
+                raise ValueError('unreported model: modelUsage required')
+            if model not in usage or any(name != model and not re.fullmatch(r'claude-haiku-.*', name) for name in usage):
+                raise ValueError(f'model mismatch: pinned {model}, reported {list(usage)}')
+        elif provider == 'gemini':
+            stats = envelope.get('stats')
+            models = stats.get('models') if isinstance(stats, dict) else None
+            if not isinstance(models, dict) or not models:
+                raise ValueError('unreported model: stats.models required')
+            reported.extend(models)
         if envelope.get('is_error') or envelope.get('error'):
             raise ValueError('CLI error: ' + str(envelope.get('error', envelope.get('result'))))
         text = envelope['response' if provider == 'gemini' else 'result']
@@ -82,6 +94,22 @@ def reply_text(provider, stdout, stderr, model):
 
 
 def dispatch(request, role, panel):
+    # Refusal must preserve the existing evidence, including malformed returns.
+    returned = request / 'return.json'
+    if returned.exists():
+        try:
+            previous = json.loads(returned.read_text(encoding='utf-8'))
+        except (ValueError, OSError):
+            return 1
+        if (not isinstance(previous, dict) or 'error' not in previous or
+                any((request / name).exists() for name in ('return.prev.json', 'invocation.prev.json'))):
+            return 1
+        returned.rename(request / 'return.prev.json')
+        invocation = request / 'invocation.json'
+        if invocation.exists():
+            invocation.rename(request / 'invocation.prev.json')
+    elif any((request / name).exists() for name in ('return.prev.json', 'invocation.prev.json')):
+        return 1
     raw = ''
     try:
         entry = json.loads(panel.read_text(encoding='utf-8'))[role]

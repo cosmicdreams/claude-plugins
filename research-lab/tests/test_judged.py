@@ -653,13 +653,36 @@ class JudgedTests(unittest.TestCase):
             path.write_text(json.dumps(payload))
         shift_ref(e, 'primary-2', -3)
         r = self.score(e)
-        self.assertEqual((r['status'], r['reference_spread']), ('valid', 3))
+        self.assertEqual(r['status'], 'valid')
+        ref = next(iter(r['reference_spread']['primary']))
+        self.assertEqual(r['reference_spread']['primary'][ref]['clarity'], 3)
+        self.assertEqual(r['reference_spread']['primary'][ref]['accuracy'], 0)
         self.f.ok('checks', '--eval', e.name, '--worktree', self.f.work, '--passed')
         self.finalize(e, 'calibrate')
         c = self.opened('confirm'); self.returns(c)
         for request in ('primary-1', 'primary-2'):
             shift_ref(c, request, -1.5)
         self.assertEqual(self.score(c)['status'], 'valid')
+
+    def test_noisy_reference_cell_does_not_hide_stable_cell_drift(self):
+        self.capture(); self.capture(); e = self.opened(); self.returns(e)
+        path = e / 'primary-2/return.json'
+        payload = self.read(path)
+        ref = next(label for label, meaning in self.read(path.parent / 'mapping.json').items() if meaning.startswith('ref:'))
+        payload['items'][ref]['clarity']['score'] -= 3
+        path.write_text(json.dumps(payload))
+        self.assertEqual(self.score(e)['status'], 'valid')
+        self.f.ok('checks', '--eval', e.name, '--worktree', self.f.work, '--passed')
+        self.finalize(e, 'calibrate')
+        c = self.opened('confirm'); self.returns(c)
+        path = c / 'primary-1/return.json'
+        payload = self.read(path)
+        ref = next(label for label, meaning in self.read(path.parent / 'mapping.json').items() if meaning.startswith('ref:'))
+        payload['items'][ref]['accuracy']['score'] += 1.5
+        path.write_text(json.dumps(payload))
+        result = self.score(c)
+        self.assertEqual(result['status'], 'invalid')
+        self.assertTrue(result['drift'])
 
     def test_calibration_within_request_noise(self):
         # scope D14: within-request differences also enter the maximum noise.
