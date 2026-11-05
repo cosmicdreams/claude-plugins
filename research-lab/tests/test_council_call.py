@@ -88,6 +88,14 @@ class CouncilCallTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 1)
                 self.assertIn('model mismatch:', value['error'])
 
+    def test_claude_background_helper_in_usage_is_not_a_mismatch(self):
+        reply = json.dumps({'result': '{"items":{}}', 'modelUsage': {'claude-haiku-5-5': {}, 'claude-opus-5-5': {}}})
+        result, value, _ = self.run_cli('claudeAgent', 'claude-opus-5-5', reply=reply)
+        self.assertEqual(result.returncode, 0, value)
+        reply = json.dumps({'result': '{"items":{}}', 'modelUsage': {'claude-haiku-5-5': {}}})
+        result, value, _ = self.run_cli('claudeAgent', 'claude-opus-5-5', reply=reply)
+        self.assertIn('model mismatch:', value['error'])
+
     def test_alias_refusal_before_execution(self):
         for model in ('opus', 'sonnet', 'haiku', 'gpt-6-latest'):
             result, value, _ = self.run_cli(model=model)

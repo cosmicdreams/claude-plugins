@@ -65,7 +65,11 @@ def reply_text(provider, stdout, stderr, model):
             raise ValueError('CLI output must be a JSON object')
         if isinstance(envelope.get('model'), str):
             reported.append(envelope['model'])
-        reported.extend(envelope.get('modelUsage', {}))
+        # Claude Code also bills background helpers (e.g. Haiku) in modelUsage; the
+        # pinned model must be among them, and it must be the one that answered.
+        usage = list(envelope.get('modelUsage', {}))
+        if usage and model not in usage:
+            raise ValueError(f'model mismatch: pinned {model}, reported {usage}')
         reported.extend(envelope.get('stats', {}).get('models', {}))
         if envelope.get('is_error') or envelope.get('error'):
             raise ValueError('CLI error: ' + str(envelope.get('error', envelope.get('result'))))
