@@ -237,6 +237,15 @@ class CouncilExploreTests(unittest.TestCase):
         for text in ('1 wins; 0 ties', 'fixture preference', '## Gallery', '## Points of interest', 'Checks: PASS'):
             self.assertIn(text, report)
 
+    def test_scorer_hashes_block_changed_external_scripts(self):
+        self.init_explore()
+        state = json.loads((self.f.engagement / 'state.json').read_text())
+        self.assertTrue({str(self.f.methodology_dir / n) for n in ('capture.sh', 'guard.sh')} <= set(state['scorer_sha256']))
+        for n in ('a', 'b'):
+            self.candidate(n)
+        (self.f.methodology_dir / 'guard.sh').write_text('#!/bin/sh\nexit 1\n')
+        self.assertIn('scorer changed', self.command('measure', '--panel', self.f.panel_path, ok=False)['reason'])
+
     def test_pairs_won_then_not_lost(self):
         from experiment_explore import finish_round
         s = dict(round=1, round_results={}, seed=0, order=[], strategy='explore', scorer='council',

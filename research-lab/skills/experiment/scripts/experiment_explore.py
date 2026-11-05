@@ -45,6 +45,9 @@ def initialize(s, c, text):
     s.update(compare=cfg, explore=exp, round=1, round_results={}, announcements=[],
              base=s['incumbent'], variants={}, seed=random.SystemRandom().randrange(2**32),
              order=[], measurements_used=0, building=None, confirmation=None, group=None)
+    if s['scorer'] == 'council':
+        from experiment_council import initialize as council_initialize
+        council_initialize(s, text)
     if cfg['include_incumbent']:
         s['variants']['incumbent'] = dict(commit=s['base'], branch=s['branch'],
             description='Unchanged base', tradeoff='Existing implementation', status='pending',

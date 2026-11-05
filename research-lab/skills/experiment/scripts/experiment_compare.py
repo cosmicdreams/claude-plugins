@@ -540,6 +540,8 @@ def validity(lines, s, c, available):
         if not available or not v['commit']:
             continue
         for p, sha in s['scorer_sha256'].items():
+            if not Path(p).is_relative_to(s['worktree']):
+                continue  # Outside the worktree: the on-disk check above covers it.
             rel = Path(p).relative_to(s['worktree']).as_posix()
             # Hash raw blobs; text decoding would alter non-text scorers.
             blob = subprocess.run(['git', '-C', s['worktree'], 'show', v['commit'] + ':' + rel], capture_output=True)
