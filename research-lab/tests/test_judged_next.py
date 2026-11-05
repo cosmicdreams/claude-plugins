@@ -337,7 +337,7 @@ class JudgedNextTests(unittest.TestCase):
             data = self.read(path)
             for label, meaning in self.read(path.parent / 'mapping.json').items():
                 if meaning.startswith('ref:'):
-                    data['items'][label]['clarity']['score'] = 4.75
+                    data['items'][label]['clarity']['score'] = 5.25
             path.write_text(json.dumps(data))
         self.action('score', eval=e.name)
         self.assertIs(self.score(e, 'invalid').get('drift'), True)

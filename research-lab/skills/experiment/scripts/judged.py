@@ -21,6 +21,7 @@ for name in ('validate', 'capture', 'trial', 'open', 'score', 'abandon',
         ('open next', 'panel', {}),
         ('open', 'purpose', dict(choices=('calibrate', 'confirm', 'measure'))),
         ('open', 'seed', dict(type=int)),
+        ('open next', 'transport', dict(required=False, choices=('t3', 'direct'), default='t3')),
         ('score abandon invalidate checks', 'eval', {}),
         ('invalidate', 'reason', {}),
         ('checks', 'details', dict(required=False)),
@@ -156,13 +157,13 @@ def incumbent_tree(engagement, current, results=None):
     return max(events)[2] if events else current
 
 
-def active_calibration(engagement, panel, fingerprint):
+def active_calibration(engagement, panel, fingerprint, transport='t3'):
     results = records(engagement / 'results.jsonl')
     found = [(i, r) for i, r in enumerate(results) if r.get('decision') == 'calibrate']
     if not found: return None, True
     i, record = found[-1]
     meta = read_json(engagement / 'evals' / record.get('eval', '') / 'eval.json', {})
-    stale = meta.get('panel') != panel or meta.get('fingerprint') != fingerprint
+    stale = meta.get('panel') != panel or meta.get('fingerprint') != fingerprint or meta.get('transport', 't3') != transport
     stale |= any(r.get('results_lines', 0) >= i + 1 and (r.get('decision') == 'withdraw' or (r.get('decision') == 'continue' and r.get('adopted'))) for r in records(engagement / 'resolutions.jsonl'))
     return record, bool(stale)
 
@@ -194,7 +195,7 @@ def validate(path, host):
     errors, warnings = [], []
     try:
         sections, metric, direction, p = methodology(path)
-        if host != 't3': errors.append('host must be t3')
+        if host not in ('t3', 'direct'): errors.append('host must be t3 or direct')
         if metric != 'judged' or 9 not in sections or p is None: errors.append('judged methodology and protocol required')
         if direction != 'higher': errors.append('direction must be higher')
         if p is not None:
@@ -231,7 +232,7 @@ def open_eval(a, eng, path, p, sections, trial, results):
         if not candidate: raise ValueError('candidate capture required')
     else: candidate_tree, candidate = None, []
     fingerprint = protocol_fingerprint(p, path.parent, eng, sections)
-    cal, stale = active_calibration(eng, panel, fingerprint)
+    cal, stale = active_calibration(eng, panel, fingerprint, a.transport)
     if a.purpose != 'calibrate' and (not cal or stale): raise ValueError('calibration missing or stale')
     manifest = read_json(eng / 'references/manifest.json')
     if manifest is None: manifest = reference_manifest(p, path.parent)
@@ -245,7 +246,7 @@ def open_eval(a, eng, path, p, sections, trial, results):
     ids = [int(x.name[1:]) for x in (eng / 'evals').glob('e[0-9]*') if x.name[1:].isdigit()]
     eid = f'e{max(ids, default=0)+1:04d}'
     dest = eng / 'evals' / eid
-    meta = dict(id=eid, purpose=a.purpose, iteration=trial['iteration'] if trial else max([r.get('iteration', 0) for r in results], default=0), incumbent_tree=tree, candidate_tree=candidate_tree, captures=[str(x) for x in (inc[:1] + candidate[:1] if candidate else inc[:2])], panel=panel, fingerprint=fingerprint, requests=cost, calibration=cal.get('eval') if cal else None)
+    meta = dict(id=eid, purpose=a.purpose, transport=a.transport, iteration=trial['iteration'] if trial else max([r.get('iteration', 0) for r in results], default=0), incumbent_tree=tree, candidate_tree=candidate_tree, captures=[str(x) for x in (inc[:1] + candidate[:1] if candidate else inc[:2])], panel=panel, fingerprint=fingerprint, requests=cost, calibration=cal.get('eval') if cal else None)
     if not (eng / 'references/manifest.json').exists():
         for entry in manifest:
             destref = eng / 'references' / entry['path']; destref.parent.mkdir(parents=True, exist_ok=True)
@@ -291,8 +292,14 @@ def score_eval(eng, dest, meta, p):
         for mp in dirs:
             role, k = mp.parent.name.rsplit('-', 1); mapping = read_json(mp)
             if read_json(mp.parent / 'invocation.json') != meta['panel'][role]: raise ValueError('invocation mismatch')
-            data = json.loads((mp.parent / 'return.json').read_text(), object_pairs_hook=unique)
-            items = data['items']
+            try:
+                data = json.loads((mp.parent / 'return.json').read_text(), object_pairs_hook=unique)
+                if not isinstance(data, dict) or 'items' not in data:
+                    detail = data.get('error', 'missing items') if isinstance(data, dict) else 'expected object with items'
+                    raise ValueError(detail)
+                items = data['items']
+            except (ValueError, TypeError) as exc:
+                raise ValueError(f'{mp.parent.name}: invalid return: {exc}') from exc
             if set(items) != set(mapping): raise ValueError('invalid labels')
             values = {}
             for label, meaning in mapping.items():
@@ -309,7 +316,7 @@ def score_eval(eng, dest, meta, p):
         baseline = {r: {ref: {c: sum(raw[(r,k)][ref][c] for k in (1,2)) / 2 for c in cats} for ref in refs} for r in roles} if meta['purpose'] != 'measure' else None
         cal = read_json(eng / 'evals' / (meta.get('calibration') or '') / 'result.json', {})
         drift = meta['purpose'] != 'calibrate' and max((
-            abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > 2 * cal['margin']
+            abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > max(2 * cal['margin'], 1)
             for (r, k), vals in raw.items() for ref in refs for c in cats), default=False)
         def value(vals, item, cat):
             return vals[item][cat] - (max(vals[ref][cat] for ref in refs) if p['relative_to'] == 'references' else 0)
@@ -392,7 +399,7 @@ def next_action(a, eng, path):
 
     fingerprint = protocol_fingerprint(p, base, eng, sections)
     cfp = capture_fingerprint(p, base)
-    cal, stale = active_calibration(eng, panel, fingerprint)
+    cal, stale = active_calibration(eng, panel, fingerprint, a.transport)
     retained = retained_metric(results)
     maxit = max([r.get('iteration', 0) for r in results], default=0)
     since, failures = since_resolution(eng)
@@ -401,7 +408,7 @@ def next_action(a, eng, path):
 
     def open_or_stop(purpose):
         if spent + len(panel) * (1 if purpose == 'measure' else 2) > p['budget_calls']: return dict(action='stop', reason='budget')
-        return dict(action='open', purpose=purpose)
+        return dict(action='open', purpose=purpose, **({'transport': a.transport} if a.transport != 't3' else {}))
 
     def measure_eval(iteration):
         return next((e['id'] for e in reversed(all_evals) if e['purpose'] == 'measure' and e['iteration'] == iteration), None)
@@ -422,7 +429,7 @@ def next_action(a, eng, path):
         if result is None:
             return dict(action='abandon' if any(not (d.parent / 'return.json').exists() for d in dest.glob('*/mapping.json')) else 'score', eval=eid)
         status, measure, done = result['status'], ev['purpose'] == 'measure', eid in finalized
-        if not done and status in ('valid', 'keep', 'discard') and (ev['panel'] != panel or ev['fingerprint'] != fingerprint or (measure and stale)):
+        if not done and status in ('valid', 'keep', 'discard') and (ev['panel'] != panel or ev['fingerprint'] != fingerprint or ev.get('transport', 't3') != a.transport or (measure and stale)):
             return dict(action='invalidate', eval=eid, reason='stale')
         if not done and status == 'invalid':
             change = trial_change(ev['iteration']) if measure else 'Calibration' if ev['purpose'] == 'calibrate' else 'Confirmation'
@@ -534,6 +541,7 @@ def run(a):
             trial = dict(iteration=iteration, worktree=str(work), branch=branch, base=head, base_tree=tree, commit=None, change=a.change)
         else:
             if not trial or trial.get('commit') or trial['worktree'] != str(work) or trial['branch'] != branch or head == trial['base'] or git(work, 'rev-list', '--parents', '-n', '1', 'HEAD').split()[1:] != [trial['base']]: raise ValueError('invalid trial commit')
+            if tree == trial['base_tree']: raise ValueError('trial changes nothing')
             trial['commit'] = head
         return write_json(eng / 'trial.json', trial)
     if a.role == 'incumbent' and trial and trial.get('commit'): raise ValueError('committed trial pending')
