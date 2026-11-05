@@ -6,7 +6,7 @@ Format of an experiment methodology file (any path; drupal-lab names it `05-meth
 
 ## Required Sections
 
-A `climb` or judged methodology MUST contain all of these sections; a `remediate` or `compare` methodology needs only Objective, Scope Constraints and Working Directory. Fields are `name: value` or `**Name:** value` lines.
+A `climb` or judged methodology MUST contain all of these sections; a `remediate`, `compare` or `explore` methodology needs only Objective, Scope Constraints and Working Directory. Fields are `name: value` or `**Name:** value` lines.
 
 Judged methodologies use headings of the form `## <n>. <Title>`; `judged.py` parses them.
 
@@ -30,6 +30,7 @@ Judged methodologies use headings of the form `## <n>. <Title>`; `judged.py` par
 | `Tiebreak:` + `Readability:` | no | Simplicity measure (lower is simpler) and a readability check; together they let a within-margin, simpler candidate keep. |
 | `Held-out:` | no | A check never used for decisions, run once in the report. |
 | `Variants:` | compare | `given`, `generated` or `grid`; with `Variant <name>:` lines, `Count:` and `Idea:`, or `Grid <param>:` lines and an `Apply:` command (its `{param}` placeholders are replaced shell-quoted; do not quote them). `Include incumbent: yes` measures the unchanged base too. `Budget:` counts measurements (variants × runs plus a confirmation), or judge requests under `scorer=council`. Council compare needs only the `judging-protocol` block, not the nine judged sections. |
+| `Question:`, `Count:`, `Rounds:` | explore | The open question; candidates per round (2–6, default 4); rounds (1–3, default 2). Scorer fields as compare. |
 | `Score:` / `Score target:` | remediate, no | The tool's overall score as a guardrail; a target below which the report offers a follow-up climb. |
 - What metric is being optimized
 - Target value (numeric, measurable); for judged, the Judging Protocol's `target`
