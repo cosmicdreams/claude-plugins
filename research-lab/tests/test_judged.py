@@ -640,6 +640,27 @@ class JudgedTests(unittest.TestCase):
         self.assertEqual(r['status'], 'invalid')
         self.assertIs(r['drift'], True)
 
+    def test_reference_spread_in_calibration_widens_drift_limit(self):
+        # A reference that already moved 3 points between calibration requests
+        # cannot flag drift for a 1.5-point move (real climb·council run, 2026-11-05).
+        self.capture(); self.capture(); e = self.opened(); self.returns(e)
+        def shift_ref(evaluation, request, delta):
+            path = evaluation / request / 'return.json'
+            payload = self.read(path)
+            for label, meaning in self.read(path.parent / 'mapping.json').items():
+                if meaning.startswith('ref:'):
+                    payload['items'][label]['clarity']['score'] += delta
+            path.write_text(json.dumps(payload))
+        shift_ref(e, 'primary-2', -3)
+        r = self.score(e)
+        self.assertEqual((r['status'], r['reference_spread']), ('valid', 3))
+        self.f.ok('checks', '--eval', e.name, '--worktree', self.f.work, '--passed')
+        self.finalize(e, 'calibrate')
+        c = self.opened('confirm'); self.returns(c)
+        for request in ('primary-1', 'primary-2'):
+            shift_ref(c, request, -1.5)
+        self.assertEqual(self.score(c)['status'], 'valid')
+
     def test_calibration_within_request_noise(self):
         # scope D14: within-request differences also enter the maximum noise.
         self.capture(); self.capture(); e = self.opened()

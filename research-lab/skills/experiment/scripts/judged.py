@@ -349,7 +349,7 @@ def score_eval(eng, dest, meta, p):
         baseline = {r: {ref: {c: sum(raw[(r,k)][ref][c] for k in (1,2)) / 2 for c in cats} for ref in refs} for r in roles} if meta['purpose'] != 'measure' else None
         cal = read_json(eng / 'evals' / (meta.get('calibration') or '') / 'result.json', {})
         drift = meta['purpose'] != 'calibrate' and max((
-            abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > max(2 * cal['margin'], 1)
+            abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > max(2 * cal['margin'], 1, cal.get('reference_spread', 0))
             for (r, k), vals in raw.items() for ref in refs for c in cats), default=False)
         def value(vals, item, cat):
             return vals[item][cat] - (max(vals[ref][cat] for ref in refs) if p['relative_to'] == 'references' else 0)
@@ -367,7 +367,9 @@ def score_eval(eng, dest, meta, p):
                     v = {(i,k): value(raw[(r,k)], 'capture-' + str(i), c) for i in (1,2) for k in (1,2)}
                     cells[r][c] = sum(v.values()) / 4
                     noise = max(noise, *(abs(v[(1,k)]-v[(2,k)]) for k in (1,2)), *(abs(v[(i,1)]-v[(i,2)]) for i in (1,2)))
-            result = dict(status='valid', reason='', metric=min(cells[r][c] for r in roles for c in cats), margin=max(p['margin_floor'], noise), noise=noise, reference_baseline=baseline, cells=cells, panel=meta['panel'])
+            # A reference that already moves between the two calibration requests cannot flag drift by less than that.
+            spread = max((abs(raw[(r,1)][ref][c] - raw[(r,2)][ref][c]) for r in roles for ref in refs for c in cats), default=0)
+            result = dict(status='valid', reason='', metric=min(cells[r][c] for r in roles for c in cats), margin=max(p['margin_floor'], noise), noise=noise, reference_baseline=baseline, reference_spread=spread, cells=cells, panel=meta['panel'])
         write_json(dest / 'critiques.json', critiques)
     except (ValueError, KeyError, TypeError, OSError) as e:
         result = dict(status='invalid', reason=str(e) or 'invalid return')

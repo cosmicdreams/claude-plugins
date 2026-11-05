@@ -83,7 +83,7 @@ A **confirmation** re-scores the incumbent before `stop target`, because the mea
 
 ## Drift
 
-A measurement or confirmation in which any reference cell moves more than max(2*m*, 1) from the calibration's baseline is **invalid** (`drift: true`): no keep, no discard. It is logged `invalid` and the run pauses. Without references drift is unmonitored and the report says so.
+A measurement or confirmation in which any reference cell moves more than max(2*m*, 1, *s*) from the calibration's baseline is **invalid**, where *s* is the largest change in any reference cell between the calibration's two requests (a reference that already wobbles cannot flag drift by less) (`drift: true`): no keep, no discard. It is logged `invalid` and the run pauses. Without references drift is unmonitored and the report says so.
 
 ## Budget
 
@@ -112,7 +112,7 @@ Call `JUDGED next --worktree W --panel P` only when no judge request is in fligh
 For each request from `open`, call `mcp__t3-code__delegate_task` with mode wait, the target (provider, model, options) of the panel role, and the task text = the full contents of its `request.md`. Add nothing: no paths, target, iteration, or which item is which. Then, in that request's directory:
 
 - `invocation.json` = `{"provider": <result providerInstanceId>, "model": <result model>, "options": {<id>: <value>, …}}`, taken from the delegate **result**, never from the request.
-- `return.json` = the JSON object the judge returned, or `{"error": "<what happened>"}` on error, timeout or unparseable output. Never invent or repair scores.
+- `return.json` = the JSON object the judge returned, copied verbatim from the result's reply text (do not retype it), or `{"error": "<what happened>"}` on error, timeout or unparseable output. Never invent or repair scores. A result's options arrive as a list of `{id, value}`; write them as an object.
 
 When a reply is not parseable JSON, the orchestrator may re-request that judge once before recording it: a format retry, with the identical request, not a re-judgment of content. Never repair scores. A malformed return or one lacking `items` invalidates the evaluation with the request name (for example `second-1: invalid return: missing items`).
 
@@ -120,7 +120,7 @@ A crash mid-dispatch leaves requests without `return.json`; `next` then returns 
 
 ## Pauses and `resolve`
 
-v1 never recovers automatically. Any `invalid` record (other than reason `stale`) or capture failure since the latest resolution pauses the run, as do the G1–G3 gates (malformed `trial.json`, a trial whose worktree, branch, cleanliness or HEAD no longer matches, or an unknown change to the tree). Report it; Chris (or the agent on his instruction) clears it:
+v1 never recovers automatically. Any `invalid` record (other than reason `stale`) or capture failure since the latest resolution pauses the run (`next` reports it as rule 9), as do the G1–G3 gates (malformed `trial.json`, a trial whose worktree, branch, cleanliness or HEAD no longer matches, or an unknown change to the tree). Report it; Chris (or the agent on his instruction) clears it:
 
 ```bash
 JUDGED resolve --decision withdraw|retry|continue|reject --note "…" [--worktree W]
@@ -135,7 +135,7 @@ JUDGED resolve --decision withdraw|retry|continue|reject --note "…" [--worktre
 | `continue` | Chris fixed the state by hand. With no pending trial, adopts the current tree as incumbent and makes the calibration stale. |
 | `reject` | Human review rejected the incumbent at target (below). |
 
-Withdrawn trials do not consume iterations or move the futility streak.
+Withdrawn trials do not consume iterations or move the futility streak. For a drift pause, `retry` re-measures the same trial; `withdraw` when the reference itself is unstable, since recalibrating needs a fresh calibration. In judged runs you commit each trial yourself (a Conventional Commits message for the change), then run `trial commit`.
 
 ## Human review
 
