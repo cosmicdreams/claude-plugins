@@ -23,6 +23,7 @@ When ingesting content or creating wiki pages, read `wiki-schema.md` at vault ro
 | `Scratches/` | Working scratch space, organized by project |
 | `Personal/` | Personal notes, ideas, non-work content |
 | `Research/` | General research topics (AI-Ecosystem, Claude-Plugins, Security) |
+| `Research-Lab/` | Managed by the research-lab plugin: engagements, experiments and its index. Never move, re-tag, rename or restructure anything here; research-lab writes it. |
 | `Archive/` | Retired content, historical records |
 
 ## Projects structure

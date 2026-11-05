@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.1
+
+- `obsidian-rules.md` reserves `Research-Lab/` for the research-lab plugin: placement and organizing skills must not move, re-tag, rename or restructure anything there.
+
 ## 2.6.0
 
 - Explicit shared profile/experience/context loading for prioritize, recap and config in Codex and Claude, with machine-local templates.

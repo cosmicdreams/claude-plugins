@@ -79,9 +79,9 @@ Write `01-frame.md` to the engagement directory when one exists (otherwise prese
 
 ---
 
-## Chaining
+## Suggest next
 
-Suggest (never auto-invoke):
+Never auto-invoke.
 
 - **After frame** → `research-lab:gather` to collect sources against the framed question (typical next move).
 - **After frame** → `research-lab:understand` if the material already exists and only needs digesting.

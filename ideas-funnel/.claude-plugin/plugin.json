@@ -1,6 +1,6 @@
 {
   "name": "ideas-funnel",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "description": "T3 knowledge funnel with deterministic collection, bounded tier routing and a locked single writer.",
   "author": {
     "name": "Chris Weber"

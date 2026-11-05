@@ -34,7 +34,14 @@ Every strategy runs with the scripted scorer; `climb`, `compare` and `explore` a
 
 ## Input contract
 
-**Requires:** a methodology, an engagement directory `E`, and a dedicated worktree `W`. Take them from context, the card, or the args `methodology=`, `workdir=` and `engagement=`. A caller that passes `results=<dir>/results.jsonl` instead of `engagement=` means `E` is `<dir>`. Else **FAIL FAST**: "Need a measurable hypothesis and a target metric — point me at a methodology file." Stop.
+- **Requires:** a methodology, an engagement directory `E`, and a dedicated worktree `W`.
+- **Resolves from:** context → the strategy card → the args `methodology=`, `workdir=` and `engagement=`. A caller that passes `results=<dir>/results.jsonl` instead of `engagement=` means `E` is `<dir>`.
+
+## Preflight
+
+1. Resolve the methodology, `E` and `W` from the input contract. Step −1 may have drafted the methodology on the strategy card.
+2. Else **FAIL FAST**: "Need a measurable hypothesis and a target metric — point me at a methodology file." Stop.
+3. A `refused` from `CHECK` in Step −1 is also a stop: report `reason` and each `missing` item.
 
 ## Step 0 — Start or resume
 
@@ -83,3 +90,10 @@ Judged runs only. `JUDGED next`'s `propose` action uses these:
 **Judged:** on `stop target`, Chris reviews the artifacts; a rejection is `JUDGED resolve --decision reject --worktree W` and the climb continues. Report keeps vs discards, the latest calibrated or confirmed *M*, judge requests spent, and whether drift was monitored.
 
 `EXP status --all --repo R` lists every engagement in a repository's worktrees. Offer a chart (`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/generate-chart.py E/results.jsonl`) or a vault archive.
+
+## Suggest next
+
+Never auto-invoke.
+
+- **The result changes a position** → `research-lab:synthesize` to fold it into the claim.
+- **The result must land with an outside audience** → `research-lab:teach`.

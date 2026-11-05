@@ -108,9 +108,9 @@ research-lab does not reimplement vault writes. The record also stays in the eng
 
 ---
 
-## Chaining
+## Suggest next
 
-Suggest (never auto-invoke):
+Never auto-invoke.
 
 - **After understand** → `research-lab:synthesize` to form a claim from the digested material (typical next move).
 - **After understand** → `research-lab:gather` if understanding revealed gaps that need more sources.

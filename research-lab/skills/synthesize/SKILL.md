@@ -98,9 +98,9 @@ Hand `04-synthesize.md` to `lib:vault-store` for Obsidian archival. research-lab
 
 ---
 
-## Chaining
+## Suggest next
 
-Suggest (never auto-invoke):
+Never auto-invoke.
 
 - **After synthesize** → `research-lab:interrogate` to adversarially peer-review the claim (typical next move).
 - **After synthesize** → `research-lab:teach` when the claim is sound and needs to land with an outside audience.
