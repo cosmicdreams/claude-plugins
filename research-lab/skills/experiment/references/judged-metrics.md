@@ -55,7 +55,7 @@ Paths in `artifact_command`, `references` and `guardrails` resolve relative to t
 
 ## Panel
 
-Before each `open`, build `E/panel.json` (after `validate --worktree W`, which keeps `E` out of Git) = `{"<role>": {"provider", "model", "options": {...}}}` with exactly the protocol's roles. Resolve each role's tier through the global routing table and `~/.claude/model-access.md` (the denylist); honor `distinct_family`. Run `~/bin/allowance`: a pool under 10% remaining **pauses** the run (report it and stop). Never substitute another model for that reason. `options` must list exactly the options the dispatch reports for that model, including defaults it adds (for example Claude judges report `fastMode: false`); `score` compares them exactly, so check one result's reported options before the first `open`. The panel changes only when routing or the denylist changes; a changed panel makes the active calibration stale. Pass the same file to `next` and `open`.
+Before each `open`, build `E/panel.json` (after `validate --worktree W`, which keeps `E` out of Git) = `{"<role>": {"provider", "model", "options": {...}}}` with exactly the protocol's roles. Resolve each role's tier through the global routing table and `~/.claude/model-access.md` (the denylist); honor `distinct_family`. Run `~/bin/allowance`: a pool under 10% remaining **pauses** the run (report it and stop). Stale data is unknown, not low: proceed and note it in the report. Never substitute another model for that reason. `options` must list exactly the options the dispatch reports for that model, including defaults it adds (for example Claude judges report `fastMode: false`); `score` compares them exactly, so check one result's reported options before the first `open`. The panel changes only when routing or the denylist changes; a changed panel makes the active calibration stale. Pass the same file to `next` and `open`.
 
 ## Transports
 
@@ -135,7 +135,7 @@ JUDGED resolve --decision withdraw|retry|continue|reject --note "…" [--worktre
 | `continue` | Chris fixed the state by hand. With no pending trial, adopts the current tree as incumbent and makes the calibration stale. |
 | `reject` | Human review rejected the incumbent at target (below). |
 
-Withdrawn trials do not consume iterations or move the futility streak. For a drift pause, `retry` re-measures the same trial; `withdraw` when the reference itself is unstable, since recalibrating needs a fresh calibration. In judged runs you commit each trial yourself (a Conventional Commits message for the change), then run `trial commit`.
+Withdrawn trials do not consume iterations or move the futility streak. For a drift pause, `retry` re-measures the same trial. If the same reference drifts again, it is unsuitable: references must be on-topic for the rubric (an off-topic reference gets rescored relative to whatever sits beside it). Replace it in the methodology (the fingerprint changes and the next step recalibrates) or remove references and accept unmonitored drift; withdrawing and recalibrating with the same reference tends to repeat the drift. On `withdraw`, `next` returns a `discard_trial` action that you run through `discard-trial.py`; the recalibration keeps the withdrawn trial's iteration number. In judged runs you commit each trial yourself (a Conventional Commits message for the change), then run `trial commit`.
 
 ## Human review
 
