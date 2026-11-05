@@ -15,8 +15,17 @@ from pathlib import Path
 STRATEGIES = ('remediate', 'climb', 'compare', 'explore')
 SCORERS = ('scripted', 'council')
 NOT_BUILT = {'explore': 5}
-COUNCIL_BLOCKED = ('council scoring is blocked: the acceptance smoke test failed; see Status in '
-                   'skills/experiment/references/judged-metrics.md')
+COUNCIL_STATUS = Path(__file__).resolve().parent.parent / 'references/council-status.json'
+
+
+def council_transport(transport):
+    status = json.loads(COUNCIL_STATUS.read_text())
+    if status.get('status') != 'passed':
+        raise ValueError('council scoring is blocked; see ' + status.get('record', str(COUNCIL_STATUS)))
+    if transport not in status.get('transports', []):
+        raise ValueError('council transport has not passed: ' + transport)
+
+
 CLIMB_SECTIONS = ('Objective', 'Baseline', 'Hypotheses', 'Iteration Rules', 'Measurement Protocol',
                   'Correctness Checks', 'Scope Constraints', 'Working Directory')
 NUMBER = r'[-+]?\d+(?:\.\d+)?'
@@ -68,7 +77,7 @@ def resolve(arg, method_value, legacy=None):
     return None, None
 
 
-def check(strategy_arg, scorer_arg, methodology_path):
+def check(strategy_arg, scorer_arg, methodology_path, transport=None):
     out = dict(status='refused', strategy=None, scorer=None, source={}, missing=[], reason=None)
     text = ''
     if methodology_path:
@@ -117,33 +126,45 @@ def check(strategy_arg, scorer_arg, methodology_path):
     if strategy in NOT_BUILT:
         out['reason'] = f'{strategy} is not built yet (plan phase {NOT_BUILT[strategy]})'
         return out
+    transport = transport or field(text, 'Transport') or 't3'
     if scorer == 'council':
-        out['reason'] = COUNCIL_BLOCKED
-        return out
+        try:
+            council_transport(transport)
+            if strategy not in ('climb', 'compare'): raise ValueError('council supports climb and compare')
+        except (ValueError, OSError) as error:
+            out['reason'] = str(error)
+            return out
     if not methodology_path:
         out.update(missing=['methodology'], reason=f'{strategy} needs a methodology file')
         return out
     from experiment_loop import config, validate
+    if scorer == 'council' and strategy == 'climb':
+        import judged
+        result = judged.validate(Path(methodology_path), transport, council=True)
+        out.update(status='ready' if result['ok'] else 'refused', metric_type='judged',
+                   engine='judged.py', transport=transport, reason=None if result['ok'] else '; '.join(result['errors']))
+        return out
     out['missing'] = (climb_missing(text) if strategy == 'climb' else [
         f'section: {name}' for name in ('Objective', 'Scope Constraints', 'Working Directory')
         if not any(t.startswith(name.lower()) for t in sections(text))])
-    out['missing'] += [name.lower() + ': command' for name in ('Measure', 'Checks')
+    out['missing'] += [name.lower() + ': command' for name in (('Checks',) if scorer == 'council' else ('Measure', 'Checks'))
                        if not field(text, name)]
     if strategy == 'remediate' and not field(text, 'Budget'):
         out['missing'].append('budget: maximum iterations')
     try:
         c = config(text, strategy)
+        c['scorer'] = scorer
         validate(c)
         if strategy == 'compare':
             from experiment_compare import configuration
             configuration(text, c)
-    except ValueError as error:
+    except (ValueError, KeyError, TypeError, OSError) as error:
         out['reason'] = str(error)
         return out
     if out['missing']:
         out['reason'] = f'methodology is missing required inputs for {strategy}'
         return out
-    out.update(status='ready', reason=None)
+    out.update(status='ready', reason=None, **({'transport': transport} if scorer == 'council' else {}))
     return out
 
 
@@ -154,6 +175,7 @@ def main(argv=None):
     c.add_argument('--strategy')
     c.add_argument('--scorer')
     c.add_argument('--methodology')
+    c.add_argument('--transport', choices=('t3', 'direct'))
     from experiment_loop import add_commands, dispatch
     add_commands(sub)
     a = parser.parse_args(argv)
@@ -169,7 +191,7 @@ def main(argv=None):
         else:
             print(json.dumps(result, sort_keys=True))
         return code
-    result = check(a.strategy, a.scorer, a.methodology)
+    result = check(a.strategy, a.scorer, a.methodology, a.transport)
     print(json.dumps(result, sort_keys=True))
     return {'ready': 0, 'route': 2}.get(result['status'], 1)
 

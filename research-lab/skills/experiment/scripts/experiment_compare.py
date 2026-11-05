@@ -17,7 +17,7 @@ def configuration(text, c):
     from experiment import field
     mode = field(text, 'Variants')
     require(mode in ('given', 'generated', 'grid'), 'Variants must be given, generated or grid')
-    require(field(text, 'Direction') and re.search(r'\b(higher|lower)\b', field(text, 'Direction'), re.I),
+    require(c.get('scorer') == 'council' or field(text, 'Direction') and re.search(r'\b(higher|lower)\b', field(text, 'Direction'), re.I),
             'Direction must be higher or lower')
     require(c['Budget'] is not None, 'Budget is required')
     incumbent = field(text, 'Include incumbent')
@@ -50,7 +50,13 @@ def configuration(text, c):
         unknown = set(re.findall(r'\{([\w-]+)\}', field(text, 'Apply'))) - grid.keys()
         require(not unknown, 'unknown Apply parameter: ' + ', '.join(sorted(unknown)))
     total = count + (incumbent == 'yes')
-    require(total * c['Runs'] + c['Runs'] <= c['Budget'], 'Budget must cover variants × Runs plus one confirmation')
+    if c.get('scorer') == 'council':
+        from experiment_council import protocol
+        p = protocol(text)
+        require(2 <= total <= 5, 'council requires 2–5 variants including incumbent')
+        require(total * (total - 1) * len(p['judges']) <= c['Budget'], 'Budget must cover pairs × 2 orders × judges')
+    else:
+        require(total * c['Runs'] + c['Runs'] <= c['Budget'], 'Budget must cover variants × Runs plus one confirmation')
     return dict(mode=mode, declared=declarations, grid=grid, count=count,
                 apply=field(text, 'Apply'), include_incumbent=incumbent == 'yes')
 
@@ -84,6 +90,12 @@ def next_action(s, c):
         elif cfg['mode'] == 'generated':
             action['remaining_count'] = cfg['count'] - len(set(s['variants']) - {'incumbent'})
         return action
+    if s['scorer'] == 'council':
+        if s.get('council_round') and not s.get('council_result'):
+            return dict(action='score', eval=s['council_round'])
+        if s['group'] is not None:
+            return dict(action='decide', group=s['group'])
+        return dict(action='measure')
     if any(v['status'] == 'pending' or (v['commit'] and 'median' not in v)
            for v in s['variants'].values()):
         return dict(action='measure')
@@ -287,6 +299,9 @@ def dispatch_command(a, e, s, c):
     cmd = a.command
     require(digest(s['methodology']) == s['methodology_sha256'], 'methodology changed since init')
     if cmd == 'report':
+        if s['scorer'] == 'council':
+            from experiment_council import report as council_report
+            return council_report(e, s, c)
         return report(e, s, c)
     require(s['status'] == 'running', 'engagement is not running')
     if cmd == 'variant':
@@ -348,7 +363,13 @@ def dispatch_command(a, e, s, c):
                 save(e, s)
     elif cmd == 'measure':
         require(not s['building'], 'finish open variant first')
+        if s['scorer'] == 'council':
+            from experiment_council import open_round, score_round
+            return score_round(e, s, c) if s.get('council_round') else open_round(a, e, s, c)
         measure_variants(e, s, c)
+    elif cmd in ('record', 'score') and s['scorer'] == 'council':
+        from experiment_council import record, score_round
+        return record(a, e, s) if cmd == 'record' else score_round(e, s, c)
     elif cmd == 'confirm':
         confirm(e, s, c)
     elif cmd == 'decide':
@@ -357,7 +378,7 @@ def dispatch_command(a, e, s, c):
         choose(s, a.choose, 'trade-offs', a.reason)
     else:
         raise ValueError('command is not available for compare')
-    if cmd == 'grid' and not any(v['status'] == 'pending' for v in s['variants'].values()):
+    if s['scorer'] != 'council' and cmd == 'grid' and not any(v['status'] == 'pending' for v in s['variants'].values()):
         finish(s, c)
     s['stop_blocks'] = 0
     save(e, s)
@@ -376,9 +397,16 @@ def add_commands(sub):
             if command == 'variant' and action == 'begin':
                 child.add_argument('--tradeoff', required=True)
                 child.add_argument('--description')
-    for command in ('measure', 'decide'):
+    for command in ('measure', 'decide', 'score', 'record'):
         p = sub.add_parser(command)
         p.add_argument('--engagement', required=True)
+        if command == 'measure':
+            p.add_argument('--panel')
+            p.add_argument('--seed', type=int, default=0)
+        if command == 'record':
+            p.add_argument('--request', required=True)
+            p.add_argument('--return-file', required=True)
+            p.add_argument('--invocation-file', required=True)
         if command == 'decide':
             p.add_argument('--choose', required=True)
             p.add_argument('--reason', required=True)

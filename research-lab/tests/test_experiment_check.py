@@ -124,11 +124,11 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn('unknown scorer', out['reason'])
 
-    def test_council_blocked(self):
-        code, out = self.run_check('--strategy', 'climb', '--scorer', 'council',
+    def test_unpassed_council_transport_refused(self):
+        code, out = self.run_check('--strategy', 'climb', '--scorer', 'council', '--transport', 'direct',
                                    '--methodology', self.method('metric_type: judged\n' + CLIMB))
         self.assertEqual(code, 1)
-        self.assertIn('blocked', out['reason'])
+        self.assertIn('transport has not passed', out['reason'])
 
     def test_legacy_metric_type_maps_to_council(self):
         code, out = self.run_check('--strategy', 'climb',

@@ -6,9 +6,9 @@ Operating spec for `metric_type: judged` runs (v1). The metric comes from a pane
 
 Judged runs execute in the orchestrating session. The `experimentalist` agent refuses them.
 
-## Status: blocked
+## Status
 
-The plan's acceptance smoke test failed on 2026-11-04, so judged runs are refused until a rerun passes. Its first calibration was invalid for two integration reasons, both since addressed: the panel omitted an option the host reports (`fastMode: false` for Claude judges; see Panel), and a judge copied a string placeholder as its score (requests now show a numeric one). The failure record is in the engagement `analysis-reports/research/experiment-hill-climb/smoke-result.md`. Lift this block only by rerunning the smoke test and recording a pass here.
+`council-status.json` is authoritative for passed transports. T3 passed the acceptance smoke test: `analysis-reports/research/experiment-hill-climb/smoke-r3-result.md`. Direct remains unavailable until its check passes.
 
 ---
 

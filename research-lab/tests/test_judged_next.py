@@ -482,6 +482,15 @@ class JudgedNextTests(unittest.TestCase):
         self.log('keep', e, after=6, ratchet=6, iteration=1)
         self.action('propose', iteration=2)
 
+    def test_trial_begin_refuses_after_futility_stop(self):
+        self.calibrated(); self.limits(futility=1); self.lose()
+        self.action('stop', reason='futility')
+        before = self.snapshot()
+        code, out, err = self.f.run('trial', 'begin', '--worktree', self.f.work, '--change', 'too late')
+        self.assertEqual(code, 1, (out, err))
+        self.assertIn('stop futility', out['error'])
+        self.assertEqual(self.snapshot(), before)
+
     def test_keep_resets_futility(self):
         # §9.25 / rule 16: keep resets the discard streak.
         self.calibrated(); self.limits(futility=2)

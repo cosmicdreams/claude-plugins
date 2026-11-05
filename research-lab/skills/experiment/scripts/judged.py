@@ -90,7 +90,7 @@ def methodology(path):
     protocol = json.loads(fence.group(1)) if fence else None
     if protocol is not None:
         protocol.setdefault('iterations', 20); protocol.setdefault('futility', 5)
-    return sections, metric.group(1) if metric else 'scripted', direction.group(1) if direction else None, protocol
+    return sections, metric.group(1) if metric else ('judged' if re.search(r'^scorer:\s*council\s*$', one, re.M) else 'scripted'), direction.group(1) if direction else None, protocol
 
 
 def command_parts(command, base):
@@ -191,12 +191,12 @@ def iteration_counters(results):
     return used, streak
 
 
-def validate(path, host):
+def validate(path, host, council=False):
     errors, warnings = [], []
     try:
         sections, metric, direction, p = methodology(path)
         if host not in ('t3', 'direct'): errors.append('host must be t3 or direct')
-        if metric != 'judged' or 9 not in sections or p is None: errors.append('judged methodology and protocol required')
+        if (metric != 'judged' and not council) or 9 not in sections or p is None: errors.append('judged methodology and protocol required')
         if direction != 'higher': errors.append('direction must be higher')
         if p is not None:
             judges, categories = p['judges'], p['categories']
@@ -262,7 +262,7 @@ def open_eval(a, eng, path, p, sections, trial, results):
             if rng.randrange(2): pair.reverse()
             mapping = dict(zip(('A', 'B'), pair))
             mapping.update({f'Ref-{i}': 'ref:' + name for i, name in enumerate(reftexts, 1)})
-            d = dest / f'{role}-{k}'; write_json(d / 'mapping.json', mapping)
+            d = dest / f'{role}-{k}'
             request = 'Judge only the text given. Do not read files or run commands. Return JSON with items, score and critique for each category. Scores must be 0 to 10.\n\n'
             request += '\n'.join(f'{c}: {rubric}' for c, rubric in p['categories'].items()) + '\n\n'
             cell = {'score': 0, 'critique': '<one sentence>'}
@@ -270,36 +270,55 @@ def open_eval(a, eng, path, p, sections, trial, results):
             request += 'Each score is a JSON number from 0 to 10, not a string. '
             request += 'Reply with only this JSON, filled in:\n' + json.dumps(shape, indent=1) + '\n\n'
             request += '\n\n'.join(f'## {label}\n{texts[meaning]}' for label, meaning in mapping.items())
-            (d / 'request.md').write_text(request, encoding='utf-8')
-            requests.append(dict(role=role, k=k, dir=str(d), request_md=str(d / 'request.md')))
+            requests.append(prepare_request(d, role, k, mapping, request))
     return dict(eval=eid, requests=requests)
+
+
+def prepare_request(directory, role, k, mapping, text):
+    write_json(directory / 'mapping.json', mapping)
+    (directory / 'request.md').write_text(text, encoding='utf-8')
+    return dict(role=role, k=k, dir=str(directory), request_md=str(directory / 'request.md'))
+
+
+def unique(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result: raise ValueError('duplicate key')
+        result[key] = value
+    return result
+
+
+def request_return(directory, expected, required):
+    if read_json(directory / 'invocation.json') != expected:
+        raise ValueError(f'{directory.name}: invocation mismatch')
+    try:
+        data = json.loads((directory / 'return.json').read_text(), object_pairs_hook=unique)
+        if not isinstance(data, dict) or required not in data:
+            raise ValueError(data.get('error', 'missing ' + required) if isinstance(data, dict) else 'expected object')
+        return data
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f'{directory.name}: invalid return: {exc}') from exc
+
+
+def record_request(directory, returned, invocation):
+    if (directory / 'return.json').exists() or (directory / 'invocation.json').exists():
+        raise ValueError('request already recorded')
+    write_json(directory / 'invocation.json', invocation)
+    return write_json(directory / 'return.json', returned)
 
 
 def score_eval(eng, dest, meta, p):
     import math
     dirs = sorted(dest.glob('*/mapping.json'))
     if any(not (d.parent / 'return.json').exists() for d in dirs): raise ValueError('missing return')
-    def unique(pairs):
-        result = {}
-        for k, v in pairs:
-            if k in result: raise ValueError('duplicate key')
-            result[k] = v
-        return result
     try:
         for entry in read_json(eng / 'references/manifest.json', []):
             if digest((eng / 'references' / entry['path']).read_bytes()) != entry['sha256']: raise ValueError('reference hash mismatch')
         raw, critiques = {}, []
         for mp in dirs:
             role, k = mp.parent.name.rsplit('-', 1); mapping = read_json(mp)
-            if read_json(mp.parent / 'invocation.json') != meta['panel'][role]: raise ValueError('invocation mismatch')
-            try:
-                data = json.loads((mp.parent / 'return.json').read_text(), object_pairs_hook=unique)
-                if not isinstance(data, dict) or 'items' not in data:
-                    detail = data.get('error', 'missing items') if isinstance(data, dict) else 'expected object with items'
-                    raise ValueError(detail)
-                items = data['items']
-            except (ValueError, TypeError) as exc:
-                raise ValueError(f'{mp.parent.name}: invalid return: {exc}') from exc
+            data = request_return(mp.parent, meta['panel'][role], required='items')
+            items = data['items']
             if set(items) != set(mapping): raise ValueError('invalid labels')
             values = {}
             for label, meaning in mapping.items():
@@ -371,11 +390,11 @@ def diagnostics(eng, all_evals, results, resolutions, tree):
     return out
 
 
-def next_action(a, eng, path):
+def next_action(a, eng, path, panel_override=None):
     sections, _, _, p = methodology(path)
     base = path.parent
     work = Path(a.worktree).resolve()
-    panel = load_panel(Path(a.panel), p)
+    panel = panel_override if panel_override is not None else load_panel(Path(a.panel), p)
     results, resolutions, all_evals = records(eng / 'results.jsonl'), records(eng / 'resolutions.jsonl'), evals(eng)
     try:
         trial = read_json(eng / 'trial.json')
@@ -536,6 +555,12 @@ def run(a):
         if git(work, 'status', '--porcelain', '--untracked-files=all'): raise ValueError('dirty worktree')
         if a.operation == 'begin':
             if trial or tree != incumbent_tree(eng, tree, results) or not a.change: raise ValueError('cannot begin trial')
+            from types import SimpleNamespace
+            previous_evals = evals(eng)
+            if previous_evals:
+                meta = previous_evals[-1]
+                action = next_action(SimpleNamespace(worktree=str(work), transport=meta.get('transport', 't3')), eng, path, meta['panel'])
+                if action['action'] == 'stop': raise ValueError('cannot begin trial: stop ' + action['reason'])
             previous = read_json(eng / 'trial.json', {})
             iteration = 1 + max([previous.get('iteration', 0)] + [r.get('iteration', 0) for r in results if r.get('decision') in ('keep', 'discard', 'skip')])
             trial = dict(iteration=iteration, worktree=str(work), branch=branch, base=head, base_tree=tree, commit=None, change=a.change)
