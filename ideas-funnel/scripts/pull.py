@@ -12,30 +12,34 @@ import urllib.request
 from urllib.parse import urljoin, urlsplit
 import xml.etree.ElementTree as ET
 
-from runtime import atomic_json, canonical, locked, read_json, require_idle
+from runtime import atomic_json, canonical, hub, hubs, locked, read_json, require_idle
 
 LIMIT = 2 * 1024 * 1024
 URL = re.compile(r'https?://[^\s<>"\]\)]+')
 
 
-def urls(path):
+def urls(path, extra=()):
     # Only identity fields or a bare URL line: article links are not identities.
+    # Hubs (site roots, feeds, listed shared pages) never identify a source.
     result = set()
     for line in path.read_text().splitlines():
         if re.match(r'^(?:url|source|origin):\s*', line) or line.startswith(('http://', 'https://')):
             for value in URL.findall(line):
                 try:
-                    result.add(canonical(value.strip("'")))
+                    key = canonical(value.strip("'"))
                 except ValueError:
-                    pass
+                    continue
+                if not hub(key, extra):
+                    result.add(key)
     return result
 
 
 def migrate(vault):
     index = {'version': 1, 'urls': {}, 'items': {}, 'conflicts': []}
+    extra = hubs(vault)
     for folder in ('Raw/Inbox', 'Archive/Raw', 'Sources'):
         for path in sorted((vault / folder).rglob('*.md')):
-            identities = urls(path)
+            identities = urls(path, extra)
             relative = str(path.relative_to(vault))
             if folder != 'Sources' and path.name.lower() != 'readme.md':
                 index['items'][relative] = {'urls': sorted(identities),
@@ -52,6 +56,8 @@ def migrate(vault):
                 value = entry.get(field)
                 if isinstance(value, str) and value.startswith(('http://', 'https://')):
                     url = canonical(value)
+                    if hub(url, extra):
+                        continue
                     record = index['urls'].setdefault(url, {'state': 'collected', 'paths': []})
                     if key not in record['paths']:
                         record['paths'].append(key)
@@ -67,6 +73,20 @@ def migrate(vault):
         if len(sources) > 1:
             index['conflicts'].append({'url': url, 'sources': sources})
     return index
+
+
+def prune_hubs(index, extra=()):
+    """Remove hub URLs from an existing index without touching any run state."""
+    removed = sorted(u for u in index['urls'] if hub(u, extra))
+    gone = set(removed)
+    for url in removed:
+        del index['urls'][url]
+    for record in index['items'].values():
+        record['urls'] = [u for u in record['urls'] if u not in gone]
+    before = len(index.get('conflicts', []))
+    index['conflicts'] = [c for c in index.get('conflicts', []) if c['url'] not in gone]
+    return {'removed_urls': removed, 'conflicts_cleared': before - len(index['conflicts']),
+            'conflicts_remaining': len(index['conflicts'])}
 
 
 class Redirects(urllib.request.HTTPRedirectHandler):
@@ -125,13 +145,14 @@ def collect(vault, config, getter=fetch):
     index = read_json(index_path)
     if not index or index.get('version') != 1 or 'items' not in index:
         raise ValueError('review and apply migration before pulling')
+    extra = hubs(vault)
     try:
         import yaml
     except ImportError:
         raise ValueError('use the configured virtual-environment Python; install requirements.txt') from None
     reports = []
     for domain in sorted(config.glob('*.yaml')):
-        report = {'domain': domain.stem, 'created': 0, 'duplicates': 0, 'errors': []}
+        report = {'domain': domain.stem, 'created': 0, 'duplicates': 0, 'hubs': 0, 'errors': []}
         reports.append(report)
         try:
             conf = yaml.safe_load(domain.read_text()) or {}
@@ -165,6 +186,9 @@ def collect(vault, config, getter=fetch):
                     except (ValueError, TypeError) as exc:
                         report['errors'].append('item URL: ' + str(exc))
                         continue
+                    if hub(key, extra):
+                        report['hubs'] += 1
+                        continue
                     if key in index['urls']:
                         report['duplicates'] += 1
                         continue
@@ -196,8 +220,12 @@ def main():
     p.add_argument('--vault', type=Path, required=True)
     p.add_argument('--config', type=Path, default=Path.home() / '.config/ideas-funnel/domains')
     p.add_argument('--migrate', action='store_true')
+    p.add_argument('--prune-hubs', action='store_true',
+                   help='remove hub URLs from the existing index; dry-run unless --apply')
     p.add_argument('--apply', action='store_true')
     a = p.parse_args()
+    if a.migrate and a.prune_hubs:
+        p.error('choose --migrate or --prune-hubs')
     if not a.vault.is_dir() or not a.config.is_dir():
         p.error('vault and config must exist')
     with locked(a.vault):
@@ -208,9 +236,17 @@ def main():
                 if (a.vault / 'Raw/.url-index.json').exists():
                     p.error('index already exists; do not overwrite run states')
                 atomic_json(a.vault / 'Raw/.url-index.json', result)
+        elif a.prune_hubs:
+            index = read_json(a.vault / 'Raw/.url-index.json')
+            if not index or index.get('version') != 1 or 'items' not in index:
+                p.error('no migrated index to prune')
+            result = prune_hubs(index, hubs(a.vault))
+            if a.apply:
+                atomic_json(a.vault / 'Raw/.url-index.json', index)
+            result['applied'] = a.apply
         else:
             if a.apply:
-                p.error('--apply is only for migration')
+                p.error('--apply is only for migration or --prune-hubs')
             result = collect(a.vault, a.config)
     print(json.dumps(result, indent=2))
 

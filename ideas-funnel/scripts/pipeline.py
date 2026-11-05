@@ -57,7 +57,8 @@ def run(vault, action, owner=None, item=None, pages=None, error=None):
                 raise ValueError('raw item is missing or is a placeholder')
             if item not in index['items']:
                 from pull import urls
-                identities = sorted(urls(path))
+                from runtime import hubs
+                identities = sorted(urls(path, hubs(vault)))
                 index['items'][item] = {'urls': identities, 'state': 'collected'}
                 for url in identities:
                     entry = index['urls'].setdefault(url, {'state': 'collected', 'paths': []})

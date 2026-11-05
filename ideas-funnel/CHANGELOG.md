@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2.0 — 2026-11-05
+
+- Hub URLs are not source identities. Feed URLs (`/atom/`, `/rss.xml`, `/feed` and similar) and subreddit front pages are excluded automatically; shared site roots and listing pages are excluded when listed in the vault's `_meta/ideas-funnel-hubs.txt`. Migration, `pipeline.py index` and pulls ignore them, so distinct Sources that cite one hub no longer conflict, and pulls skip feed items that link only to a hub (counted as `hubs`).
+- Site roots stay identities by default, because a product's homepage is often its only URL.
+- `pull.py --prune-hubs` removes hub URLs and their conflicts from an existing index without touching any run state; it is a dry run unless `--apply` is given.
+- Claude and Codex manifests share version 3.2.0.
+
 ## 3.1.2 — 2026-11-05
 
 - `lint` skips `Research-Lab/`, which research-lab manages: no scan, flags or frontmatter writes there.
