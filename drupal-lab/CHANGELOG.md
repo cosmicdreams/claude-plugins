@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.0 — 2026-11-05
+
+- Breaking: remove the `optimize` skill. Its gathering, synthesis and experiment phases now belong to research-lab (`gather`, `synthesize`, `research-lab:experiment` with `strategy=climb`); run those directly. Measure Drupal performance for a climb with `drupal-lab:perf-measure`.
+
 ## 4.0.2 — 2026-11-04
 
 - Add executable Measure and Checks placeholders to the optimize methodology handoff.

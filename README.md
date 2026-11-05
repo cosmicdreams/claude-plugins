@@ -45,7 +45,7 @@ Skills: `adr`, `brainstorm`, `compare`, `diagram`, `reality-check`
 ### `drupal-lab`
 Drupal development against DDEV: issue analysis, patch validation, contrib module scaffolding, performance profiling.
 
-Skills: `analyze-issue`, `branch-audit`, `browse-drupal-issues`, `config`, `ddev`, `finish-issue`, `issue-summary`, `module-dev-starter`, `optimize`, `perf-measure`, `process-lifecycle`, `release-cut`, `sprint-start`, `validate-patch`
+Skills: `analyze-issue`, `branch-audit`, `browse-drupal-issues`, `config`, `ddev`, `finish-issue`, `issue-summary`, `module-dev-starter`, `perf-measure`, `process-lifecycle`, `release-cut`, `sprint-start`, `validate-patch`
 
 ### `lib`
 Thin CLI-wrapper skills (data-layer only — no summarization). Slack, Jira, GitHub, TestRail, Obsidian vault, logs, and media utilities.

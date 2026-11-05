@@ -232,21 +232,6 @@ Note: self-installs on first run — no upfront install needed.
 
 ---
 
-## drupal-lab:optimize (formerly research-lab:run)
-
-| Dependency | macOS | Linux sandbox | Auth |
-|---|---|---|---|
-| ddev | `brew install ddev/ddev/ddev` | ⊘ Not practical in sandbox | — |
-| drush | Via DDEV (`ddev drush`) | ⊘ Needs DDEV | — |
-| git | Pre-installed | Pre-installed | — |
-| python3 | Pre-installed | Pre-installed | — |
-| `nlm` (NotebookLM MCP CLI) | See research-lab:gather | See research-lab:gather | — |
-| agent-slack | `npm i -g agent-slack` | `npm i -g agent-slack` | See deploy-post |
-
-**Linux sandbox note:** drupal-lab:optimize requires a full Drupal + DDEV environment. This is a macOS-host workflow. In a sandbox, only the non-Drupal phases can run.
-
----
-
 ## rtk (Rust Token Killer)
 
 | Dependency | macOS | Linux sandbox | Auth |
