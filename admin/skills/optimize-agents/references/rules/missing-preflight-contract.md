@@ -37,7 +37,7 @@ For each `SKILL.md` under `research-lab/skills/*/`, flag when **any** of these i
 Does NOT apply when:
 
 - The file is a reference, agent, protocol, or template — only verb `SKILL.md` files.
-- The skill is an orchestrator that legitimately drives sub-skills with explicit, user-invoked input (e.g. `drupal-lab:optimize`), where the contract lives in the orchestrated verbs.
+- The skill is an orchestrator that legitimately drives sub-skills with explicit, user-invoked input, where the contract lives in the orchestrated verbs.
 
 ## Fix
 

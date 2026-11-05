@@ -1,7 +1,6 @@
 """Contract tests for `experiment.py check`: strategy/scorer precedence and refusals."""
 import json
 import os
-import re
 from pathlib import Path
 import subprocess
 import sys
@@ -9,8 +8,6 @@ import tempfile
 import unittest
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'skills' / 'experiment' / 'scripts' / 'experiment.py'
-OPTIMIZE = Path(__file__).resolve().parents[2] / 'drupal-lab' / 'skills' / 'optimize'
-TEMPLATE = OPTIMIZE / 'references' / 'methodology-template.md'
 
 CLIMB = """# Methodology: demo
 
@@ -151,22 +148,6 @@ class CheckTests(unittest.TestCase):
     def test_route_carries_preloaded_scorer(self):
         code, out = self.run_check('--scorer', 'council')
         self.assertEqual((code, out['scorer'], out['source']), (2, 'council', {'scorer': 'argument'}))
-
-    def test_drupal_lab_optimize_handoff_is_ready_without_pause(self):
-        """drupal-lab:optimize's actual invocation args plus its filled template are `ready`."""
-        call = re.search(r'Skill\("research-lab:experiment", args="([^"]+)"\)',
-                         (OPTIMIZE / 'SKILL.md').read_text())
-        args = dict(kv.split('=', 1) for kv in call.group(1).split())
-        body = TEMPLATE.read_text().split('```markdown', 1)[1].rsplit('```', 1)[0]
-        filled = (body.replace('<Numeric target value>', '0.95')
-                      .replace('<"higher is better" or "lower is better">', 'higher is better')
-                      .replace('<max iterations, e.g., 20>', '20')
-                      .replace('<harness invocation that prints the metric>', 'echo 0.9')
-                      .replace('<correctness-check command>', 'true'))
-        flags = [x for k in ('strategy', 'scorer') if k in args for x in (f'--{k}', args[k])]
-        code, out = self.run_check(*flags, '--methodology', self.method(filled))
-        self.assertEqual(code, 0, out)
-        self.assertEqual(out['source'], {'strategy': 'argument', 'scorer': 'argument'})
 
 
 if __name__ == '__main__':
