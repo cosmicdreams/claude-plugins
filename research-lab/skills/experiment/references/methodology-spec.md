@@ -13,7 +13,7 @@ Judged methodologies use headings of the form `## <n>. <Title>`; `judged.py` par
 ### 1. Objective
 - Optional `strategy: <remediate|climb|compare|explore>` and `scorer: <scripted|council>` lines (`strategies.md`); an argument overrides them, and absent means the router decides
 - `metric_type: scripted` or `metric_type: judged` on its own line (absent = `scripted`; `judged` means `scorer: council`, and a conflicting `scorer:` is an error)
-- For `climb`: `Target:`, `Direction:` (higher/lower) and, in Iteration Rules, `Budget:` as `name: value` lines; `experiment.py check` refuses without them
+- For a scripted `climb`: `Target:`, `Direction:` (higher/lower) and, in Iteration Rules, `Budget:` as `name: value` lines; `experiment.py check` refuses without them. A council (judged) climb takes these from its Judging Protocol instead.
 - Scripted `climb` and `remediate` runs are driven by `experiment.py`, which reads these `name: value` lines (anywhere in the file):
 
 | Field | Required | Meaning |

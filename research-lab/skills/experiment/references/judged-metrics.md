@@ -55,7 +55,7 @@ Paths in `artifact_command`, `references` and `guardrails` resolve relative to t
 
 ## Panel
 
-Before each `open`, build `panel.json` = `{"<role>": {"provider", "model", "options": {...}}}` with exactly the protocol's roles. Resolve each role's tier through the global routing table and `~/.claude/model-access.md` (the denylist); honor `distinct_family`. Run `~/bin/allowance`: a pool under 10% remaining **pauses** the run (report it and stop). Never substitute another model for that reason. `options` must list every option the host reports for that model, including defaults it adds (for example Claude judges report `fastMode: false`); `score` compares them exactly. The panel changes only when routing or the denylist changes; a changed panel makes the active calibration stale. Pass the same file to `next` and `open`.
+Before each `open`, build `E/panel.json` (after `validate --worktree W`, which keeps `E` out of Git) = `{"<role>": {"provider", "model", "options": {...}}}` with exactly the protocol's roles. Resolve each role's tier through the global routing table and `~/.claude/model-access.md` (the denylist); honor `distinct_family`. Run `~/bin/allowance`: a pool under 10% remaining **pauses** the run (report it and stop). Never substitute another model for that reason. `options` must list exactly the options the dispatch reports for that model, including defaults it adds (for example Claude judges report `fastMode: false`); `score` compares them exactly, so check one result's reported options before the first `open`. The panel changes only when routing or the denylist changes; a changed panel makes the active calibration stale. Pass the same file to `next` and `open`.
 
 ## Transports
 

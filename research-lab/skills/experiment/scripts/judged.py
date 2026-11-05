@@ -15,6 +15,7 @@ for name in ('validate', 'capture', 'trial', 'open', 'score', 'abandon',
     p.add_argument('--protocol', required=True)
     for commands, flag, options in (
         ('validate', 'host', dict(required=False)),
+        ('validate', 'worktree', dict(required=False)),
         ('capture trial checks resolve next', 'worktree', dict(required=name != 'resolve')),
         ('capture', 'role', dict(choices=('incumbent', 'candidate'))),
         ('trial', 'change', dict(required=False)),
@@ -127,6 +128,19 @@ def load_panel(path, p):
         not isinstance(v, dict) or not {'provider', 'model', 'options'} <= v.keys() or not isinstance(v['options'], dict)
         for v in panel.values()): raise ValueError('invalid panel')
     return panel
+
+
+def exclude_engagement(eng, work):
+    """Keep an engagement directory inside the worktree out of Git (the scripted init does the same)."""
+    eng, work = Path(eng).resolve(), Path(work).resolve()
+    if eng == work or not eng.is_relative_to(work):
+        return
+    pattern = '/' + re.sub(r'([\\*?\[\] !#])', r'\\\1', eng.relative_to(work).as_posix()) + '/'
+    exclude = Path(git(work, 'rev-parse', '--path-format=absolute', '--git-path', 'info/exclude'))
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    if pattern not in (exclude.read_text().splitlines() if exclude.exists() else []):
+        with exclude.open('a') as f:
+            f.write('\n' + pattern + '\n')
 
 
 def git(work, *args):
@@ -509,7 +523,9 @@ def next_action(a, eng, path, panel_override=None):
 
 def run(a):
     eng, path = Path(a.engagement).resolve(), Path(a.protocol).resolve()
-    if a.command == 'validate': return validate(path, a.host)
+    if a.command == 'validate':
+        if a.worktree: exclude_engagement(eng, a.worktree)
+        return validate(path, a.host)
     if a.command == 'next': return next_action(a, eng, path)
     results = records(eng / 'results.jsonl')
     trial = pending_trial(eng, results)
@@ -549,6 +565,7 @@ def run(a):
         append(eng / 'resolutions.jsonl', record)
         return record
     work = Path(a.worktree).resolve()
+    exclude_engagement(eng, work)
     head, tree = git(work, 'rev-parse', 'HEAD'), git(work, 'rev-parse', 'HEAD^{tree}')
     if a.command == 'trial':
         branch = git(work, 'symbolic-ref', '--short', 'HEAD')

@@ -22,7 +22,7 @@ Read before starting:
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/iteration-protocol.md` — records and git protocol
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/judged-metrics.md` — judged runs only
 
-`EXP` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/experiment.py` (in zsh define it as a function, not a variable), `CHECK` means `EXP check`, and `JUDGED` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/judged.py`.
+`EXP` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/experiment.py` (in zsh define these as functions), `CHECK` means `EXP check`, and `JUDGED` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/judged.py`.
 
 ## Golden Rule: Worktree = Branch
 
@@ -46,7 +46,7 @@ Args may preload `strategy=<remediate|climb|compare|explore|auto>` and `scorer=<
 
 **Scripted:** if `E/state.json` exists, the run resumes: go to Step 1. Otherwise `EXP init --engagement E --worktree W --methodology M --strategy S --scorer scripted`; a refusal is a STOP with its reason, and its output is the first action. Then `cd W` and stay there: the hooks that keep an unattended run going only see engagements of the worktree the session is in.
 
-**Judged:** the whole loop is: run `JUDGED next`, perform its one action per `judged-metrics.md`, repeat. The first call is the resume. On `pause`, report the gate or rule and reason, and wait for Chris's `resolve`. On `stop`, go to Step 3. Dispatch judges with `mcp__t3-code__delegate_task`, or without T3 with `council_call.py` (Transports in `judged-metrics.md`); `JUDGED validate --host t3|direct` first, any error → STOP. Council `compare`: see `compare.md`.
+**Judged:** the whole loop is: run `JUDGED next`, perform its one action per `judged-metrics.md`, repeat. The first call is the resume. On `pause`, report the gate or rule and reason, and wait for Chris's `resolve`. On `stop`, go to Step 3. Dispatch judges with `mcp__t3-code__delegate_task`, or without T3 with `council_call.py` (Transports in `judged-metrics.md`); First `JUDGED validate --host t3|direct --worktree W` (keeps `E` out of Git), any error → STOP. Council `compare`: see `compare.md`.
 
 ## Step 1 — The loop (scripted)
 

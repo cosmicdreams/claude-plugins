@@ -30,6 +30,16 @@ class JudgedTests(unittest.TestCase):
                 self.assertEqual(result['status'], 'invalid')
                 self.assertTrue(result['reason'].startswith('second-1: invalid return: '), result)
 
+    def test_engagement_inside_worktree_is_kept_out_of_git(self):
+        self.f.engagement = self.f.work / '.experiment' / 'climb'
+        self.f.engagement.mkdir(parents=True)
+        self.f.ok('validate', '--host', 't3', '--worktree', self.f.work)
+        self.f.ok('validate', '--host', 't3', '--worktree', self.f.work)
+        (self.f.engagement / 'panel.json').write_text('{}')
+        self.assertEqual(self.f.git('status', '--porcelain', '--untracked-files=all', cwd=self.f.work).stdout, '')
+        exclude = self.f.git('rev-parse', '--path-format=absolute', '--git-path', 'info/exclude', cwd=self.f.work).stdout.strip()
+        self.assertEqual(Path(exclude).read_text().count('/.experiment/climb/'), 1)
+
     def test_empty_trial_commit_refused(self):
         self.begin()
         self.f.git('commit', '--allow-empty', '-m', 'empty trial')
