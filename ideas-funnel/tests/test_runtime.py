@@ -160,6 +160,12 @@ class RuntimeTests(unittest.TestCase):
             run(self.vault, 'resolve', owner, pages=['Sources/keep.md'], url='https://example.com/a')
         # Merge by hand: the duplicate becomes a redirect stub with no identity field.
         (sources / 'dup.md').write_text('Merged into [[Sources/keep]].\n')
+        # A Source added after migration that names the URL still blocks the resolve.
+        (sources / 'late').mkdir()
+        (sources / 'late/new.md').write_text('url: https://example.com/a\n')
+        with self.assertRaisesRegex(ValueError, 'found Sources/keep.md, Sources/late/new.md'):
+            run(self.vault, 'resolve', owner, pages=['Sources/keep.md'], url='https://example.com/a')
+        (sources / 'late/new.md').unlink()
         result = run(self.vault, 'resolve', owner, pages=['Sources/keep.md'], url='https://example.com/a#x')
         self.assertEqual((result['merged'], result['conflicts_remaining']), (['Sources/dup.md'], 1))
         index = read_json(self.vault / 'Raw/.url-index.json')

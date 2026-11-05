@@ -124,8 +124,9 @@ def resolve(vault, index, index_path, url, pages):
     if Path(survivor).is_absolute() or '..' in Path(survivor).parts or not survivor.startswith('Sources/'):
         raise ValueError('surviving page must be a vault-relative Sources/ page')
     extra = hubs(vault)
-    candidates = set(conflict['sources']) | {survivor}
-    citing = sorted(p for p in candidates if (vault / p).is_file() and url in urls(vault / p, extra))
+    # Scan every Source, not only the recorded ones: a page added after migration counts too.
+    citing = sorted(str(p.relative_to(vault)) for p in (vault / 'Sources').rglob('*.md')
+                    if url in urls(p, extra))
     if citing != [survivor]:
         raise ValueError('expected only ' + survivor + ' to name the URL; found ' + (', '.join(citing) or 'none'))
     merged = sorted(set(conflict['sources']) - {survivor})
