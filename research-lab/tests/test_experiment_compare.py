@@ -1,6 +1,8 @@
 """Compare acceptance contracts through the public CLI and disposable worktrees."""
 import json
 import random
+import shutil
+import signal
 from pathlib import Path
 import subprocess
 import sys
@@ -79,6 +81,95 @@ class CompareTests(ReportTests):
             if proc.poll() is None:
                 proc.kill()
                 proc.communicate(timeout=10)
+
+    def test_interrupted_confirmation_resumes_within_exact_budget(self):
+        for interrupt in (signal.SIGTERM, signal.SIGINT):
+            with self.subTest(signal=interrupt):
+                self.setUp()
+                counter = self.root / 'confirmation-count'
+                ready = self.root / 'ready'
+                (self.w / 'measure.sh').write_text(
+                    f'#!/bin/sh\nif [ -f "{counter}" ]; then\n'
+                    f'  n=$(cat "{counter}"); n=$((n+1)); echo "$n" > "{counter}"\n'
+                    f'  if [ "$n" = 2 ]; then touch "{ready}"; sleep 1; fi\n'
+                    'fi\ncat metric\n')
+                self.git('add', 'measure.sh')
+                self.git('commit', '-m', 'test: interruptible confirmation')
+                self.init_compare(runs=3, budget=9)
+                self.variant('a', 5)
+                self.variant('b', 8)
+                self.command('measure')
+                counter.write_text('0')
+                proc = subprocess.Popen(
+                    [sys.executable, str(SCRIPT), 'confirm', '--engagement', str(self.e)],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                try:
+                    deadline = time.monotonic() + 10
+                    while not ready.exists() and time.monotonic() < deadline:
+                        time.sleep(.02)
+                    self.assertTrue(ready.exists())
+                    proc.send_signal(interrupt)
+                    proc.communicate(timeout=10)
+                    self.assertNotEqual(proc.returncode, 0)
+                finally:
+                    if proc.poll() is None:
+                        proc.kill()
+                        proc.communicate(timeout=10)
+                s = self.state()
+                self.assertEqual(s['confirmation_partial']['runs'], [5])
+                self.assertEqual(s['measurements_used'], 7)
+                self.assertEqual(s['variants']['a']['status'], 'measured')
+                self.assert_base()
+                self.assertEqual(self.command('confirm')['ending']['winner'], 'a')
+                s = self.state()
+                self.assertEqual(s['measurements_used'], 9)
+                self.assertEqual(s['confirmation']['runs'], [5, 5, 5])
+                self.assertNotIn('confirmation_partial', s)
+                self.assertEqual(s['variants']['a']['status'], 'measured')
+                self.assertEqual(len([r for r in self.records() if r['decision'] == 'confirm']), 1)
+                self.assert_base()
+
+    def test_finished_report_without_worktree(self):
+        self.e = self.root / 'engagement'
+        self.init_compare()
+        self.variant('a', 5)
+        self.variant('b', 8)
+        self.command('measure')
+        self.command('confirm')
+        shutil.rmtree(self.w)
+        report = self.report()
+        self.assertIn('Winner: a; basis: margin', report)
+        self.assertIn('a (chosen)', report)
+        self.assertIn('Checks: n/a (worktree unavailable)', report)
+        self.assertIn('Scorer files unchanged: n/a (worktree unavailable)', report)
+        self.assertIn('Confirmation present: PASS', report)
+
+    def test_resumed_measure_summarizes_previously_failed_variants(self):
+        for status, runs in (('invalid', []), ('fails checks', [5])):
+            for other_pending in (False, True):
+                with self.subTest(status=status, other_pending=other_pending):
+                    self.setUp()
+                    self.init_compare(runs=1)
+                    self.variant('a', 5)
+                    self.variant('b', 8)
+                    s = self.state()
+                    s['variants']['a'].update(status=status, runs=runs, reason='failed before interruption')
+                    s['measurements_used'] = len(runs)
+                    if not other_pending:
+                        s['variants']['b'].update(status='fails checks', runs=[8], checks=False,
+                                                  reason='Checks failed')
+                        s['measurements_used'] += 1
+                    (self.e / 'state.json').write_text(json.dumps(s))
+                    self.assertEqual(self.command('next')['action'], 'measure')
+                    self.command('measure')
+                    s = self.state()
+                    self.assertEqual(s['variants']['a']['median'], 5 if runs else None)
+                    self.assertEqual(s['variants']['a']['status'], status)
+                    rows = self.records()
+                    self.assertEqual(sorted(r['variant'] for r in rows), ['a', 'b'])
+                    self.assertTrue(all(r['decision'] == 'measured' for r in rows))
+                    self.assertEqual(s['measurements_used'], len(runs) + 1)
+                    self.assert_base()
 
     def test_resumed_sample_without_checks_runs_checks(self):
         self.init_compare(runs=1)

@@ -84,7 +84,8 @@ def next_action(s, c):
         elif cfg['mode'] == 'generated':
             action['remaining_count'] = cfg['count'] - len(set(s['variants']) - {'incumbent'})
         return action
-    if any(v['status'] == 'pending' for v in s['variants'].values()):
+    if any(v['status'] == 'pending' or (v['commit'] and 'median' not in v)
+           for v in s['variants'].values()):
         return dict(action='measure')
     if s['group'] is not None:
         return dict(action='decide', group=s['group'])
@@ -157,10 +158,10 @@ def commit_variant(e, s, v, name):
 
 def sample(s, c, v):
     require(s['measurements_used'] < c['Budget'], 'measurement budget spent')
-    s['measurements_used'] += 1
-    s['trials_used'] = s['measurements_used']
     outputs = []
     result = measure(s, dict(c, Runs=1), outputs=outputs)
+    s['measurements_used'] += 1
+    s['trials_used'] = s['measurements_used']
     metrics = re.findall(r'^METRIC\s+([^=\s]+)=', '\n'.join(line.strip() for line in outputs[0].splitlines()), re.M)
     if c['Metric name'] or len(metrics) == 1:
         s['metric_name'] = c['Metric name'] or metrics[0]
@@ -182,7 +183,6 @@ def measure_variants(e, s, c):
     require(next_action(s, c)['action'] == 'measure', 'variants must be built before measuring')
     ownership(s, s['base'])
     rng = random.Random(s['seed'])
-    pending = [n for n, v in s['variants'].items() if v['status'] == 'pending']
     scheduled = [n for n, v in s['variants'].items() if v['commit']]
     try:
         for i in range(int(c['Runs'])):
@@ -213,8 +213,10 @@ def measure_variants(e, s, c):
                     v.update(status='invalid', reason=str(error))
                     restore(s)
                 save(e, s)
-        for name in pending:
+        for name in scheduled:
             v = s['variants'][name]
+            if 'median' in v:
+                continue
             if v['status'] == 'pending':
                 v['status'] = 'measured'
             summarize(v)
@@ -233,14 +235,16 @@ def confirm(e, s, c):
     names = ranked(s, c)
     name = names[0]
     v = s['variants'][name]
-    result = dict(variant=name, commit=v['commit'], runs=[])
+    result = s.setdefault('confirmation_partial', dict(variant=name, commit=v['commit'], runs=[]))
     try:
         git(s['worktree'], 'switch', '--detach', v['commit'])
-        for _ in range(int(c['Runs'])):
+        for _ in range(len(result['runs']), int(c['Runs'])):
             result['runs'].append(sample(s, c, v))
+            save(e, s)
         require_clean(s['worktree'], measurement=True)
         summarize(result)
         s['confirmation'] = result
+        s.pop('confirmation_partial', None)
         if len(names) == 1 or (result['median'] - s['variants'][names[1]]['median']) * c['sign'] > s['margin']:
             result['outcome'] = 'held'
             choose(s, name, 'margin', 'confirmed gain beyond margin')
@@ -253,6 +257,7 @@ def confirm(e, s, c):
     except (ValueError, OSError) as error:
         v.update(status='invalid', reason='confirmation failed: ' + str(error))
         s['confirmation'] = dict(result, reason=str(error))
+        s.pop('confirmation_partial', None)
         finish(s, c)
     finally:
         restore(s)
@@ -267,7 +272,8 @@ def dispatch(a, e, s, c):
     previous = signal.signal(signal.SIGTERM, terminate)
     try:
         # Only locked commands may recover a checkout left behind by a killed command.
-        if a.command in ('variant', 'grid', 'measure', 'confirm', 'decide', 'report'):
+        if (a.command in ('variant', 'grid', 'measure', 'confirm', 'decide', 'report')
+                and Path(s['worktree']).is_dir()):
             w = s['worktree']
             known = {s['base']} | {v['commit'] for v in s['variants'].values() if v['commit']}
             if git(w, 'rev-parse', '--abbrev-ref', 'HEAD') == 'HEAD' and git(w, 'rev-parse', 'HEAD') in known:
@@ -380,7 +386,9 @@ def add_commands(sub):
 
 def report(e, s, c):
     from experiment_report import cell
-    ownership(s, s['base'])
+    available = Path(s['worktree']).is_dir()
+    if available or s['status'] == 'running':
+        ownership(s, s['base'])
     require(not s['building'], 'finish open variant before reporting')
     end = s['ending']
     names = ranked(s, c)
@@ -432,14 +440,14 @@ def report(e, s, c):
     lines += ['', '## Router notes', '', strategy.read_text().strip() if strategy.exists() else 'Absent.', '', '## Validity', '']
     unchanged = all(Path(p).is_file() and digest(p) == sha for p, sha in s['scorer_sha256'].items())
     for v in s['variants'].values():
-        if not v['commit']:
+        if not available or not v['commit']:
             continue
         for p, sha in s['scorer_sha256'].items():
             rel = Path(p).relative_to(s['worktree']).as_posix()
             # Hash raw blobs; text decoding would alter non-text scorers.
             blob = subprocess.run(['git', '-C', s['worktree'], 'show', v['commit'] + ':' + rel], capture_output=True)
             unchanged &= blob.returncode == 0 and hashlib.sha256(blob.stdout).hexdigest() == sha
-    one_commit = all(n == 'incumbent' or not v['commit'] or
+    one_commit = available and all(n == 'incumbent' or not v['commit'] or
                      git(s['worktree'], 'rev-list', '--parents', '-n', '1', v['commit']).split() == [v['commit'], s['base']]
                      for n, v in s['variants'].items())
     expected = set(s['variants']) - {n for n, v in s['variants'].items() if not v['commit']}
@@ -455,9 +463,12 @@ def report(e, s, c):
     confirmed = bool(s['confirmation'] and winner == s['confirmation']['variant'] and
                      len(s['confirmation']['runs']) == int(c['Runs']) and not s['confirmation'].get('reason'))
     for label, ok in [('Scorer files unchanged', unchanged), ('Each variant is one commit on base', one_commit),
-                      ('Experiment branch never moved', git(s['worktree'], 'rev-parse', s['branch']) == s['base']),
+                      ('Experiment branch never moved', available and git(s['worktree'], 'rev-parse', s['branch']) == s['base']),
                       (f"Measurement order interleaved (seed {s['seed']})", interleaved)]:
-        lines.append(f"- {label}: {'PASS' if ok else 'FAIL'}")
+        result = ('PASS' if ok else 'FAIL')
+        if not available and not label.startswith('Measurement order'):
+            result = 'n/a (worktree unavailable)'
+        lines.append(f'- {label}: {result}')
     lines.append('- Confirmation present: ' + ('PASS' if confirmed else 'FAIL') if end and end.get('basis') == 'margin'
                  else '- Confirmation present: n/a (basis is not margin)')
     lines += ['', '## Worth keeping', '']
@@ -465,17 +476,21 @@ def report(e, s, c):
         if winner:
             chosen = s['variants'][winner]
             lines.append(f"Evaluated commit `{chosen['commit']}` (branch `{chosen['branch']}`).")
-            git(s['worktree'], 'switch', '--detach', chosen['commit'])
+            if available:
+                git(s['worktree'], 'switch', '--detach', chosen['commit'])
         for label in ('Held-out', 'Checks'):
             result = 'ABSENT' if not c[label] else 'n/a (no winner)'
-            if winner and c[label]:
+            if winner and c[label] and not available:
+                result = 'n/a (worktree unavailable)'
+            elif winner and c[label]:
                 try:
                     result = 'PASS' if shell(s['worktree'], c[label]).returncode == 0 else 'FAIL'
                 except ValueError:
                     result = 'FAIL'
             lines.append(f'- {label}: {result}')
     finally:
-        restore(s)
+        if available:
+            restore(s)
     path = e / 'report.md'
     path.write_text('\n'.join(lines) + '\n')
     return dict(path=str(path))
