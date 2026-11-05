@@ -1,12 +1,9 @@
 ---
 name: interrogate
 description: >
-  Adversarial peer review of a formed claim plus its evidence. Desk-rejects when evidence
-  is missing, then spawns context-isolated reviewers with distinct lenses (evidence
-  quality, alternative explanation, reproducibility, internal consistency) that see only
-  the submission, never the reasoning behind it. Returns a verdict; never revises the
-  claim. For an unformed idea use ideate:reality-check.
+  Trigger this if the user says "interrogate this", "tear this apart", or "peer review". Not for an unformed idea (ideate:reality-check).
 triggers:
+  - "peer review"
   - "interrogate this"
   - "peer-review this claim"
   - "tear this apart"

@@ -1,5 +1,18 @@
 # research-lab Changelog
 
+## 5.6.0 — 2026-11-05
+
+**Keyword-only skill descriptions.** Each skill's description now says only which phrases trigger it and which sibling handles the nearest neighbouring request. What the skill does lives in its body.
+
+- `frame`: "frame this", "sharpen this question", "scope this research".
+- `gather`: "gather sources", "build a notebook", "literature review".
+- `understand`: "help me understand", "walk me through", "digest this".
+- `synthesize`: "synthesize this", "form a position", "decision table".
+- `interrogate`: "interrogate this", "tear this apart", "peer review".
+- `teach`: "teach this", "make a briefing", "audio overview".
+- `experiment`: wording aligned; keywords unchanged.
+- Every keyword named in a description is also in that skill's `triggers` list.
+
 ## 5.5.0 — 2026-11-05
 
 **`explore` runs (phase 5 of `plans/research-lab/experiment-designs.md`).** For questions with no imaginable goal: spread out, then converge.

@@ -1,11 +1,11 @@
 ---
 name: gather
 description: >
-  The librarian verb: collect and curate sources on a question — create a NotebookLM
-  notebook, seed it, fire deep web research, curate with the user, and produce a
-  structured source summary. Bringing material in; digesting it is
-  research-lab:understand.
+  Trigger this if the user says "gather sources", "build a notebook", or "literature review". Not for digesting material already gathered (research-lab:understand).
 triggers:
+  - "literature review"
+  - "build a notebook"
+  - "gather sources"
   - "gather research on"
   - "research this topic"
   - "build a notebook on"

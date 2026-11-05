@@ -1,12 +1,9 @@
 ---
 name: understand
 description: >
-  Build a shared mental model of existing material with the user — a plan, pasted text, a
-  file, a codebase, a system, a problem space, or a NotebookLM notebook. No notebook
-  required. The agent chooses its own strategy rather than following a script; output is a
-  lightweight record of understanding. Not for quick lookups, implementation, or
-  adversarial challenge.
+  Trigger this if the user says "help me understand", "walk me through", or "digest this". Not for challenging a claim (research-lab:interrogate).
 triggers:
+  - "walk me through"
   - "let's understand"
   - "help me understand"
   - "understand this"

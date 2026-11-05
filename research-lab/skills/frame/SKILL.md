@@ -1,10 +1,7 @@
 ---
 name: frame
 description: >
-  Sharpen a vague topic into a precise research question with explicit scope, stated
-  assumptions, and falsification criteria. Facilitator stance — it asks the sharpening
-  questions, it does not answer them. Runs first; not for gathering sources or forming a
-  position.
+  Trigger this if the user says "frame this", "sharpen this question", or "scope this research". Not for collecting sources (research-lab:gather).
 triggers:
   - "frame this"
   - "sharpen this question"

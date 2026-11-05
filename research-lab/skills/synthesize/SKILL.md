@@ -1,11 +1,9 @@
 ---
 name: synthesize
 description: >
-  The hinge of the research arc — commit to a claim. Combine digested material into a
-  position write-up, decision table, ranked hypotheses, or generated artifact. Written for
-  insiders who share your context. Re-runnable after interrogate rejects. Needs digested
-  input; from raw sources run understand first.
+  Trigger this if the user says "synthesize this", "form a position", or "decision table". Not for an audience that was not there (research-lab:teach).
 triggers:
+  - "decision table"
   - "synthesize this"
   - "form a position"
   - "write up the findings"

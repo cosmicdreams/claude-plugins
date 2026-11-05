@@ -1,11 +1,9 @@
 ---
 name: teach
 description: >
-  Make a formed claim land with someone who wasn't there: produce the briefing, deck,
-  audio overview, or infographic, then certify it with a Feynman gate — a fresh no-context
-  agent is quizzed using only the artifact. Artifacts must supply context, unlike
-  synthesize. Needs a formed claim and a named audience.
+  Trigger this if the user says "teach this", "make a briefing", or "audio overview". Not for insiders who share the context (research-lab:synthesize).
 triggers:
+  - "audio overview"
   - "teach this"
   - "make a briefing"
   - "explain this to"
