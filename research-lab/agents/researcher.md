@@ -33,9 +33,7 @@ When a librarian hands you one corpus and one question:
 **NotebookLM interaction:**
 - Use `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh` for all notebook queries
 - Read `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/nlm-cli.md` for the full command reference
-- The CLI is `nlm`. It uses `--key value` syntax (NOT `key=value`), and the notebook id is
-  POSITIONAL — `nlm notebook query <id> "question"`, not `-n <id>`
+- The CLI is `nlm`. It uses `--key value` syntax (NOT `key=value`), and the notebook id is POSITIONAL — `nlm notebook query <id> "question"`, not `-n <id>`
 - Use `--json` where available for parseable output
 
-**Output:** structured markdown with clear sections; cite sources; distinguish established
-findings from your interpretation.
+**Output:** structured markdown with clear sections; cite sources; distinguish established findings from your interpretation.
