@@ -35,7 +35,7 @@ Among viable variants:
 
 ## Reporting
 
-The report lists every viable variant with its median, noise, distance from the best, checks and trade-off, marks the choice, and for a grid shows the response surface and each parameter's sensitivity. Fill the "worth adopting?" column with your view. The winner is never merged; the report names its branch.
+The report lists every viable variant with its median, noise, distance from the best, checks and trade-off, marks the choice, and for a grid shows the response surface and each parameter's sensitivity. Fill the "worth adopting?" column with your view. `Held-out:`, when set, runs once on the chosen variant in the report. The winner is never merged; the report names its branch.
 
 ## Council scoring
 

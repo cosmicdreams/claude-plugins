@@ -84,7 +84,7 @@ Judged runs only. `JUDGED next`'s `propose` action uses these:
 
 ## Step 3 — Report
 
-**Scripted:** `EXP report --engagement E` writes `E/report.md`. Fill its agent's-view column ("worth maintaining?", or "worth adopting?" for compare) with your view, and show Chris the ending, the decisions to review and any validity or worth-keeping failure. Never call a run done unless its ending is `met` or `exceptions`.
+**Scripted:** `EXP report --engagement E` writes `E/report.md`. Fill its agent's-view column ("worth maintaining?", or "worth adopting?" for compare) with your view, and show Chris the ending, the decisions to review and any validity or worth-keeping failure. Done means: climb/remediate `met` or `exceptions`; compare a decision or no path; explore `explored`.
 
 **Judged:** on `stop target`, Chris reviews the artifacts; a rejection is `JUDGED resolve --decision reject --worktree W` and the climb continues. Report keeps vs discards, the latest calibrated or confirmed *M*, judge requests spent, and whether drift was monitored.
 

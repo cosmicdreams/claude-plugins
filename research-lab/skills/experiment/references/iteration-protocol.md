@@ -2,7 +2,7 @@
 
 Canonical specification for the experiment iteration loop.
 
-**Scripted `climb` and `remediate` runs:** `experiment.py` does everything in the Git Protocol, Measurement Validity, Ratchet and Futility sections below: it records trial ownership in `state.json`, commits, reverts through `discard-trial.py`, logs, and keeps the engagement directory out of Git by adding it to the repository's `info/exclude` at `init` (the only ignore rule it writes). Futility escalates instead of stopping (`strategies/climb.md`). Keep no extra notes and run no git for trials. The sections below are the rules the script enforces, and the procedure for judged runs and for methodologies the script cannot run.
+**Scripted runs (every strategy):** `experiment.py` does everything in the Git Protocol, Measurement Validity, Ratchet and Futility sections below: it records trial ownership in `state.json`, commits, reverts through `discard-trial.py`, logs, and keeps the engagement directory out of Git by adding it to the repository's `info/exclude` at `init` (the only ignore rule it writes). Futility escalates instead of stopping (`strategies/climb.md`). Keep no extra notes and run no git for trials. The sections below are the rules the script enforces, and the procedure for judged runs and for methodologies the script cannot run.
 
 ---
 

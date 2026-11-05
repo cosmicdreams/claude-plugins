@@ -268,7 +268,7 @@ def log(e, s, c, m, decision, reason, before=None, change=None, extras=None, gat
                            capture_output=True, text=True)
         require(r.returncode == 0, 'logging failed: ' + r.stderr)
     if s['strategy'] in ('compare', 'explore'):
-        line = f"[compare {extra['variant']}] {decision}: {reason} · runs {m['runs']}"
+        line = f"[{s['strategy']} {extra['variant']}] {decision}: {reason} · runs {m['runs']}"
     else:
         line = (f"[trial {t['id'] if t else s['trials_used']}/{int(c['Budget'])}] {s['strategy']} · {m['median']:g} "
                 f"(best {s['ratchet']:g}) target {c['Target']:g} gap {gap(s, c):g} · "
