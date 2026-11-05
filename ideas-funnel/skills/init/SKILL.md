@@ -28,7 +28,11 @@ Idempotent bootstrap. Safe to run every session; only creates what's missing.
 ```bash
 VAULT="${OBSIDIAN_VAULT:-$HOME/Vaults/Neurons}"
 test -d "$VAULT" || { echo "Vault not found at $VAULT"; exit 1; }
+python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from runtime import require_in_place_vault; require_in_place_vault(sys.argv[2])' \
+  "${CLAUDE_PLUGIN_ROOT}/scripts" "$VAULT" || exit 1
 ```
+
+The funnel writes the live vault in place. Stop if the check refuses a vault inside a `main` reference checkout or a linked git worktree; do not create the scaffold there.
 
 ## Step 2 — Create user config directory
 
