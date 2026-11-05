@@ -229,6 +229,9 @@ def records(e):
 
 
 def next_action(e, s, c):
+    if s['strategy'] == 'compare':
+        from experiment_compare import next_action as compare_next
+        return compare_next(s, c)
     if s['status'] != 'running':
         return dict(action='pause' if s.get('unresolved') else 'stop', ending=s['ending'],
                     **({'reason': s['ending']['detail']} if s.get('unresolved') else {}))
@@ -257,16 +260,19 @@ def log(e, s, c, m, decision, reason, before=None, change=None, extras=None, gat
     args = [str(e / 'results.jsonl'), str(t['id'] if t else s['trials_used']),
             change or (t['change'] if t else 'Confirmation'),
             'fail' if decision == 'retry' else gate,
-            json.dumps(before), str(m['median']), str(s['ratchet']), decision, reason, json.dumps(extra)]
+            json.dumps(before), json.dumps(m['median']), json.dumps(s['ratchet']), decision, reason, json.dumps(extra)]
     logged = t and t.get('pending') and any(
         r.get('commit') == t['commit'] and r['decision'] == decision for r in records(e))
     if not logged:
         r = subprocess.run(['bash', str(SCRIPTS.parents[2] / 'scripts/log-iteration.sh'), *args],
                            capture_output=True, text=True)
         require(r.returncode == 0, 'logging failed: ' + r.stderr)
-    line = (f"[trial {t['id'] if t else s['trials_used']}/{int(c['Budget'])}] {s['strategy']} · {m['median']:g} "
-            f"(best {s['ratchet']:g}) target {c['Target']:g} gap {gap(s, c):g} · "
-            f"{decision}: {reason} · noise ±{m['mad']:g} · escalation {s['escalation']}")
+    if s['strategy'] == 'compare':
+        line = f"[compare {extra['variant']}] {decision}: {reason} · runs {m['runs']}"
+    else:
+        line = (f"[trial {t['id'] if t else s['trials_used']}/{int(c['Budget'])}] {s['strategy']} · {m['median']:g} "
+                f"(best {s['ratchet']:g}) target {c['Target']:g} gap {gap(s, c):g} · "
+                f"{decision}: {reason} · noise ±{m['mad']:g} · escalation {s['escalation']}")
     progress = e / 'progress.log'
     if not (logged and progress.exists() and line in progress.read_text().splitlines()):
         with progress.open('a') as f:
@@ -318,12 +324,15 @@ def init(a, e, check):
              scorer_sha256=hashes, baseline=None, margin=None, score_baseline=None, score_margin=None,
              ratchet=None, incumbent=git(w, 'rev-parse', 'HEAD'), trials_used=0,
              consecutive_discards=0, escalation=0, trial=None, exceptions=[], stop_blocks=0)
+    if a.strategy == 'compare':
+        from experiment_compare import initialize
+        initialize(s, c, method.read_text())
     save(e, s)
     # Registry in this worktree's git dir: hooks and status read it instead of walking the tree.
     registry = Path(git(w, 'rev-parse', '--path-format=absolute', '--git-path', REGISTRY))
     with registry.open('a') as f:
         f.write(str(e) + '\n')
-    return dict(action='baseline')
+    return next_action(e, s, c)
 
 
 def evaluate_preconditions(s, command):
@@ -458,8 +467,10 @@ def finish_trial(e, s, c):
 
 
 def dispatch(a, check):
-    locked = a.command in ('baseline', 'confirm') or (
+    locked = a.command in ('baseline', 'confirm', 'variant', 'grid', 'measure', 'decide') or (
         a.command == 'trial' and a.trial_command in ('score', 'commit'))
+    if a.command == 'report':
+        locked = json.loads((Path(a.engagement) / 'state.json').read_text())['strategy'] == 'compare'
     if locked:
         with command_lock(Path(a.engagement).resolve()):
             return dispatch_unlocked(a, check)
@@ -477,6 +488,11 @@ def dispatch_unlocked(a, check):
     require(s['version'] == 1, 'unsupported state version')
     c = config(Path(s['methodology']).read_text(), s['strategy'])
     c['Budget'] = s.get('budget_override', c['Budget'])
+    if s['strategy'] == 'compare' and a.command != 'resume':
+        from experiment_compare import dispatch as compare_dispatch
+        return compare_dispatch(a, e, s, c)
+    if a.command in ('variant', 'grid', 'measure', 'decide'):
+        raise ValueError('command requires compare strategy')
     if a.command == 'report':
         from experiment_report import report
         return report(e, s, c)
@@ -561,6 +577,8 @@ def dispatch_unlocked(a, check):
 
 
 def add_commands(sub):
+    from experiment_compare import add_commands as compare_commands
+    compare_commands(sub)
     for name in ('init', 'next', 'baseline', 'trial', 'confirm', 'conclude', 'exception', 'report', 'resume'):
         p = sub.add_parser(name)
         if name in ('trial', 'exception'):
@@ -577,7 +595,7 @@ def add_commands(sub):
         if name == 'init':
             for arg in ('worktree', 'methodology'):
                 p.add_argument('--' + arg, required=True)
-            p.add_argument('--strategy', choices=('climb', 'remediate'), required=True)
+            p.add_argument('--strategy', choices=('climb', 'remediate', 'compare'), required=True)
             p.add_argument('--scorer', choices=('scripted',), required=True)
         if name == 'trial':
             parsers[0].add_argument('--change', required=True)
