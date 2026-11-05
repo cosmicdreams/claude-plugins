@@ -68,6 +68,7 @@ def open_round(a, e, s, c):
                 git(s['worktree'], 'switch', '--detach', v['commit'])
                 passed = all(shell(s['worktree'], cmd).returncode == 0
                              for cmd in [c['Checks'], *[shlex.join(judged.command_parts(g, base)) for g in p['guardrails']]])
+                v['checks'] = passed
                 require_clean(s['worktree'], measurement=True)
                 require(passed, 'Checks failed')
                 texts[name] = artifact(s, p, base)
@@ -119,10 +120,18 @@ def record(a, e, s):
                                  judged.read_json(Path(a.invocation_file)))
 
 
+def unrecorded_requests(e, s):
+    meta = judged.read_json(e / 'evals' / s['council_round'] / 'eval.json')
+    return [dict(dir=r['dir'], role=r['role']) for r in meta['request_list']
+            if not (Path(r['dir']) / 'return.json').is_file()]
+
+
 def score_round(e, s, c):
     from experiment_compare import choose, next_action
     ownership(s, s['base'])
     require(s.get('council_round') and not s.get('council_result'), 'no unscored pairwise round')
+    remaining = unrecorded_requests(e, s)
+    require(not remaining, f'{len(remaining)} requests unrecorded')
     dest = e / 'evals' / s['council_round']
     meta = judged.read_json(dest / 'eval.json')
     table, invalid, inconsistent = [], [], dict.fromkeys(meta['panel'], 0)
@@ -193,9 +202,13 @@ def report(e, s, c):
                  order['preferred'], row['winner'] or 'tie', order['critique']]) + ' |')
     lines += ['', '## Position inconsistencies', '']
     lines += [f'- {role}: {count}' for role, count in result.get('position_inconsistencies', {}).items()]
-    lines += ['', '## Variants and trade-offs', '']
-    lines += [f"- {name}: {cell(v['tradeoff'])}; {v['status']}; {cell(v.get('reason', ''))}; commit {v['commit']}"
-              for name, v in s['variants'].items()]
+    lines += ['', '## Variants and trade-offs', '',
+              "| Variant | Status | Checks | Tradeoff | Reason | Commit | worth adopting? (agent's view) |",
+              '| --- | --- | --- | --- | --- | --- | --- |']
+    for name, v in s['variants'].items():
+        checks = 'PASS' if v.get('checks') is True else 'FAIL' if v.get('checks') is False else '—'
+        lines.append('| ' + ' | '.join(cell(str(x)) for x in
+            [name, v['status'], checks, v['tradeoff'], v.get('reason', ''), v['commit'], '_']) + ' |')
     lines += ['', 'Unbeaten review group: ' + ', '.join(s.get('group') or [])]
     path = e / 'report.md'
     path.write_text('\n'.join(lines) + '\n')

@@ -278,7 +278,13 @@ def confirm(e, s, c):
 
 def dispatch(a, e, s, c):
     if a.command == 'next':
-        return next_action(s, c)
+        action = next_action(s, c)
+        if s['scorer'] == 'council' and action['action'] == 'score':
+            from experiment_council import unrecorded_requests
+            remaining = unrecorded_requests(e, s)
+            if remaining:
+                return dict(action='record', eval=s['council_round'], remaining=remaining)
+        return action
     def terminate(signum, frame):
         raise KeyboardInterrupt
     previous = signal.signal(signal.SIGTERM, terminate)

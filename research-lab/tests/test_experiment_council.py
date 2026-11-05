@@ -77,6 +77,35 @@ class CouncilTests(unittest.TestCase):
         self.assertIsNone(out['result']['pairwise'][0]['winner'])
         self.command('decide', '--choose', 'b', '--reason', 'trade-off choice')
 
+    def test_unrecorded_requests_block_scoring_without_pausing(self):
+        opened = self.build(count=3)
+        self.returns(dict(requests=opened['requests'][:2]), lambda r, m: 'tie')
+        pending = self.command('next')
+        self.assertEqual(pending['action'], 'record')
+        self.assertEqual(pending['eval'], opened['eval'])
+        self.assertEqual(pending['remaining'],
+                         [dict(dir=r['dir'], role=r['role']) for r in opened['requests'][2:]])
+        before = (self.f.engagement / 'state.json').read_text()
+        self.assertIn('10 requests unrecorded', self.command('score', ok=False)['reason'])
+        self.assertEqual((self.f.engagement / 'state.json').read_text(), before)
+        self.assertFalse((self.f.engagement / 'evals' / opened['eval'] / 'result.json').exists())
+        self.returns(dict(requests=opened['requests'][2:]), lambda r, m: 'tie')
+        self.assertEqual(self.command('next')['action'], 'score')
+        self.assertEqual(self.command('score')['action'], 'decide')
+
+    def test_report_includes_agent_view_per_variant(self):
+        self.build()
+        self.command('report')
+        report = (self.f.engagement / 'report.md').read_text()
+        header = next(line for line in report.splitlines() if line.startswith('| Variant |'))
+        columns = [c.strip() for c in header.split('|')[1:-1]]
+        view = columns.index("worth adopting? (agent's view)")
+        for name in ('a', 'b'):
+            row = next(line for line in report.splitlines() if line.startswith(f'| {name} |'))
+            values = [c.strip() for c in row.split('|')[1:-1]]
+            self.assertEqual(len(values), len(columns))
+            self.assertEqual(values[view], '_')
+
     def test_nonunanimous_pair(self):
         opened = self.build()
         self.returns(opened, lambda r, m: 'a' if r['role'] == 'primary' else 'b')
@@ -122,6 +151,14 @@ class CouncilTests(unittest.TestCase):
         self.assertEqual(opened['requests'], [])
         out = self.command('score')
         self.assertEqual(out['group'], ['b'])
+        self.command('report')
+        report = (self.f.engagement / 'report.md').read_text()
+        header = next(line for line in report.splitlines() if line.startswith('| Variant |'))
+        columns = [c.strip() for c in header.split('|')[1:-1]]
+        for name, expected in (('a', 'FAIL'), ('b', 'PASS')):
+            row = next(line for line in report.splitlines() if line.startswith(f'| {name} |'))
+            values = [c.strip() for c in row.split('|')[1:-1]]
+            self.assertEqual(values[columns.index('Checks')], expected)
 
     def test_check_passed_legacy_and_blocked_status(self):
         self.assertEqual(experiment.check('climb', None, str(self.method))['status'], 'ready')
