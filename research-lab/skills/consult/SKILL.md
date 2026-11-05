@@ -32,7 +32,7 @@ This is the only research-lab skill that invokes other verbs. The verbs themselv
 2. **Resume.** If an engagement record is named or plainly meant, read it and continue from its `next` field. Go to step 3 of the Process.
 3. **New job.** If there is a goal, continue with the Process.
 4. Else **FAIL FAST**: "What do you want researched, and what decision will the answer feed?" Stop.
-5. **Vault.** Run `RL root`. If it refuses as unconfigured, say once that the record will live in a local `analysis-reports/research/<engagement>/` folder instead, and carry on. Any other refusal is a stop: report its reason.
+5. **Vault.** Run `RL root`. If it refuses as unconfigured, say once that this job will be kept locally, and carry on in **local mode**: create `analysis-reports/research/<date>-<slug>/` yourself in place of `RL new engagement`, and skip every `RL index` step. Any other refusal is a stop: report its reason.
 
 ---
 
@@ -60,13 +60,13 @@ Record the accepted plan in the record's Plan section and set `next`.
 For each step:
 
 1. Read the verb's `## Preflight` and `## Suggest next` sections from `${CLAUDE_PLUGIN_ROOT}/skills/<verb>/SKILL.md`. Do not rely on memory of them; they change.
-2. Invoke it by exact name: `Skill("research-lab:<verb>", args="engagement=<folder> ...")`. Plain-language requests mid-job ("write this up for the execs") are yours to map to a verb (`teach`); do not leave them to description matching, where host publishing tools often win.
+2. Invoke it by exact name: `Skill("research-lab:<verb>", args="engagement=<dir> ...")`, where `<dir>` is the engagement folder for the `main` part and `parts/<part>/` inside it for any other part. Plain-language requests mid-job ("write this up for the execs") are yours to map to a verb (`teach`); do not leave them to description matching, where host publishing tools often win.
 3. Pick the next step from that verb's Suggest next list. Leave the list only to reroute, and write the reason in the record's Log.
 4. Append one Log line: date, verb, what it produced (a path), and the next step. Update `next`.
 
 Send lookups to researcher agents (`research-lab:researcher`, corpus-query mode): one corpus and one question each, many at once. Take back only their cited answers, never raw dumps; your context holds the job, not the sources.
 
-`experiment` has its own strategy card, which is already the user's gate. Feed it the methodology inputs and let its loop run; do not drive its internal steps. When it ends, it registers the run under `Experiments/`; add the run's name to the record.
+`experiment` is the exception to step 2: never give it the engagement folder, because its loop writes raw state and results into its engagement directory and those stay out of the vault. Give it a directory inside its experiment worktree, as its input contract asks. Its strategy card is already the user's gate; feed it the methodology inputs and let its loop run, without driving its internal steps. When it ends, it registers the run under `Experiments/` (pass it `used-by=<engagement name>`); add the run's name to the record.
 
 ### 4. Deliver and close
 
@@ -112,7 +112,7 @@ Split only when one context can't hold the job, or when independence is the poin
 - **Split for capacity:** each part gets its own librarian (`librarian · <engagement> · <part>`), started as a separate session with this plugin's `librarian` agent and the args `engagement=<folder> part=<part>`. The parts may message each other.
 - **Split for independence:** the same, but the parts must not exchange messages or read each other's Log until both have delivered.
 
-Each part writes only its own `parts/<part>.md` section file in the engagement folder; the `main` librarian merges them into the record.
+Each other part works only in `parts/<part>/` inside the engagement folder: its verbs' numbered outputs and its own `record.md` (same template, `parts: ["<part>"]`) live there. It never writes the main `record.md` or the main numbered outputs. When a part delivers, the `main` librarian merges its outcome into the main record.
 
 ---
 

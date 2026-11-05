@@ -71,6 +71,15 @@ class ResearchLabTest(unittest.TestCase):
                 self.assertEqual(code, 1)
         self.assertEqual(self.files_written(), set())
 
+    def test_folder_that_resolves_to_the_vault_is_refused(self):
+        self.configure(vault=str(self.vault), folder='..')
+        self.assertEqual(self.run_cli('index')[0], 1)
+        (self.vault / 'Research-Lab').symlink_to(self.vault)
+        self.configure(vault=str(self.vault), index='index.md')
+        code, out = self.run_cli('index')
+        self.assertEqual(code, 1)
+        self.assertFalse((self.vault / 'index.md').exists())
+
     def test_new_names_are_dated_slugs_and_never_collide(self):
         paths = [self.run_cli('new', 'run', 'Edge Caching!', '--date', '2026-11-05')[1]['path']
                  for _ in range(3)]
@@ -101,14 +110,20 @@ class ResearchLabTest(unittest.TestCase):
         self.assertIn(folder.name, index)
         self.assertIn('Can TTFB drop below 50 ms?', index)
 
-    def test_register_run_without_state_still_registers(self):
+    def test_judged_run_registers_from_explicit_arguments(self):
         e = self.tmp / 'judged-run'
         e.mkdir()
         (e / 'report.md').write_text('report\n')
-        code, out = self.run_cli('register-run', '--engagement', str(e))
+        protocol = self.tmp / 'protocol.md'
+        protocol.write_text('# Judging protocol\n')
+        code, out = self.run_cli('register-run', '--engagement', str(e), '--methodology', str(protocol),
+                                 '--scorer', 'council', '--outcome', 'target')
         self.assertEqual(code, 0)
-        self.assertEqual(sorted(p.name for p in pathlib.Path(out['path']).iterdir()),
-                         ['report.md', 'run.md'])
+        folder = pathlib.Path(out['path'])
+        self.assertEqual(sorted(p.name for p in folder.iterdir()),
+                         ['methodology.md', 'report.md', 'run.md'])
+        note = rl.frontmatter((folder / 'run.md').read_text())
+        self.assertEqual((note['scorer'], note['outcome']), ('council', 'target'))
 
     def test_index_lists_engagement_records(self):
         folder = pathlib.Path(self.run_cli('new', 'engagement', 'edge caching')[1]['path'])

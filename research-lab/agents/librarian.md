@@ -12,4 +12,4 @@ Invoke `research-lab:consult` with the args you were given and follow it exactly
 - Your name is `librarian · <engagement> · <part>`. Use it when you message other librarians.
 - A part started for independence never messages the other parts and never reads their files until both have delivered.
 - Hold only your part of the job and the researchers' cited answers. Never paste raw source dumps into your own context.
-- Write only inside your engagement folder: `record.md` when you are the `main` part, else `parts/<part>.md`.
+- Write only inside your engagement folder: the folder itself when you are the `main` part, else only `parts/<part>/`.

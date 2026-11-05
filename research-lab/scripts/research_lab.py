@@ -7,6 +7,7 @@ Usage:
   research_lab.py root
   research_lab.py new engagement|run SLUG [--date YYYY-MM-DD]
   research_lab.py register-run --engagement E [--slug S] [--question Q] [--used-by NAME ...]
+                               [--methodology M] [--scorer S] [--outcome O]
   research_lab.py index
 
 Configuration is one JSON file, `research-lab.json` in the Claude configuration
@@ -60,6 +61,8 @@ def settings():
     if not vault.is_dir():
         raise Refused(f'vault {vault} does not exist')
     s['root'] = (vault / s['folder']).resolve()
+    if vault.resolve() not in s['root'].parents:
+        raise Refused(f'{s["root"]} is not a folder inside the vault')
     return s
 
 
@@ -119,11 +122,13 @@ def render(fields):
     return '\n'.join(lines + ['---', ''])
 
 
-def register_run(root, engagement, slug=None, question=None, used_by=()):
+def register_run(root, engagement, slug=None, question=None, used_by=(),
+                 methodology=None, scorer=None, outcome=None):
     """Copy an experiment run's report and methodology in, with a summary note.
 
     Raw results (state.json, results.jsonl) stay in the run's engagement
-    directory; the note records where that is.
+    directory; the note records where that is. A judged run has no
+    state.json, so its methodology, scorer and outcome are passed in.
     """
     e = Path(engagement).expanduser().resolve()
     if not e.is_dir():
@@ -132,7 +137,8 @@ def register_run(root, engagement, slug=None, question=None, used_by=()):
         state = json.loads((e / 'state.json').read_text())
     except (OSError, ValueError):
         state = {}
-    methodology = Path(state['methodology']) if state.get('methodology') else None
+    methodology = methodology or state.get('methodology')
+    methodology = Path(methodology).expanduser() if methodology else None
     folder = new(root, 'run', slug or e.name)
     copied = []
     for source, name in ((e / 'report.md', 'report.md'), (methodology, 'methodology.md')):
@@ -146,9 +152,9 @@ def register_run(root, engagement, slug=None, question=None, used_by=()):
         'date': folder.name[:10],
         'question': question,
         'strategy': state.get('strategy'),
-        'scorer': state.get('scorer'),
+        'scorer': scorer or state.get('scorer'),
         'status': state.get('status'),
-        'outcome': ending.get('kind'),
+        'outcome': outcome or ending.get('kind'),
         'best': state.get('ratchet'),
         'baseline': state.get('baseline'),
         'trials': state.get('trials_used'),
@@ -216,6 +222,9 @@ def main(argv=None):
     r.add_argument('--slug')
     r.add_argument('--question')
     r.add_argument('--used-by', action='append', default=[])
+    r.add_argument('--methodology')
+    r.add_argument('--scorer')
+    r.add_argument('--outcome')
     sub.add_parser('index')
     a = parser.parse_args(argv)
     try:
@@ -225,7 +234,8 @@ def main(argv=None):
         elif a.command == 'new':
             out = {'path': str(new(s['root'], a.kind, a.slug, a.date))}
         elif a.command == 'register-run':
-            folder = register_run(s['root'], a.engagement, a.slug, a.question, a.used_by)
+            folder = register_run(s['root'], a.engagement, a.slug, a.question, a.used_by,
+                                  a.methodology, a.scorer, a.outcome)
             out = {'path': str(folder), 'index': str(index(s))}
         else:
             out = {'index': str(index(s))}

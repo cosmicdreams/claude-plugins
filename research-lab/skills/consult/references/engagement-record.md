@@ -53,5 +53,5 @@ Filled in at the end: the answer, its confidence, the interrogate verdict, and l
 ## Rules
 
 - Append to Log and Gates; never rewrite earlier lines.
-- When the job is split, each part writes only `parts/<part>.md` in the engagement folder; the `main` librarian merges it into this record.
+- When the job is split, each part other than `main` keeps its own record and numbered outputs in `parts/<part>/`; the `main` librarian merges each part's outcome into this record when the part delivers. The index lists only the main record.
 - Run `research_lab.py index` after any change to the frontmatter.
