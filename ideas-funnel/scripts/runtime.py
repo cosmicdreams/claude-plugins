@@ -58,7 +58,9 @@ def require_in_place_vault(vault):
         if marker.exists():
             if folder.name == 'main':
                 raise RuntimeError(f'refusing to write: {folder} is a main reference checkout')
-            if marker.is_file():
+            # A `.git` file also marks submodules and separate git dirs; only a
+            # gitdir under `.../worktrees/<name>` is a linked worktree.
+            if marker.is_file() and '/worktrees/' in marker.read_text(errors='replace'):
                 raise RuntimeError(f'refusing to write: {folder} is a linked git worktree; use the live vault folder')
             return
 

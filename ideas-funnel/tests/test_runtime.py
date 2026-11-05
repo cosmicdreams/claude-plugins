@@ -38,14 +38,18 @@ class RuntimeTests(unittest.TestCase):
         (topic / '.git').write_text(f'gitdir: {main}/.git/worktrees/topic\n')
         live = root / 'Neurons'
         (live / '.git').mkdir(parents=True)
+        submodule = root / 'Notes'
+        submodule.mkdir()
+        (submodule / '.git').write_text('gitdir: ../parent/.git/modules/Notes\n')
         for vault in (main, main / 'Raw', topic):
             with self.subTest(vault=vault), self.assertRaisesRegex(RuntimeError, 'refusing to write'):
                 with locked(vault):
                     pass
             self.assertFalse((vault / '_meta').exists())
-        with locked(live):
-            pass
-        self.assertTrue((live / '_meta/ideas-funnel.lock').exists())
+        for vault in (live, submodule):
+            with locked(vault):
+                pass
+            self.assertTrue((vault / '_meta/ideas-funnel.lock').exists())
 
     def test_url_identity(self):
         self.assertEqual(canonical('HTTPS://Example.COM:443/a?utm_source=x&id=1#x'), 'https://example.com/a?id=1')
