@@ -26,6 +26,31 @@ class RuntimeTests(unittest.TestCase):
         atomic_json(self.vault / 'Raw/.url-index.json', value)
         return value
 
+    def test_writer_refuses_main_reference_and_linked_worktree(self):
+        # The guard reads only `.git` markers: a directory for a checkout,
+        # a `gitdir:` file for a linked worktree.
+        root = Path(self.tmp.name)
+        main = root / 'worktrees' / 'main'
+        (main / '.git').mkdir(parents=True)
+        (main / 'Raw').mkdir()
+        topic = root / 'worktrees' / 'topic'
+        topic.mkdir()
+        (topic / '.git').write_text(f'gitdir: {main}/.git/worktrees/topic\n')
+        live = root / 'Neurons'
+        (live / '.git').mkdir(parents=True)
+        submodule = root / 'Notes'
+        submodule.mkdir()
+        (submodule / '.git').write_text('gitdir: ../parent/.git/modules/Notes\n')
+        for vault in (main, main / 'Raw', topic):
+            with self.subTest(vault=vault), self.assertRaisesRegex(RuntimeError, 'refusing to write'):
+                with locked(vault):
+                    pass
+            self.assertFalse((vault / '_meta').exists())
+        for vault in (live, submodule):
+            with locked(vault):
+                pass
+            self.assertTrue((vault / '_meta/ideas-funnel.lock').exists())
+
     def test_url_identity(self):
         self.assertEqual(canonical('HTTPS://Example.COM:443/a?utm_source=x&id=1#x'), 'https://example.com/a?id=1')
         self.assertNotEqual(canonical('https://example.com/a?id=1'), canonical('https://example.com/a?id=2'))
