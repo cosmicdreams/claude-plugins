@@ -291,8 +291,9 @@ def ownership(s, expected, dirty=False):
 
 def init(a, e, check):
     require(not (e / 'state.json').exists(), 'state.json already exists')
-    out = check(a.strategy, a.scorer, a.methodology)
+    out = check(a.strategy, a.scorer, a.methodology, a.transport)
     require(out['status'] == 'ready', out['reason'])
+    require(not (a.scorer == 'council' and a.strategy == 'climb'), 'climb council uses judged.py (capture, open, next); not scripted init')
     w = Path(a.worktree).resolve()
     require(Path(git(w, 'rev-parse', '--show-toplevel')).resolve() == w, 'worktree must be root')
     gd = git(w, 'rev-parse', '--absolute-git-dir')
@@ -314,19 +315,19 @@ def init(a, e, check):
     c = config(method.read_text(), a.strategy)
     hashes = {}
     for name in ('Measure', 'Checks'):
-        tokens = shlex.split(c[name])
+        tokens = shlex.split(c[name] or '')
         if tokens:
             p = (w / tokens[0]).resolve()
             if p.is_relative_to(w) and p.is_file():
                 hashes[str(p)] = digest(p)
-    s = dict(version=1, strategy=a.strategy, scorer='scripted', status='running', ending=None,
+    s = dict(version=1, strategy=a.strategy, scorer=a.scorer, transport=out.get('transport', a.transport or 't3'), status='running', ending=None,
              worktree=str(w), branch=branch, methodology=str(method), methodology_sha256=digest(method),
              scorer_sha256=hashes, baseline=None, margin=None, score_baseline=None, score_margin=None,
              ratchet=None, incumbent=git(w, 'rev-parse', 'HEAD'), trials_used=0,
              consecutive_discards=0, escalation=0, trial=None, exceptions=[], stop_blocks=0)
     if a.strategy == 'compare':
         from experiment_compare import initialize
-        initialize(s, c, method.read_text())
+        initialize(s, dict(c, scorer=a.scorer), method.read_text())
     save(e, s)
     # Registry in this worktree's git dir: hooks and status read it instead of walking the tree.
     registry = Path(git(w, 'rev-parse', '--path-format=absolute', '--git-path', REGISTRY))
@@ -467,7 +468,7 @@ def finish_trial(e, s, c):
 
 
 def dispatch(a, check):
-    locked = a.command in ('baseline', 'confirm', 'variant', 'grid', 'measure', 'decide') or (
+    locked = a.command in ('baseline', 'confirm', 'variant', 'grid', 'measure', 'decide', 'record', 'score') or (
         a.command == 'trial' and a.trial_command in ('score', 'commit'))
     if a.command == 'report':
         locked = json.loads((Path(a.engagement) / 'state.json').read_text())['strategy'] == 'compare'
@@ -596,7 +597,9 @@ def add_commands(sub):
             for arg in ('worktree', 'methodology'):
                 p.add_argument('--' + arg, required=True)
             p.add_argument('--strategy', choices=('climb', 'remediate', 'compare'), required=True)
-            p.add_argument('--scorer', choices=('scripted',), required=True)
+            p.add_argument('--scorer', choices=('scripted', 'council'), required=True)
+        if name == 'init':
+            p.add_argument('--transport', choices=('t3', 'direct'))
         if name == 'trial':
             parsers[0].add_argument('--change', required=True)
             parsers[0].add_argument('--tradeoff', required=True)

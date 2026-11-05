@@ -221,7 +221,7 @@ class LifecycleTests(unittest.TestCase):
 
     def drift_pause(self):
         self.calibrated()
-        s = Scenario([opened(measurement(5, 6, 4.75))], changes=[('same improvement', 'IMPROVED\n')])
+        s = Scenario([opened(measurement(5, 6, 5.25))], changes=[('same improvement', 'IMPROVED\n')])
         a = self.logged(s, 'invalid')
         self.assertIs(read(self.eval_path(a['eval']) / 'result.json')['drift'], True)
         self.assertEqual(self.step(s)['action'], 'pause')
@@ -302,7 +302,7 @@ class LifecycleTests(unittest.TestCase):
         options = {'errors': {0: 'offline judge failure'}} if point == 'error_return' else {}
         if point == 'mid_dispatch':
             options['partial'] = 1
-        values = measurement(reference=4.75 if point == 'drift_result' else 4)
+        values = measurement(reference=5.25 if point == 'drift_result' else 4)
         failed = point in ('failed_checks', 'revert')
         s = Scenario([opened(values, **options)], [not failed], [('pending improvement', 'PENDING\n')])
         boundary = {'score_keep': 'score', 'failed_checks': 'run_checks',

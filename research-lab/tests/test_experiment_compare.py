@@ -142,6 +142,7 @@ class CompareTests(ReportTests):
         self.assertIn('a (chosen)', report)
         self.assertIn('Checks: n/a (worktree unavailable)', report)
         self.assertIn('Scorer files unchanged: n/a (worktree unavailable)', report)
+        self.assertIn('VALIDITY NOT RE-VERIFIED', report)
         self.assertIn('Confirmation present: PASS', report)
 
     def test_resumed_measure_summarizes_previously_failed_variants(self):

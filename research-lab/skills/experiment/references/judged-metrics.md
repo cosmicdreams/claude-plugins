@@ -4,11 +4,11 @@ Operating spec for `metric_type: judged` runs (v1). The metric comes from a pane
 
 `JUDGED` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/judged.py`. Every subcommand takes `--engagement <dir> --protocol <methodology.md>` and prints one JSON object. Exit 1 is a refusal (`{"error": ...}`) and writes nothing: report it and stop; do not work around it by hand.
 
-Judged runs execute in the orchestrating T3 session. The `experimentalist` agent refuses them.
+Judged runs execute in the orchestrating session. The `experimentalist` agent refuses them.
 
-## Status: blocked
+## Status
 
-The plan's acceptance smoke test failed on 2026-11-04, so judged runs are refused until a rerun passes. Its first calibration was invalid for two integration reasons, both since addressed: the panel omitted an option the host reports (`fastMode: false` for Claude judges; see Panel), and a judge copied a string placeholder as its score (requests now show a numeric one). The failure record is in the engagement `analysis-reports/research/experiment-hill-climb/smoke-result.md`. Lift this block only by rerunning the smoke test and recording a pass here.
+`council-status.json` is authoritative for passed transports. T3 passed the acceptance smoke test: `analysis-reports/research/experiment-hill-climb/smoke-r3-result.md`. Direct (no T3, judges called through `scripts/council_call.py`) passed its check: `analysis-reports/research/experiment-hill-climb/smoke-direct-result.md`.
 
 ---
 
@@ -55,7 +55,17 @@ Paths in `artifact_command`, `references` and `guardrails` resolve relative to t
 
 ## Panel
 
-Before each `open`, build `panel.json` = `{"<role>": {"provider", "model", "options": {...}}}` with exactly the protocol's roles. Resolve each role's tier through the global routing table and `~/.claude/model-access.md` (the denylist); honor `distinct_family`. Run `~/bin/allowance`: a pool under 10% remaining **pauses** the run (report it and stop). Never substitute another model for that reason. `options` must list every option the host reports for that model, including defaults it adds (for example Claude judges report `fastMode: false`); `score` compares them exactly. The panel changes only when routing or the denylist changes; a changed panel makes the active calibration stale. Pass the same file to `next` and `open`.
+Before each `open`, build `E/panel.json` (after `validate --worktree W`, which keeps `E` out of Git) = `{"<role>": {"provider", "model", "options": {...}}}` with exactly the protocol's roles. Resolve each role's tier through the global routing table and `~/.claude/model-access.md` (the denylist); honor `distinct_family`. Run `~/bin/allowance`: a pool under 10% remaining **pauses** the run (report it and stop). Stale data is unknown, not low: proceed and note it in the report. Never substitute another model for that reason. `options` must list exactly the options the dispatch reports for that model, including defaults it adds (for example Claude judges report `fastMode: false`); `score` compares them exactly, so check one result's reported options before the first `open`. The panel changes only when routing or the denylist changes; a changed panel makes the active calibration stale. Pass the same file to `next` and `open`.
+
+## Transports
+
+Council `compare` uses the same panel and transports but its own pairwise loop and `EXP record`; see `strategies/compare.md`. Everything else on this page is the judged climb.
+
+T3 `delegate_task` is the default transport; invocation provenance comes from the host result. Without T3, run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/council_call.py --request DIR --role ROLE --panel panel.json` for each prepared request. Direct provenance is the panel entry with an exact pinned model name; aliases such as `opus`, `sonnet`, `haiku` and names ending in `-latest` are refused. A reported model mismatch invalidates the return. An unreported model is accepted only for Codex, using its pinned model name. The helper records errors and raw output and times out after 600 seconds; it never asks a judge its model name.
+
+Use `validate --host t3|direct`. Pass `open --transport t3|direct` and the same `--transport` to `next` (both default to `t3`); each evaluation records its transport. Calibration is per transport: changing transport makes the calibration stale, including an otherwise identical panel. Older evaluation metadata without a transport is treated as `t3`.
+
+Keep two model families on the panel. Before dispatch, every model must pass `~/.claude/model-access.md` for the account running it. Direct `claudeAgent_work` uses `~/.claude-work`, while `claudeAgent` uses `~/.claude`; no account fallback is allowed. Direct options are limited to Codex `reasoningEffort`, Claude `effort` and `fastMode: false`, and no Gemini options: the installed Gemini command-line interface (CLI) exposes no reasoning-effort flag. Unsupported options are refused so the recorded panel does not claim settings that were ignored. Codex uses its read-only sandbox; Claude has no tools or configured Model Context Protocol (MCP) servers and uses plan permissions; Gemini uses plan (read-only) approval mode.
 
 ## Metric and keep rule
 
@@ -67,13 +77,13 @@ A measurement scores incumbent *I* and candidate *C* together. **Keep** only whe
 
 A calibration (and a confirmation) scores two independent captures of the incumbent against each other: two requests per judge. Noise = the largest of |v(capture-1) − v(capture-2)| within a request and |v(capture-i, request 1) − v(capture-i, request 2)|, over every judge and category. *m* = max(`margin_floor`, noise). Calibrated cell = mean of its four scores; calibrated *M* = min of those. Reference baseline = mean of each reference cell over both requests. The margin is a heuristic, not a statistical guarantee.
 
-The active calibration is the latest `calibrate` record. It is **stale** when the panel or fingerprint changed, or a `withdraw` or tree-adopting `continue` resolution followed it. Stale calibration withdraws any pending trial and forces a recalibration.
+The active calibration is the latest `calibrate` record. It is **stale** when the transport, panel or fingerprint changed, or a `withdraw` or tree-adopting `continue` resolution followed it. Stale calibration withdraws any pending trial and forces a recalibration.
 
 A **confirmation** re-scores the incumbent before `stop target`, because the measurement that kept it was selected for being high. Only a confirmation newer than the active calibration counts; one below target lets the climb continue.
 
 ## Drift
 
-A measurement or confirmation in which any reference cell moves more than 2*m* from the calibration's baseline is **invalid** (`drift: true`): no keep, no discard. It is logged `invalid` and the run pauses. Without references drift is unmonitored and the report says so.
+A measurement or confirmation in which any reference cell moves more than max(2*m*, 1, *s*) from the calibration's baseline is **invalid**, where *s* is that same reference cell’s absolute change between the calibration's two requests (a reference that already wobbles cannot flag drift by less) (`drift: true`): no keep, no discard. It is logged `invalid` and the run pauses. Without references drift is unmonitored and the report says so.
 
 ## Budget
 
@@ -94,7 +104,7 @@ Call `JUDGED next --worktree W --panel P` only when no judge request is in fligh
 | `log` | `${CLAUDE_PLUGIN_ROOT}/scripts/log-iteration.sh` with `args` exactly as given (results path first; 10th is the extras JSON). Never build log arguments by hand. |
 | `capture` | `JUDGED capture --worktree W --role <role>`. A result of `invalid` is recorded by the script; call `next`. |
 | `open` | Rebuild the panel (above), then `JUDGED open --purpose <purpose> --panel P --seed N` with a new integer seed. Then dispatch every request it lists. |
-| `propose` | SKILL.md Steps 2a–2c with the returned `iteration` and `diagnostics`: `trial begin --change`, edit, commit, `trial commit`. A cheap-gate rejection is logged as a `skip` with that iteration via `log-iteration.sh`, with no `trial begin`. |
+| `propose` | SKILL.md Steps 2a–2c with the returned `iteration` and `diagnostics`: `trial begin --change`, edit, commit, `trial commit`. `trial commit` refuses an unchanged tree (`trial changes nothing`). A cheap-gate rejection is logged as a `skip` with that iteration via `log-iteration.sh`, with no `trial begin`. |
 | `stop` | `reason` is `target`, `budget`, `iterations` or `futility`. Go to SKILL.md Step 3. |
 
 ### Dispatch
@@ -102,13 +112,15 @@ Call `JUDGED next --worktree W --panel P` only when no judge request is in fligh
 For each request from `open`, call `mcp__t3-code__delegate_task` with mode wait, the target (provider, model, options) of the panel role, and the task text = the full contents of its `request.md`. Add nothing: no paths, target, iteration, or which item is which. Then, in that request's directory:
 
 - `invocation.json` = `{"provider": <result providerInstanceId>, "model": <result model>, "options": {<id>: <value>, …}}`, taken from the delegate **result**, never from the request.
-- `return.json` = the JSON object the judge returned, or `{"error": "<what happened>"}` on error, timeout or unparseable output. Never invent or repair scores.
+- `return.json` = the JSON object the judge returned, copied verbatim from the result's reply text (do not retype it), or `{"error": "<what happened>"}` on error, timeout or unparseable output. Never invent or repair scores. A result's options arrive as a list of `{id, value}`; write them as an object.
+
+When a reply is not parseable JSON, the orchestrator may re-request that judge once before recording it: a format retry, with the identical request, not a re-judgment of content. Never repair scores. A malformed return or one lacking `items` invalidates the evaluation with the request name (for example `second-1: invalid return: missing items`).
 
 A crash mid-dispatch leaves requests without `return.json`; `next` then returns `abandon`.
 
 ## Pauses and `resolve`
 
-v1 never recovers automatically. Any `invalid` record (other than reason `stale`) or capture failure since the latest resolution pauses the run, as do the G1–G3 gates (malformed `trial.json`, a trial whose worktree, branch, cleanliness or HEAD no longer matches, or an unknown change to the tree). Report it; Chris (or the agent on his instruction) clears it:
+v1 never recovers automatically. Any `invalid` record (other than reason `stale`) or capture failure since the latest resolution pauses the run (`next` reports it as rule 9), as do the G1–G3 gates (malformed `trial.json`, a trial whose worktree, branch, cleanliness or HEAD no longer matches, or an unknown change to the tree). Report it; Chris (or the agent on his instruction) clears it:
 
 ```bash
 JUDGED resolve --decision withdraw|retry|continue|reject --note "…" [--worktree W]
@@ -123,7 +135,7 @@ JUDGED resolve --decision withdraw|retry|continue|reject --note "…" [--worktre
 | `continue` | Chris fixed the state by hand. With no pending trial, adopts the current tree as incumbent and makes the calibration stale. |
 | `reject` | Human review rejected the incumbent at target (below). |
 
-Withdrawn trials do not consume iterations or move the futility streak.
+Withdrawn trials do not consume iterations or move the futility streak. For a drift pause, `retry` re-measures the same trial. If the same reference drifts again, it is unsuitable: references must be on-topic for the rubric (an off-topic reference gets rescored relative to whatever sits beside it). Replace it in the methodology (the fingerprint changes and the next step recalibrates) or remove references and accept unmonitored drift; withdrawing and recalibrating with the same reference tends to repeat the drift. On `withdraw`, `next` returns a `discard_trial` action that you run through `discard-trial.py`; the recalibration keeps the withdrawn trial's iteration number. In judged runs you commit each trial yourself (a Conventional Commits message for the change), then run `trial commit`.
 
 ## Human review
 

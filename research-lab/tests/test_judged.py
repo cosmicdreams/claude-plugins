@@ -19,6 +19,62 @@ class JudgedTests(unittest.TestCase):
         self.f = Fixture()
         self.addCleanup(self.f.close)
 
+    def test_invalid_return_names_request(self):
+        for raw in ('{"items":', '{}', '{"error":"bad JSON"}'):
+            with self.subTest(raw=raw):
+                self.capture(); self.capture()
+                e = self.opened()
+                self.returns(e)
+                (e / 'second-1/return.json').write_text(raw)
+                result = self.score(e)
+                self.assertEqual(result['status'], 'invalid')
+                self.assertTrue(result['reason'].startswith('second-1: invalid return: '), result)
+
+    def test_engagement_inside_worktree_is_kept_out_of_git(self):
+        self.f.engagement = self.f.work / '.experiment' / 'climb'
+        self.f.engagement.mkdir(parents=True)
+        self.f.ok('validate', '--host', 't3', '--worktree', self.f.work)
+        self.f.ok('validate', '--host', 't3', '--worktree', self.f.work)
+        (self.f.engagement / 'panel.json').write_text('{}')
+        self.assertEqual(self.f.git('status', '--porcelain', '--untracked-files=all', cwd=self.f.work).stdout, '')
+        exclude = self.f.git('rev-parse', '--path-format=absolute', '--git-path', 'info/exclude', cwd=self.f.work).stdout.strip()
+        self.assertEqual(Path(exclude).read_text().count('/.experiment/climb/'), 1)
+
+    def test_empty_trial_commit_refused(self):
+        self.begin()
+        self.f.git('commit', '--allow-empty', '-m', 'empty trial')
+        before = (self.f.engagement / 'trial.json').read_bytes()
+        code, value, err = self.f.run('trial', 'commit', '--worktree', self.f.work)
+        self.assertEqual(code, 1, (value, err))
+        self.assertEqual(value, {'error': 'trial changes nothing'})
+        self.assertEqual((self.f.engagement / 'trial.json').read_bytes(), before)
+
+    def test_transport_change_stales_calibration(self):
+        self.f.ok('validate', '--host', 'direct')
+        self.calibration()
+        code, value, err = self.f.run('open', '--purpose', 'confirm', '--panel', self.f.panel_path,
+                                      '--seed', 0, '--transport', 'direct')
+        self.assertEqual(code, 1, (value, err))
+        self.assertIn('stale', value['error'])
+        action = self.f.ok('next', '--worktree', self.f.work, '--panel', self.f.panel_path,
+                            '--transport', 'direct')
+        self.assertEqual(action, {'action': 'open', 'purpose': 'calibrate', 'transport': 'direct'})
+        opened = self.f.ok('open', '--purpose', 'calibrate', '--panel', self.f.panel_path,
+                            '--seed', 0, '--transport', 'direct')
+        e = self.f.engagement / 'evals' / opened['eval']
+        self.assertEqual(self.read(e / 'eval.json')['transport'], 'direct')
+        self.returns(e); self.score(e)
+        self.f.ok('checks', '--eval', e.name, '--worktree', self.f.work, '--passed')
+        action = self.f.ok('next', '--worktree', self.f.work, '--panel', self.f.panel_path,
+                            '--transport', 'direct')
+        self.assertEqual(action['decision'], 'calibrate')
+        self.assertEqual(self.f.log(action['args']).returncode, 0)
+        self.f.ok('open', '--purpose', 'confirm', '--panel', self.f.panel_path,
+                  '--seed', 1, '--transport', 'direct')
+        code, value, err = self.f.run('open', '--purpose', 'confirm', '--panel', self.f.panel_path, '--seed', 0)
+        self.assertEqual(code, 1, (value, err))
+        self.assertIn('stale', value['error'])
+
     def read(self, path):
         return json.loads(Path(path).read_text(encoding='utf-8'))
 
@@ -578,11 +634,55 @@ class JudgedTests(unittest.TestCase):
             payload = self.read(path)
             for label, meaning in self.read(path.parent / 'mapping.json').items():
                 if meaning.startswith('ref:'):
-                    payload['items'][label]['accuracy']['score'] = 4.6
+                    payload['items'][label]['accuracy']['score'] = 5.1
             path.write_text(json.dumps(payload))
         r = self.score(e)
         self.assertEqual(r['status'], 'invalid')
         self.assertIs(r['drift'], True)
+
+    def test_reference_spread_in_calibration_widens_drift_limit(self):
+        # A reference that already moved 3 points between calibration requests
+        # cannot flag drift for a 1.5-point move (real climb·council run, 2026-11-05).
+        self.capture(); self.capture(); e = self.opened(); self.returns(e)
+        def shift_ref(evaluation, request, delta):
+            path = evaluation / request / 'return.json'
+            payload = self.read(path)
+            for label, meaning in self.read(path.parent / 'mapping.json').items():
+                if meaning.startswith('ref:'):
+                    payload['items'][label]['clarity']['score'] += delta
+            path.write_text(json.dumps(payload))
+        shift_ref(e, 'primary-2', -3)
+        r = self.score(e)
+        self.assertEqual(r['status'], 'valid')
+        ref = next(iter(r['reference_spread']['primary']))
+        self.assertEqual(r['reference_spread']['primary'][ref]['clarity'], 3)
+        self.assertEqual(r['reference_spread']['primary'][ref]['accuracy'], 0)
+        self.f.ok('checks', '--eval', e.name, '--worktree', self.f.work, '--passed')
+        self.finalize(e, 'calibrate')
+        c = self.opened('confirm'); self.returns(c)
+        for request in ('primary-1', 'primary-2'):
+            shift_ref(c, request, -1.5)
+        self.assertEqual(self.score(c)['status'], 'valid')
+
+    def test_noisy_reference_cell_does_not_hide_stable_cell_drift(self):
+        self.capture(); self.capture(); e = self.opened(); self.returns(e)
+        path = e / 'primary-2/return.json'
+        payload = self.read(path)
+        ref = next(label for label, meaning in self.read(path.parent / 'mapping.json').items() if meaning.startswith('ref:'))
+        payload['items'][ref]['clarity']['score'] -= 3
+        path.write_text(json.dumps(payload))
+        self.assertEqual(self.score(e)['status'], 'valid')
+        self.f.ok('checks', '--eval', e.name, '--worktree', self.f.work, '--passed')
+        self.finalize(e, 'calibrate')
+        c = self.opened('confirm'); self.returns(c)
+        path = c / 'primary-1/return.json'
+        payload = self.read(path)
+        ref = next(label for label, meaning in self.read(path.parent / 'mapping.json').items() if meaning.startswith('ref:'))
+        payload['items'][ref]['accuracy']['score'] += 1.5
+        path.write_text(json.dumps(payload))
+        result = self.score(c)
+        self.assertEqual(result['status'], 'invalid')
+        self.assertTrue(result['drift'])
 
     def test_calibration_within_request_noise(self):
         # scope D14: within-request differences also enter the maximum noise.
@@ -827,7 +927,7 @@ def invalid_score(case):
                 p = self.read(request)
                 for lab, meaning in self.read(request.parent / 'mapping.json').items():
                     if meaning.startswith('ref:'):
-                        p['items'][lab]['clarity']['score'] = 4.51 if case == 'drift' else 4.5
+                        p['items'][lab]['clarity']['score'] = 5.01 if case == 'drift' else 5
                 request.write_text(json.dumps(p))
         if case not in ('drift', 'drift_boundary'): path.write_text(json.dumps(payload))
         if case == 'duplicate_cell':
@@ -876,7 +976,7 @@ def asymmetric(case):
         if case == 'provenance':
             (e / 'second-1/invocation.json').write_text(json.dumps(panel()['primary']))
         if case == 'reference':
-            values[next(v for v in mapping.values() if v.startswith('ref:'))] = 4.75
+            values[next(v for v in mapping.values() if v.startswith('ref:'))] = 5.25
             self.f.write_return(e, 'second', 1, values)
         r = self.score(e)
         self.assertEqual(r['status'], 'invalid' if case in ('provenance', 'reference') else

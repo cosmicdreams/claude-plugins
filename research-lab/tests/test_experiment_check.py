@@ -1,5 +1,6 @@
 """Contract tests for `experiment.py check`: strategy/scorer precedence and refusals."""
 import json
+import os
 import re
 from pathlib import Path
 import subprocess
@@ -53,9 +54,9 @@ class CheckTests(unittest.TestCase):
         p.write_text(text)
         return str(p)
 
-    def run_check(self, *args):
+    def run_check(self, *args, env=None):
         r = subprocess.run([sys.executable, str(SCRIPT), 'check', *args],
-                           text=True, capture_output=True, timeout=60)
+                           text=True, capture_output=True, timeout=60, env=env)
         return r.returncode, json.loads(r.stdout)
 
     def test_no_strategy_routes(self):
@@ -124,11 +125,14 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn('unknown scorer', out['reason'])
 
-    def test_council_blocked(self):
-        code, out = self.run_check('--strategy', 'climb', '--scorer', 'council',
-                                   '--methodology', self.method('metric_type: judged\n' + CLIMB))
+    def test_unpassed_council_transport_refused(self):
+        status = Path(self.tmp.name) / 'council-status.json'
+        status.write_text(json.dumps({'status': 'passed', 'record': 'r', 'transports': ['t3']}))
+        env = dict(os.environ, RESEARCH_LAB_COUNCIL_STATUS=str(status))
+        code, out = self.run_check('--strategy', 'climb', '--scorer', 'council', '--transport', 'direct',
+                                   '--methodology', self.method('metric_type: judged\n' + CLIMB), env=env)
         self.assertEqual(code, 1)
-        self.assertIn('blocked', out['reason'])
+        self.assertIn('transport has not passed', out['reason'])
 
     def test_legacy_metric_type_maps_to_council(self):
         code, out = self.run_check('--strategy', 'climb',

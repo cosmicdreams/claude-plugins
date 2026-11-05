@@ -15,12 +15,14 @@ for name in ('validate', 'capture', 'trial', 'open', 'score', 'abandon',
     p.add_argument('--protocol', required=True)
     for commands, flag, options in (
         ('validate', 'host', dict(required=False)),
+        ('validate', 'worktree', dict(required=False)),
         ('capture trial checks resolve next', 'worktree', dict(required=name != 'resolve')),
         ('capture', 'role', dict(choices=('incumbent', 'candidate'))),
         ('trial', 'change', dict(required=False)),
         ('open next', 'panel', {}),
         ('open', 'purpose', dict(choices=('calibrate', 'confirm', 'measure'))),
         ('open', 'seed', dict(type=int)),
+        ('open next', 'transport', dict(required=False, choices=('t3', 'direct'), default='t3')),
         ('score abandon invalidate checks', 'eval', {}),
         ('invalidate', 'reason', {}),
         ('checks', 'details', dict(required=False)),
@@ -89,7 +91,7 @@ def methodology(path):
     protocol = json.loads(fence.group(1)) if fence else None
     if protocol is not None:
         protocol.setdefault('iterations', 20); protocol.setdefault('futility', 5)
-    return sections, metric.group(1) if metric else 'scripted', direction.group(1) if direction else None, protocol
+    return sections, metric.group(1) if metric else ('judged' if re.search(r'^scorer:\s*council\s*$', one, re.M) else 'scripted'), direction.group(1) if direction else None, protocol
 
 
 def command_parts(command, base):
@@ -128,6 +130,19 @@ def load_panel(path, p):
     return panel
 
 
+def exclude_engagement(eng, work):
+    """Keep an engagement directory inside the worktree out of Git (the scripted init does the same)."""
+    eng, work = Path(eng).resolve(), Path(work).resolve()
+    if eng == work or not eng.is_relative_to(work):
+        return
+    pattern = '/' + re.sub(r'([\\*?\[\] !#])', r'\\\1', eng.relative_to(work).as_posix()) + '/'
+    exclude = Path(git(work, 'rev-parse', '--path-format=absolute', '--git-path', 'info/exclude'))
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    if pattern not in (exclude.read_text().splitlines() if exclude.exists() else []):
+        with exclude.open('a') as f:
+            f.write('\n' + pattern + '\n')
+
+
 def git(work, *args):
     return subprocess.run(['git', '-C', str(work), *args], check=True, capture_output=True, text=True).stdout.strip()
 
@@ -156,13 +171,13 @@ def incumbent_tree(engagement, current, results=None):
     return max(events)[2] if events else current
 
 
-def active_calibration(engagement, panel, fingerprint):
+def active_calibration(engagement, panel, fingerprint, transport='t3'):
     results = records(engagement / 'results.jsonl')
     found = [(i, r) for i, r in enumerate(results) if r.get('decision') == 'calibrate']
     if not found: return None, True
     i, record = found[-1]
     meta = read_json(engagement / 'evals' / record.get('eval', '') / 'eval.json', {})
-    stale = meta.get('panel') != panel or meta.get('fingerprint') != fingerprint
+    stale = meta.get('panel') != panel or meta.get('fingerprint') != fingerprint or meta.get('transport', 't3') != transport
     stale |= any(r.get('results_lines', 0) >= i + 1 and (r.get('decision') == 'withdraw' or (r.get('decision') == 'continue' and r.get('adopted'))) for r in records(engagement / 'resolutions.jsonl'))
     return record, bool(stale)
 
@@ -190,12 +205,12 @@ def iteration_counters(results):
     return used, streak
 
 
-def validate(path, host):
+def validate(path, host, council=False):
     errors, warnings = [], []
     try:
         sections, metric, direction, p = methodology(path)
-        if host != 't3': errors.append('host must be t3')
-        if metric != 'judged' or 9 not in sections or p is None: errors.append('judged methodology and protocol required')
+        if host not in ('t3', 'direct'): errors.append('host must be t3 or direct')
+        if (metric != 'judged' and not council) or 9 not in sections or p is None: errors.append('judged methodology and protocol required')
         if direction != 'higher': errors.append('direction must be higher')
         if p is not None:
             judges, categories = p['judges'], p['categories']
@@ -231,7 +246,7 @@ def open_eval(a, eng, path, p, sections, trial, results):
         if not candidate: raise ValueError('candidate capture required')
     else: candidate_tree, candidate = None, []
     fingerprint = protocol_fingerprint(p, path.parent, eng, sections)
-    cal, stale = active_calibration(eng, panel, fingerprint)
+    cal, stale = active_calibration(eng, panel, fingerprint, a.transport)
     if a.purpose != 'calibrate' and (not cal or stale): raise ValueError('calibration missing or stale')
     manifest = read_json(eng / 'references/manifest.json')
     if manifest is None: manifest = reference_manifest(p, path.parent)
@@ -245,7 +260,7 @@ def open_eval(a, eng, path, p, sections, trial, results):
     ids = [int(x.name[1:]) for x in (eng / 'evals').glob('e[0-9]*') if x.name[1:].isdigit()]
     eid = f'e{max(ids, default=0)+1:04d}'
     dest = eng / 'evals' / eid
-    meta = dict(id=eid, purpose=a.purpose, iteration=trial['iteration'] if trial else max([r.get('iteration', 0) for r in results], default=0), incumbent_tree=tree, candidate_tree=candidate_tree, captures=[str(x) for x in (inc[:1] + candidate[:1] if candidate else inc[:2])], panel=panel, fingerprint=fingerprint, requests=cost, calibration=cal.get('eval') if cal else None)
+    meta = dict(id=eid, purpose=a.purpose, transport=a.transport, iteration=trial['iteration'] if trial else max([r.get('iteration', 0) for r in results], default=0), incumbent_tree=tree, candidate_tree=candidate_tree, captures=[str(x) for x in (inc[:1] + candidate[:1] if candidate else inc[:2])], panel=panel, fingerprint=fingerprint, requests=cost, calibration=cal.get('eval') if cal else None)
     if not (eng / 'references/manifest.json').exists():
         for entry in manifest:
             destref = eng / 'references' / entry['path']; destref.parent.mkdir(parents=True, exist_ok=True)
@@ -261,7 +276,7 @@ def open_eval(a, eng, path, p, sections, trial, results):
             if rng.randrange(2): pair.reverse()
             mapping = dict(zip(('A', 'B'), pair))
             mapping.update({f'Ref-{i}': 'ref:' + name for i, name in enumerate(reftexts, 1)})
-            d = dest / f'{role}-{k}'; write_json(d / 'mapping.json', mapping)
+            d = dest / f'{role}-{k}'
             request = 'Judge only the text given. Do not read files or run commands. Return JSON with items, score and critique for each category. Scores must be 0 to 10.\n\n'
             request += '\n'.join(f'{c}: {rubric}' for c, rubric in p['categories'].items()) + '\n\n'
             cell = {'score': 0, 'critique': '<one sentence>'}
@@ -269,29 +284,54 @@ def open_eval(a, eng, path, p, sections, trial, results):
             request += 'Each score is a JSON number from 0 to 10, not a string. '
             request += 'Reply with only this JSON, filled in:\n' + json.dumps(shape, indent=1) + '\n\n'
             request += '\n\n'.join(f'## {label}\n{texts[meaning]}' for label, meaning in mapping.items())
-            (d / 'request.md').write_text(request, encoding='utf-8')
-            requests.append(dict(role=role, k=k, dir=str(d), request_md=str(d / 'request.md')))
+            requests.append(prepare_request(d, role, k, mapping, request))
     return dict(eval=eid, requests=requests)
+
+
+def prepare_request(directory, role, k, mapping, text):
+    write_json(directory / 'mapping.json', mapping)
+    (directory / 'request.md').write_text(text, encoding='utf-8')
+    return dict(role=role, k=k, dir=str(directory), request_md=str(directory / 'request.md'))
+
+
+def unique(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result: raise ValueError('duplicate key')
+        result[key] = value
+    return result
+
+
+def request_return(directory, expected, required):
+    if read_json(directory / 'invocation.json') != expected:
+        raise ValueError(f'{directory.name}: invocation mismatch')
+    try:
+        data = json.loads((directory / 'return.json').read_text(), object_pairs_hook=unique)
+        if not isinstance(data, dict) or required not in data:
+            raise ValueError(data.get('error', 'missing ' + required) if isinstance(data, dict) else 'expected object')
+        return data
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f'{directory.name}: invalid return: {exc}') from exc
+
+
+def record_request(directory, returned, invocation):
+    if (directory / 'return.json').exists() or (directory / 'invocation.json').exists():
+        raise ValueError('request already recorded')
+    write_json(directory / 'invocation.json', invocation)
+    return write_json(directory / 'return.json', returned)
 
 
 def score_eval(eng, dest, meta, p):
     import math
     dirs = sorted(dest.glob('*/mapping.json'))
     if any(not (d.parent / 'return.json').exists() for d in dirs): raise ValueError('missing return')
-    def unique(pairs):
-        result = {}
-        for k, v in pairs:
-            if k in result: raise ValueError('duplicate key')
-            result[k] = v
-        return result
     try:
         for entry in read_json(eng / 'references/manifest.json', []):
             if digest((eng / 'references' / entry['path']).read_bytes()) != entry['sha256']: raise ValueError('reference hash mismatch')
         raw, critiques = {}, []
         for mp in dirs:
             role, k = mp.parent.name.rsplit('-', 1); mapping = read_json(mp)
-            if read_json(mp.parent / 'invocation.json') != meta['panel'][role]: raise ValueError('invocation mismatch')
-            data = json.loads((mp.parent / 'return.json').read_text(), object_pairs_hook=unique)
+            data = request_return(mp.parent, meta['panel'][role], required='items')
             items = data['items']
             if set(items) != set(mapping): raise ValueError('invalid labels')
             values = {}
@@ -308,8 +348,11 @@ def score_eval(eng, dest, meta, p):
         roles = list(meta['panel']); cats = list(p['categories'])
         baseline = {r: {ref: {c: sum(raw[(r,k)][ref][c] for k in (1,2)) / 2 for c in cats} for ref in refs} for r in roles} if meta['purpose'] != 'measure' else None
         cal = read_json(eng / 'evals' / (meta.get('calibration') or '') / 'result.json', {})
+        spread = cal.get('reference_spread', 0)
+        def reference_spread(role, ref, category):
+            return spread.get(role, {}).get(ref, {}).get(category, 0) if isinstance(spread, dict) else spread
         drift = meta['purpose'] != 'calibrate' and max((
-            abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > 2 * cal['margin']
+            abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > max(2 * cal['margin'], 1, reference_spread(r, ref, c))
             for (r, k), vals in raw.items() for ref in refs for c in cats), default=False)
         def value(vals, item, cat):
             return vals[item][cat] - (max(vals[ref][cat] for ref in refs) if p['relative_to'] == 'references' else 0)
@@ -327,7 +370,10 @@ def score_eval(eng, dest, meta, p):
                     v = {(i,k): value(raw[(r,k)], 'capture-' + str(i), c) for i in (1,2) for k in (1,2)}
                     cells[r][c] = sum(v.values()) / 4
                     noise = max(noise, *(abs(v[(1,k)]-v[(2,k)]) for k in (1,2)), *(abs(v[(i,1)]-v[(i,2)]) for i in (1,2)))
-            result = dict(status='valid', reason='', metric=min(cells[r][c] for r in roles for c in cats), margin=max(p['margin_floor'], noise), noise=noise, reference_baseline=baseline, cells=cells, panel=meta['panel'])
+            # A reference that already moves between the two calibration requests cannot flag drift by less than that.
+            spread = {r: {ref: {c: abs(raw[(r,1)][ref][c] - raw[(r,2)][ref][c])
+                               for c in cats} for ref in refs} for r in roles}
+            result = dict(status='valid', reason='', metric=min(cells[r][c] for r in roles for c in cats), margin=max(p['margin_floor'], noise), noise=noise, reference_baseline=baseline, reference_spread=spread, cells=cells, panel=meta['panel'])
         write_json(dest / 'critiques.json', critiques)
     except (ValueError, KeyError, TypeError, OSError) as e:
         result = dict(status='invalid', reason=str(e) or 'invalid return')
@@ -364,11 +410,11 @@ def diagnostics(eng, all_evals, results, resolutions, tree):
     return out
 
 
-def next_action(a, eng, path):
+def next_action(a, eng, path, panel_override=None):
     sections, _, _, p = methodology(path)
     base = path.parent
     work = Path(a.worktree).resolve()
-    panel = load_panel(Path(a.panel), p)
+    panel = panel_override if panel_override is not None else load_panel(Path(a.panel), p)
     results, resolutions, all_evals = records(eng / 'results.jsonl'), records(eng / 'resolutions.jsonl'), evals(eng)
     try:
         trial = read_json(eng / 'trial.json')
@@ -392,7 +438,7 @@ def next_action(a, eng, path):
 
     fingerprint = protocol_fingerprint(p, base, eng, sections)
     cfp = capture_fingerprint(p, base)
-    cal, stale = active_calibration(eng, panel, fingerprint)
+    cal, stale = active_calibration(eng, panel, fingerprint, a.transport)
     retained = retained_metric(results)
     maxit = max([r.get('iteration', 0) for r in results], default=0)
     since, failures = since_resolution(eng)
@@ -401,7 +447,7 @@ def next_action(a, eng, path):
 
     def open_or_stop(purpose):
         if spent + len(panel) * (1 if purpose == 'measure' else 2) > p['budget_calls']: return dict(action='stop', reason='budget')
-        return dict(action='open', purpose=purpose)
+        return dict(action='open', purpose=purpose, **({'transport': a.transport} if a.transport != 't3' else {}))
 
     def measure_eval(iteration):
         return next((e['id'] for e in reversed(all_evals) if e['purpose'] == 'measure' and e['iteration'] == iteration), None)
@@ -422,7 +468,7 @@ def next_action(a, eng, path):
         if result is None:
             return dict(action='abandon' if any(not (d.parent / 'return.json').exists() for d in dest.glob('*/mapping.json')) else 'score', eval=eid)
         status, measure, done = result['status'], ev['purpose'] == 'measure', eid in finalized
-        if not done and status in ('valid', 'keep', 'discard') and (ev['panel'] != panel or ev['fingerprint'] != fingerprint or (measure and stale)):
+        if not done and status in ('valid', 'keep', 'discard') and (ev['panel'] != panel or ev['fingerprint'] != fingerprint or ev.get('transport', 't3') != a.transport or (measure and stale)):
             return dict(action='invalidate', eval=eid, reason='stale')
         if not done and status == 'invalid':
             change = trial_change(ev['iteration']) if measure else 'Calibration' if ev['purpose'] == 'calibrate' else 'Confirmation'
@@ -483,7 +529,9 @@ def next_action(a, eng, path):
 
 def run(a):
     eng, path = Path(a.engagement).resolve(), Path(a.protocol).resolve()
-    if a.command == 'validate': return validate(path, a.host)
+    if a.command == 'validate':
+        if a.worktree: exclude_engagement(eng, a.worktree)
+        return validate(path, a.host)
     if a.command == 'next': return next_action(a, eng, path)
     results = records(eng / 'results.jsonl')
     trial = pending_trial(eng, results)
@@ -523,17 +571,25 @@ def run(a):
         append(eng / 'resolutions.jsonl', record)
         return record
     work = Path(a.worktree).resolve()
+    exclude_engagement(eng, work)
     head, tree = git(work, 'rev-parse', 'HEAD'), git(work, 'rev-parse', 'HEAD^{tree}')
     if a.command == 'trial':
         branch = git(work, 'symbolic-ref', '--short', 'HEAD')
         if git(work, 'status', '--porcelain', '--untracked-files=all'): raise ValueError('dirty worktree')
         if a.operation == 'begin':
             if trial or tree != incumbent_tree(eng, tree, results) or not a.change: raise ValueError('cannot begin trial')
+            from types import SimpleNamespace
+            previous_evals = evals(eng)
+            if previous_evals:
+                meta = previous_evals[-1]
+                action = next_action(SimpleNamespace(worktree=str(work), transport=meta.get('transport', 't3')), eng, path, meta['panel'])
+                if action['action'] == 'stop': raise ValueError('cannot begin trial: stop ' + action['reason'])
             previous = read_json(eng / 'trial.json', {})
             iteration = 1 + max([previous.get('iteration', 0)] + [r.get('iteration', 0) for r in results if r.get('decision') in ('keep', 'discard', 'skip')])
             trial = dict(iteration=iteration, worktree=str(work), branch=branch, base=head, base_tree=tree, commit=None, change=a.change)
         else:
             if not trial or trial.get('commit') or trial['worktree'] != str(work) or trial['branch'] != branch or head == trial['base'] or git(work, 'rev-list', '--parents', '-n', '1', 'HEAD').split()[1:] != [trial['base']]: raise ValueError('invalid trial commit')
+            if tree == trial['base_tree']: raise ValueError('trial changes nothing')
             trial['commit'] = head
         return write_json(eng / 'trial.json', trial)
     if a.role == 'incumbent' and trial and trial.get('commit'): raise ValueError('committed trial pending')
