@@ -1,5 +1,13 @@
 # research-lab Changelog
 
+## 5.5.0 — 2026-11-05
+
+**`explore` runs (phase 5 of `plans/research-lab/experiment-designs.md`).** For questions with no imaginable goal: spread out, then converge.
+
+- Round 1 builds deliberately different candidates; each round is ranked (by measurement or council pairwise wins), never decided.
+- After each round the agent announces one or two points of interest; later rounds build variations of them, with lineage recorded.
+- The run ends `explored` on its rounds or budget and claims no improvement. The report is a gallery, the points of interest, and the `climb` or `compare` worth running next.
+
 ## 5.4.0 — 2026-11-05
 
 **Council scoring runs (phase 4 of `plans/research-lab/experiment-designs.md`).** `climb` and `compare` can be scored by a cross-family panel of model judges instead of a script.

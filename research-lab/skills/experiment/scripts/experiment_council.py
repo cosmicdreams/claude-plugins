@@ -124,13 +124,13 @@ def open_round(a, e, s, c):
 
 
 def capture_round(a, e, s, c, p, base):
-    from experiment_compare import restore
+    from experiment_compare import active_variants, restore
     panel = judged.load_panel(Path(a.panel), p)
     # Freeze inputs before running any variant commands.
     references = [(base / name).read_text(encoding='utf-8') for name in p['references']]
     texts = {}
     try:
-        for name, v in s['variants'].items():
+        for name, v in active_variants(s).items():
             if not v['commit']:
                 continue
             try:
@@ -151,7 +151,7 @@ def capture_round(a, e, s, c, p, base):
                 restore(s)
         cost = len(texts) * (len(texts) - 1) * len(panel)
         require(s['measurements_used'] + cost <= c['Budget'], 'judge request budget spent')
-        dest = e / 'evals/e0001'
+        dest = e / 'evals' / f"e{s.get('round', 1):04d}"
         require(not dest.exists(), 'pairwise round already exists')
         meta = dict(id=dest.name, purpose='pairwise', panel=panel, transport=s['transport'],
                     requests=cost, variants=list(texts), pairs=[], request_list=[])
@@ -239,7 +239,13 @@ def score_round(e, s, c):
     judged.write_json(dest / 'result.json', result)
     s['council_result'] = result
     names = meta['variants']
-    if invalid:
+    if s['strategy'] == 'explore':
+        from experiment_explore import finish_round
+        if invalid:
+            ending(s, 'paused', 'invalid council requests; inspect pairwise result')
+        else:
+            finish_round(s, c)
+    elif invalid:
         ending(s, 'paused', 'invalid council requests; inspect pairwise result')
     elif not names:
         ending(s, 'no-path', 'no variant is viable')

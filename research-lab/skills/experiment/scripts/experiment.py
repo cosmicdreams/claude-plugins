@@ -15,7 +15,7 @@ from pathlib import Path
 
 STRATEGIES = ('remediate', 'climb', 'compare', 'explore')
 SCORERS = ('scripted', 'council')
-NOT_BUILT = {'explore': 5}
+NOT_BUILT = {}
 COUNCIL_STATUS = Path(os.environ.get('RESEARCH_LAB_COUNCIL_STATUS')
                       or Path(__file__).resolve().parent.parent / 'references/council-status.json')
 
@@ -132,7 +132,7 @@ def check(strategy_arg, scorer_arg, methodology_path, transport=None):
     if scorer == 'council':
         try:
             council_transport(transport)
-            if strategy not in ('climb', 'compare'): raise ValueError('council supports climb and compare')
+            if strategy not in ('climb', 'compare', 'explore'): raise ValueError('council supports climb, compare and explore')
         except (ValueError, OSError) as error:
             out['reason'] = str(error)
             return out
@@ -157,6 +157,9 @@ def check(strategy_arg, scorer_arg, methodology_path, transport=None):
         c = config(text, strategy)
         c['scorer'] = scorer
         validate(c)
+        if strategy == 'explore':
+            from experiment_explore import configuration
+            configuration(text, c)
         if strategy == 'compare':
             from experiment_compare import configuration
             configuration(text, c)

@@ -107,11 +107,10 @@ class CheckTests(unittest.TestCase):
         code, out = self.run_check('--strategy', 'climb')
         self.assertEqual((code, out['missing']), (1, ['methodology']))
 
-    def test_unbuilt_strategies_refused(self):
-        for s in ('explore',):
-            code, out = self.run_check('--strategy', s, '--methodology', self.method(CLIMB))
-            self.assertEqual(code, 1, s)
-            self.assertIn('not built yet', out['reason'])
+    def test_explore_requires_question(self):
+        code, out = self.run_check('--strategy', 'explore', '--methodology', self.method(CLIMB))
+        self.assertEqual(code, 1)
+        self.assertIn('Question', out['reason'])
 
     def test_not_an_experiment_refused(self):
         code, out = self.run_check('--strategy', 'not-an-experiment')

@@ -36,7 +36,7 @@ Args may preload `strategy=<remediate|climb|compare|explore|auto>` and `scorer=<
 - `route` → run the router in `strategies.md`. "Not an experiment" → say so in one line and stop. Otherwise write and show the strategy card, with a drafted `methodology.md` if none was given, and **pause** for accept, edit or switch. Re-run `CHECK` with the accepted choice.
 - `refused` → STOP; report `reason` and each `missing` item.
 
-`climb`, `remediate` and `compare` run with the scripted scorer; `climb` and `compare` also with `council`. Others stop after the card with `CHECK`'s reason. After acceptance (or a `ready` preload) the run is unattended.
+Every strategy runs with the scripted scorer; `climb`, `compare` and `explore` also with `council`. After acceptance (or a `ready` preload) the run is unattended.
 
 ## Input contract
 
@@ -59,7 +59,7 @@ Run `EXP next --engagement E` and do its one action, then repeat:
 | `edit` / `rework` | Finish or rework the open trial's edits, then `trial commit` and `trial score`. |
 | `resolve` | `EXP trial score --engagement E` |
 | `confirm` | `EXP confirm --engagement E` |
-| `add-variants`, `build-grid`, `measure`, `decide` | compare: see `strategies/compare.md`. |
+| `add-variants`, `build-grid`, `measure`, `decide`, `announce` | compare and explore: their strategy pages. |
 | `pause` | Report the reason and end the session. Chris clears it with `EXP resume`. |
 | `stop` | Go to Step 3. |
 
@@ -84,7 +84,7 @@ Judged runs only. `JUDGED next`'s `propose` action uses these:
 
 ## Step 3 — Report
 
-**Scripted:** `EXP report --engagement E` writes `E/report.md`. Fill its agent's-view column ("worth maintaining?", or "worth adopting?" for compare) with your view, and show Chris the ending, the decisions to review and any validity or worth-keeping failure. Never call a run done unless its ending is `met` or `exceptions`.
+**Scripted:** `EXP report --engagement E` writes `E/report.md`. Fill its agent's-view column ("worth maintaining?", or "worth adopting?" for compare) with your view, and show Chris the ending, the decisions to review and any validity or worth-keeping failure. Done means: climb/remediate `met` or `exceptions`; compare a decision or no path; explore `explored`.
 
 **Judged:** on `stop target`, Chris reviews the artifacts; a rejection is `JUDGED resolve --decision reject --worktree W` and the climb continues. Report keeps vs discards, the latest calibrated or confirmed *M*, judge requests spent, and whether drift was monitored.
 
