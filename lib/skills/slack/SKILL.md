@@ -4,15 +4,6 @@ description: >
   Read-only Slack access via agent-slack: read channels and threads, search, list
   conversations. Returns raw data and never sends or posts. For a ranked view of what
   matters use workshop:prioritize.
-triggers:
-  - "lib:slack"
-  - "read slack"
-  - "slack messages"
-  - "list my slack channels"
-  - "what's in #"
-  - "check slack"
-  - "slack updates"
-  - "search slack"
 allowed-tools: Bash, Read
 ---
 
@@ -24,9 +15,7 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 > Slack CLI wrapper — read channels, fetch messages, search, and list conversations via agent-slack. Returns raw data only; no summarization or prioritization. Use when the user asks to READ or FETCH from Slack: "what's in #channel", "what's happening in #engineering", "search slack for X", "list my slack channels", "show messages from #general", "check slack", "fetch slack messages", "catch up on slack", "any updates in #X", "show me slack". Also use when workshop:prioritize needs raw Slack data. Do NOT use for: sending, posting, or writing to Slack (this skill is read-only); summarized priority views or "what should I work on" (use workshop:prioritize).
 
-Thin wrapper around `agent-slack`. Read-only — this skill does NOT send, post, react,
-or modify Slack in any way. No summarization, no prioritization — return raw data for
-the calling skill to process.
+Thin wrapper around `agent-slack`. Read-only — this skill does NOT send, post, react, or modify Slack in any way. No summarization, no prioritization — return raw data for the calling skill to process.
 
 ## Authentication
 
@@ -40,22 +29,27 @@ The output includes `user_id` (or `id`) — save this if @mention filtering is n
 
 **If `agent-slack: command not found`**, tell the user:
 
-> `agent-slack` is not installed. Install it with:
-> ```bash
-> npm i -g agent-slack
-> ```
-> Then authenticate:
-> ```bash
-> agent-slack auth import-desktop
-> ```
+`agent-slack` is not installed. Install it with:
+
+```bash
+npm i -g agent-slack
+```
+
+Then authenticate:
+
+```bash
+agent-slack auth import-desktop
+```
 
 **If auth fails** (non-zero exit, "not authenticated", or similar error):
 
-> Authentication required. Run:
-> ```bash
-> agent-slack auth import-desktop   # reads from Slack Desktop app on macOS (recommended)
-> ```
-> If Slack Desktop is not installed, see: https://github.com/stablyai/agent-slack
+Authentication required. Run:
+
+```bash
+agent-slack auth import-desktop   # reads from Slack Desktop app on macOS (recommended)
+```
+
+If Slack Desktop is not installed, see: https://github.com/stablyai/agent-slack
 
 ## Load config
 
@@ -112,15 +106,11 @@ agent-slack search messages "<query>" [--channel <channel>]
 
 ### Fetch since a timestamp
 
-`agent-slack message list` returns the most recent N messages. To get messages since a
-specific time, fetch with `--limit` set high enough and filter client-side by `ts` field.
-Slack timestamps are Unix epoch with decimal (e.g. `1709900000.123456`).
+`agent-slack message list` returns the most recent N messages. To get messages since a specific time, fetch with `--limit` set high enough and filter client-side by `ts` field. Slack timestamps are Unix epoch with decimal (e.g. `1709900000.123456`).
 
 ## Passing data to calling skills
 
-Return the raw JSON output from `agent-slack`. Do not summarize or interpret.
-The calling skill (e.g. `workshop:prioritize`) is responsible for
-all ranking, filtering, and presentation.
+Return the raw JSON output from `agent-slack`. Do not summarize or interpret. The calling skill (e.g. `workshop:prioritize`) is responsible for all ranking, filtering, and presentation.
 
 ## Error handling
 

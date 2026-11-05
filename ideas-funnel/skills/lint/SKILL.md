@@ -1,15 +1,9 @@
 ---
-name: ideas-funnel:lint
+name: lint
 description: >
   Wiki-aware vault linter — structural violations, v1 and v2 schema compliance, index.md
   sync, Raw/ staleness, orphan pages, timeline overflow. Reports by severity and writes
   ^stale flags and backlink_density into page frontmatter.
-triggers:
-  - lint
-  - /ideas-funnel:lint
-  - lint the vault
-  - vault health
-  - check the vault
 allowed-tools:
   - Bash
   - Read

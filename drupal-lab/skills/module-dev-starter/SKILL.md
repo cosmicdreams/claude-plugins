@@ -4,11 +4,6 @@ description: >
   Scaffold a Claude-ready Drupal contrib module project with DDEV — runs admin:scaffold,
   then adds Drupal directories, DDEV config, and composer setup. Not for Drupal core work
   (drupal-lab:process-lifecycle).
-triggers:
-  - "scaffold a Drupal module project"
-  - "set up DDEV for a contrib module"
-  - "initialize a contrib module workspace"
-  - "drupal module starter"
 allowed-tools: Read, Write, Bash, Glob, Grep
 ---
 

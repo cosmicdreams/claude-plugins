@@ -1,12 +1,8 @@
 ---
-name: ideas-funnel:schedule
+name: schedule
 description: >
   Register, pause, or remove the T3 ideas-funnel schedule. Not for running
   a pipeline manually; use ideas-funnel:supervise for a health review.
-triggers:
-  - /ideas-funnel:schedule
-  - schedule the funnel
-  - register the funnel schedule
 ---
 
 # Schedule the funnel

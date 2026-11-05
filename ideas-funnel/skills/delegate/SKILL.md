@@ -1,5 +1,5 @@
 ---
-name: ideas-funnel:delegate
+name: delegate
 description: >
   Select a permitted current model and effort for bounded funnel work.
   Not for health diagnosis; use ideas-funnel:supervise.

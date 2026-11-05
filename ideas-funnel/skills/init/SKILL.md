@@ -1,15 +1,10 @@
 ---
-name: ideas-funnel:init
+name: init
 description: >
   One-time bootstrap for ideas-funnel: create the config directory, write a starter domain
   YAML, verify the vault scaffold (Raw/Inbox, Domains/, _meta/, CRITICAL_FACTS.md), append
   the v2 schema to wiki-schema.md, offer T3 schedule setup, and
   print next steps.
-triggers:
-  - init
-  - /ideas-funnel:init
-  - bootstrap the funnel
-  - init ideas-funnel
 allowed-tools:
   - Bash
   - Read

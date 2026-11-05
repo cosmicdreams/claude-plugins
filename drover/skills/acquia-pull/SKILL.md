@@ -1,5 +1,5 @@
 ---
-name: drover:acquia-pull
+name: acquia-pull
 description: >
   Fetch Acquia application logs (apache-error, drupal-watchdog, php-error) by date into
   the project's log folder, via the Acquia Cloud API directly — no acli — or, on

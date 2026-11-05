@@ -1,12 +1,9 @@
 ---
-name: ideas-funnel:stats
+name: stats
 description: >
   Writes _meta/stats.md with pipeline health, backlog counts, model-routing
   usage, confidence distribution, stale raw counts, and recent outcomes.
   Trigger phrases: "funnel stats", "/ideas-funnel:stats".
-triggers:
-  - /ideas-funnel:stats
-  - funnel stats
 allowed-tools:
   - Bash
   - Read

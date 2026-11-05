@@ -5,15 +5,6 @@ description: >
   against the Obsidian vault for what is genuinely new, score against a tunable interest
   profile, and store only what matters. Learns from useful/not/mute feedback. Built to run
   on a loop. Distinct from research-lab:gather, which serves one specific question.
-triggers:
-  - "workshop:scout"
-  - "run the scout"
-  - "scout for ideas"
-  - "find AI stories"
-  - "check for AI news"
-  - "what's new in the AI ecosystem"
-  - "ai ecosystem research"
-  - "Use Webfetch to find stories about ai driven workflows"
 allowed-tools: Agent, Bash, Read, Write, WebFetch, WebSearch
 ---
 
@@ -57,20 +48,15 @@ De-registration: `CronDelete` with the job ID returned by `CronList`. Tell the u
 
 Work through these in order. Read each step file as you reach it.
 
-1. **Load** — read source list + interest profile + feedback history; load the vault dedup baseline
-   → Read `steps/01-load.md`
+1. **Load** — read source list + interest profile + feedback history; load the vault dedup baseline → Read `steps/01-load.md`
 
-2. **Fetch** — parallel fetch across all configured sources by type (feed / page / search)
-   → Read `steps/02-fetch.md`
+2. **Fetch** — parallel fetch across all configured sources by type (feed / page / search) → Read `steps/02-fetch.md`
 
-3. **Score** — dedup vs vault, score relevance against the interest profile + feedback weights
-   → Read `steps/03-score.md`
+3. **Score** — dedup vs vault, score relevance against the interest profile + feedback weights → Read `steps/03-score.md`
 
-4. **Store and output** — write net-new to the vault, emit a ranked briefing with feedback affordance
-   → Read `steps/04-store-output.md`
+4. **Store and output** — write net-new to the vault, emit a ranked briefing with feedback affordance → Read `steps/04-store-output.md`
 
-5. **Feedback** — capture marks, propose profile/weight updates for approval
-   → Read `steps/05-feedback.md`
+5. **Feedback** — capture marks, propose profile/weight updates for approval → Read `steps/05-feedback.md`
 
 ## Managing sources mid-session
 

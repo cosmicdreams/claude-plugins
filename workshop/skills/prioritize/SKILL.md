@@ -6,17 +6,6 @@ description: >
   planned in. Combines overnight signals (Slack, Jira), standing obligations (blocked issues
   you own, stale in-progress), and today's calendar into one next action plus a ranked table.
   Read-only — never posts or transitions.
-triggers:
-  - "workshop:prioritize"
-  - "what should I work on"
-  - "what should I work on next"
-  - "what am I doing today"
-  - "plan my day"
-  - "what needs my attention"
-  - "prioritize my work"
-  - "what's on my plate"
-  - "catch me up"
-  - "what did I miss"
 allowed-tools: Agent, Bash, Read, Write
 ---
 

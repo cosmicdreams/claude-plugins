@@ -4,15 +4,6 @@ description: >
   Discover and configure workflow integrations into ~/.claude/workshop.json — probes for
   available CLIs and asks about your integrations and projects. Run on first setup or when
   a workshop skill reports missing config.
-triggers:
-  - "workshop:config"
-  - "configure workflows"
-  - "set up workflow config"
-  - "add integration"
-  - "add jira server"
-  - "add slack workspace"
-  - "update workflow config"
-  - "workflow setup"
 allowed-tools: Bash, Read, Write, AskUserQuestion
 ---
 

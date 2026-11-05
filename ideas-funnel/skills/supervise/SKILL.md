@@ -1,5 +1,5 @@
 ---
-name: ideas-funnel:supervise
+name: supervise
 description: >
   Diagnose funnel backlog, failures, conflicts and allowance from deterministic health output.
   Not for routine runs; use ideas-funnel:dispatch.

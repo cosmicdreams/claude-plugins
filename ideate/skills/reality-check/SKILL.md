@@ -6,15 +6,6 @@ description: >
   contrarian position until logically rebutted. Can kill the idea — not for validating
   something already decided. For a formed claim with evidence use
   research-lab:interrogate.
-triggers:
-  - "reality check"
-  - "stress test this idea"
-  - "poke holes in this"
-  - "play devil's advocate"
-  - "challenge my thinking"
-  - "what could go wrong"
-  - "be harsh"
-  - "tear this apart"
 allowed-tools: Bash, Read, Write
 ---
 

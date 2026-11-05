@@ -1,12 +1,9 @@
 ---
-name: ideas-funnel:funnel-export
+name: funnel-export
 description: >
   Exports high-signal Beads cards or review items into Raw/ for wiki ingest.
   Respects ready caps and keeps automation below the human decision boundary.
   Trigger phrases: "export funnel", "/ideas-funnel:funnel-export".
-triggers:
-  - /ideas-funnel:funnel-export
-  - export funnel
 allowed-tools:
   - Bash
   - Read

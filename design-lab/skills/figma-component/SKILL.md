@@ -3,7 +3,7 @@ name: figma-component
 description: >
   Build, rebuild or diagnose ONE component in the Figma library: its responsive master, its
   documentation block, its live captures and its visual comparison. Invoke as
-  `design-lab:figma-component <component-id>`. Not for foundations (design-lab:figma-foundation),
+  `design-lab:figma-component` with a component id. Not for foundations (design-lab:figma-foundation),
   the Getting Started page (design-lab:figma-index), or a whole library (design-lab:run).
 ---
 

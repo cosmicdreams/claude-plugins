@@ -4,16 +4,6 @@ description: >
   Keep the human the source of truth: maintain a running understanding checklist, ask them
   to restate their model, fill gaps, and quiz before moving on. For guarding against
   cognitive surrender — not for first-pass exploration (research-lab:understand).
-triggers:
-  - "workshop:knowledge-check"
-  - "knowledge-check me"
-  - "keep me honest"
-  - "check my understanding"
-  - "quiz me on this"
-  - "make me explain it back"
-  - "make sure I understand before we move on"
-  - "don't let me cognitively surrender"
-  - "do not let me cognitively surrender"
 allowed-tools: Read, Write, Edit, AskUserQuestion
 ---
 
