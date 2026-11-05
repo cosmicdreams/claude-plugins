@@ -2,15 +2,6 @@
 name: teach
 description: >
   Trigger this if the user says "teach this", "make a briefing", or "audio overview". Not for insiders who share the context (research-lab:synthesize).
-triggers:
-  - "audio overview"
-  - "teach this"
-  - "make a briefing"
-  - "explain this to"
-  - "build a deck for"
-  - "make this land"
-  - "create an audio overview"
-  - "research-lab:teach"
 allowed-tools: Bash, Read, Write, Workflow
 ---
 

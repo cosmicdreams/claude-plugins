@@ -11,7 +11,7 @@
 - `interrogate`: "interrogate this", "tear this apart", "peer review".
 - `teach`: "teach this", "make a briefing", "audio overview".
 - `experiment`: wording aligned; keywords unchanged.
-- Every keyword named in a description is also in that skill's `triggers` list.
+- The `triggers` frontmatter field is gone: Claude Code never read it, and Anthropic's skill-creator validator rejects it. The description is the only place trigger keywords live.
 
 ## 5.5.0 — 2026-11-05
 

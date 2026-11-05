@@ -2,13 +2,6 @@
 name: frame
 description: >
   Trigger this if the user says "frame this", "sharpen this question", or "scope this research". Not for collecting sources (research-lab:gather).
-triggers:
-  - "frame this"
-  - "sharpen this question"
-  - "what should I be asking"
-  - "scope this research"
-  - "frame the question"
-  - "research-lab:frame"
 allowed-tools: Read, Write
 ---
 

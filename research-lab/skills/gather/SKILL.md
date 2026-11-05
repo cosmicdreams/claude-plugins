@@ -2,17 +2,6 @@
 name: gather
 description: >
   Trigger this if the user says "gather sources", "build a notebook", or "literature review". Not for digesting material already gathered (research-lab:understand).
-triggers:
-  - "literature review"
-  - "build a notebook"
-  - "gather sources"
-  - "gather research on"
-  - "research this topic"
-  - "build a notebook on"
-  - "collect sources on"
-  - "literary review"
-  - "research-lab:gather"
-  - "research-lab:literary-review"
 allowed-tools: Bash, Read, Write, Agent, Workflow
 ---
 

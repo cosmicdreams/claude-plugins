@@ -2,20 +2,6 @@
 name: understand
 description: >
   Trigger this if the user says "help me understand", "walk me through", or "digest this". Not for challenging a claim (research-lab:interrogate).
-triggers:
-  - "walk me through"
-  - "let's understand"
-  - "help me understand"
-  - "understand this"
-  - "I want to understand"
-  - "walk through this with me"
-  - "let's work through this"
-  - "build understanding"
-  - "shared understanding"
-  - "understand this system"
-  - "understand this design"
-  - "digest this"
-  - "research-lab:understand"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, WebFetch, WebSearch
 ---
 

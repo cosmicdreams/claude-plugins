@@ -2,11 +2,6 @@
 name: experiment
 description: >
   Trigger this if the user says "hill climb", "climb this", or "run an experiment". Not for scoring a single claim (research-lab:interrogate).
-triggers:
-  - "hill climb"
-  - "climb this"
-  - "run an experiment"
-  - "research-lab:experiment"
 allowed-tools: Bash, Read, Write, Edit, Workflow, mcp__t3-code__delegate_task
 ---
 

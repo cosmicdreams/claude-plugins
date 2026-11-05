@@ -2,14 +2,6 @@
 name: interrogate
 description: >
   Trigger this if the user says "interrogate this", "tear this apart", or "peer review". Not for an unformed idea (ideate:reality-check).
-triggers:
-  - "peer review"
-  - "interrogate this"
-  - "peer-review this claim"
-  - "tear this apart"
-  - "stress-test these findings"
-  - "adversarially review"
-  - "research-lab:interrogate"
 allowed-tools: Bash, Read, Write, Workflow
 ---
 

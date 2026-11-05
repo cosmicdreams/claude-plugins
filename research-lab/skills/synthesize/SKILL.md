@@ -2,16 +2,6 @@
 name: synthesize
 description: >
   Trigger this if the user says "synthesize this", "form a position", or "decision table". Not for an audience that was not there (research-lab:teach).
-triggers:
-  - "decision table"
-  - "synthesize this"
-  - "form a position"
-  - "write up the findings"
-  - "form decisions from"
-  - "make a decision table"
-  - "rank the hypotheses"
-  - "research-lab:synthesize"
-  - "research-lab:seminar"
 allowed-tools: Bash, Read, Write
 ---
 
