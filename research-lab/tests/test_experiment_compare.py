@@ -44,6 +44,90 @@ class CompareTests(ReportTests):
                 self.assertEqual(self.git('rev-list', '--parents', '-n', '1', v['commit']).split(),
                                  [v['commit'], s['base']])
 
+    def test_confirmation_log_and_report_evidence(self):
+        for value, outcome in [(6, 'held'), (10, 'within noise')]:
+            with self.subTest(outcome=outcome):
+                self.setUp()
+                self.init_compare('Margin: 2\n')
+                self.variant('a', 5)
+                self.variant('b', 11)
+                self.command('measure')
+                self.override.write_text(str(value) + '\n')
+                self.command('confirm')
+                row = self.records()[-1]
+                self.assertEqual(row['decision'], 'confirm')
+                self.assertEqual({k: row[k] for k in ('variant', 'runs', 'mad', 'median', 'outcome')},
+                                 dict(variant='a', runs=[value] * 3, mad=0, median=value, outcome=outcome))
+                self.assertEqual((row['metric_before'], row['metric_after']), (5, value))
+                report = self.report()
+                self.assertIn('Confirmation runs | Confirmation median | Decision used', report)
+                self.assertIn(f"| 5 | 0 | {[float(value)] * 3} | {value} | confirmation median {value} |", report)
+                self.assert_base()
+
+    def test_add_variants_remaining(self):
+        self.init_compare('Include incumbent: yes\n')
+        self.assertEqual(self.command('next')['remaining'], ['a', 'b'])
+        self.variant('a', 5)
+        self.assertEqual(self.command('next')['remaining'], ['b'])
+        self.command('variant', 'begin', '--name', 'b', '--tradeoff', 'cost')
+        self.assertEqual(self.command('next')['remaining'], ['b'])
+        self.setUp()
+        self.init_compare('Count: 2\nIdea: alternatives\nInclude incumbent: yes\n', mode='generated')
+        self.assertEqual(self.command('next')['remaining_count'], 2)
+        self.variant('a', 5, description='first alternative')
+        self.assertEqual(self.command('next')['remaining_count'], 1)
+        self.command('variant', 'discard', '--name', 'a')
+        self.assertEqual(self.command('next')['remaining_count'], 2)
+
+    def test_iterations_count_records_not_measurements(self):
+        self.init_compare('Include incumbent: yes\n')
+        self.variant('a', 5)
+        self.variant('b', 8)
+        self.command('measure')
+        self.assertEqual([r['iteration'] for r in self.records()], [1, 2, 3])
+        self.assertEqual(self.state()['measurements_used'], 9)
+        self.command('confirm')
+        self.assertEqual([r['iteration'] for r in self.records()], [1, 2, 3, 4])
+        self.assertEqual(self.state()['measurements_used'], 12)
+        self.assertEqual(len((self.e / 'progress.log').read_text().splitlines()), 4)
+
+    def test_report_metric_margin_revision_and_not_viable(self):
+        cases = [('Metric name: latency\nMargin: 1\n', 'latency', 'declared Margin: 1', False),
+                 ('', 'duration', '2 × pooled MAD = 4', False),
+                 ('', 'metric', '2 × pooled MAD = 0', True)]
+        for extra, metric, margin, failure in cases:
+            with self.subTest(metric=metric):
+                self.setUp()
+                if metric != 'metric':
+                    counter = self.root / 'counts'
+                    counter.mkdir()
+                    scorer = (f'#!/bin/sh\nm=$(cat metric); p="{counter}/$m"; n=0; '
+                              '[ ! -f "$p" ] || n=$(cat "$p"); n=$((n+1)); echo "$n" > "$p"\n'
+                              'echo "METRIC duration=$((m + 2 * n))"\n')
+                    if metric == 'latency':
+                        scorer = '#!/bin/sh\necho METRIC other=100\necho "METRIC latency=$(cat metric)"\n'
+                    (self.w / 'measure.sh').write_text(scorer)
+                    self.git('add', 'measure.sh')
+                    self.git('commit', '-m', 'test: named scorer')
+                self.init_compare(extra + 'Held-out: test "$(cat metric)" = 5\n')
+                self.variant('a', 5)
+                self.variant('b', 8, guard=int(failure))
+                action = self.command('measure')['action']
+                if action == 'confirm':
+                    self.command('confirm')
+                else:
+                    self.command('decide', '--choose', 'a', '--reason', 'lower cost')
+                report = self.report()
+                self.assertIn(f'| Variant | {metric} |', report)
+                self.assertIn('Margin used: ' + margin, report)
+                self.assertIn('## Not viable\n\n' + ('- b: Checks failed' if failure else 'None.'), report)
+                chosen = self.state()['variants']['a']
+                worth = report.split('## Worth keeping', 1)[1]
+                self.assertIn(f"Evaluated commit `{chosen['commit']}` (branch `{chosen['branch']}`).", worth)
+                self.assertIn('Held-out: PASS', worth)
+                self.assertIn('Checks: PASS', worth)
+                self.assert_base()
+
     def test_given_clear_winner_confirmation_report_and_interleaving(self):
         self.init_compare('Held-out: test "$(cat metric)" = 5\n')
         self.assertEqual(self.command('next')['action'], 'add-variants')
@@ -57,12 +141,12 @@ class CompareTests(ReportTests):
         self.assertEqual(self.command('confirm')['ending']['winner'], 'a')
         self.assertEqual(self.state()['ending']['basis'], 'margin')
         self.assertEqual(self.state()['measurements_used'], 9)
-        self.assertEqual(len(self.records()), 2)
-        for row in self.records():
+        self.assertEqual(len(self.records()), 3)
+        for row in self.records()[:2]:
             for key in ('strategy', 'variant', 'commit', 'runs', 'mad', 'checks', 'tradeoff'):
                 self.assertIn(key, row)
             self.assertEqual(row['decision'], 'measured')
-        self.assertEqual(len((self.e / 'progress.log').read_text().splitlines()), 2)
+        self.assertEqual(len((self.e / 'progress.log').read_text().splitlines()), 3)
         report = self.report()
         for text in ('a (chosen)', 'experiment--a', 'Held-out: PASS', 'Checks: PASS',
                      'Scorer files unchanged: PASS', 'Each variant is one commit on base: PASS',

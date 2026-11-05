@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 from experiment_loop import (digest, dirty_paths, ending, git, log, measure, ownership,
-                             require, require_clean, save, shell)
+                             records, require, require_clean, save, shell)
 
 
 def configuration(text, c):
@@ -76,8 +76,13 @@ def next_action(s, c):
         return dict(action='stop', ending=s['ending'])
     cfg = s['compare']
     if len(s['variants']) < cfg['count'] + cfg['include_incumbent']:
-        return dict(action='build-grid' if cfg['mode'] == 'grid' else 'add-variants',
-                    building=s['building'])
+        action = dict(action='build-grid' if cfg['mode'] == 'grid' else 'add-variants',
+                      building=s['building'])
+        if cfg['mode'] == 'given':
+            action['remaining'] = [n for n in cfg['declared'] if n not in s['variants']]
+        elif cfg['mode'] == 'generated':
+            action['remaining_count'] = cfg['count'] - len(set(s['variants']) - {'incumbent'})
+        return action
     if any(v['status'] == 'pending' for v in s['variants'].values()):
         return dict(action='measure')
     if s['group'] is not None:
@@ -141,12 +146,23 @@ def sample(s, c, v):
     require(s['measurements_used'] < c['Budget'], 'measurement budget spent')
     s['measurements_used'] += 1
     s['trials_used'] = s['measurements_used']
-    return measure(s, dict(c, Runs=1))['median']
+    outputs = []
+    result = measure(s, dict(c, Runs=1), outputs=outputs)
+    metrics = re.findall(r'^METRIC\s+([^=\s]+)=', '\n'.join(line.strip() for line in outputs[0].splitlines()), re.M)
+    if c['Metric name'] or len(metrics) == 1:
+        s['metric_name'] = c['Metric name'] or metrics[0]
+    return result['median']
 
 
 def summarize(v):
     v['median'] = statistics.median(v['runs']) if v['runs'] else None
     v['mad'] = statistics.median(abs(x - v['median']) for x in v['runs']) if v['runs'] else None
+
+
+def log_result(e, s, c, *args, **kwargs):
+    # Iterations count records, independently of the measurement budget counter.
+    sequence = max((r['iteration'] for r in records(e)), default=0) + 1
+    log(e, dict(s, trials_used=sequence), c, *args, **kwargs)
 
 
 def measure_variants(e, s, c):
@@ -183,7 +199,7 @@ def measure_variants(e, s, c):
             if v['status'] == 'pending':
                 v['status'] = 'measured'
             summarize(v)
-            log(e, s, c, v, 'measured', v.get('reason', 'variant measured'), change=name,
+            log_result(e, s, c, v, 'measured', v.get('reason', 'variant measured'), change=name,
                 extras=dict(variant=name, commit=v['commit'], checks=v.get('checks', False), tradeoff=v['tradeoff']),
                 gate='pass' if v['status'] == 'measured' else 'fail')
         finish(s, c)
@@ -207,11 +223,16 @@ def confirm(e, s, c):
         summarize(result)
         s['confirmation'] = result
         if len(names) == 1 or (result['median'] - s['variants'][names[1]]['median']) * c['sign'] > s['margin']:
+            result['outcome'] = 'held'
             choose(s, name, 'margin', 'confirmed gain beyond margin')
         else:
+            result['outcome'] = 'within noise'
             values = {n: result['median'] if n == name else s['variants'][n]['median'] for n in names}
             best = max(values.values(), key=lambda x: x * c['sign'])
             s['group'] = [n for n in names if abs(values[n] - best) <= s['margin']]
+        log_result(e, s, c, result, 'confirm', result['outcome'], before=v['median'],
+                   change=name, extras=dict(variant=name, commit=v['commit'],
+                                            median=result['median'], outcome=result['outcome']))
     except (ValueError, OSError) as error:
         v.update(status='invalid', reason='confirmation failed: ' + str(error))
         s['confirmation'] = dict(result, reason=str(error))
@@ -338,19 +359,30 @@ def report(e, s, c):
     lines = ['## Ending and goal', '', 'Ending: ' + (end['kind'] + ': ' + end['detail'] if end else 'running')]
     if winner:
         lines += [f"Winner: {winner}; basis: {end['basis']}; adopt branch `{end['branch']}` (never merged)."]
+    metric = cell(c['Metric name'] or s.get('metric_name') or 'metric')
+    if s['margin'] is not None:
+        derivation = 'declared Margin:' if c['Margin'] is not None else '2 × pooled MAD ='
+        lines += [f"Margin used: {derivation} {s['margin']:g}"]
+    else:
+        lines += ['Margin used: n/a (no viable measurements).']
+    confirmation = s.get('confirmation')
     lines += ['', '## Decisions to review', '',
-              "| Variant | Median | MAD | Δ vs best | Checks | Tradeoff | worth adopting? (agent's view) |",
-              '| --- | --- | --- | --- | --- | --- | --- |']
+              f"| Variant | {metric} | MAD | Confirmation runs | Confirmation median | Decision used | Δ vs best | Checks | Tradeoff | worth adopting? (agent's view) |",
+              '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
     for n in names:
         v = s['variants'][n]
         delta = abs(v['median'] - s['variants'][names[0]]['median'])
-        lines.append(f"| {n + (' (chosen)' if n == winner else '')} | {v['median']:g} | {v['mad']:g} | {delta:g} | PASS | {cell(v['tradeoff'])} | _ |")
-    lines += ['', '## Rejected directions', '']
+        conf = confirmation if confirmation and confirmation['variant'] == n and not confirmation.get('reason') else None
+        runs = cell(conf['runs']) if conf else '—'
+        median = f"{conf['median']:g}" if conf else '—'
+        used = f"confirmation median {conf['median']:g}" if conf else f"original median {v['median']:g}"
+        lines.append(f"| {n + (' (chosen)' if n == winner else '')} | {v['median']:g} | {v['mad']:g} | {runs} | {median} | {used} | {delta:g} | PASS | {cell(v['tradeoff'])} | _ |")
+    lines += ['', '## Not viable', '']
     lines += [f"- {n}: {cell(v.get('reason', v['status']))}" for n, v in s['variants'].items()
               if v['status'] in ('invalid', 'fails checks')] or ['None.']
     if s['compare']['mode'] == 'grid':
         params = list(s['compare']['grid'])
-        lines += ['', '## Response surface', '', '| Point | ' + ' | '.join(params) + ' | Median |',
+        lines += ['', '## Response surface', '', '| Point | ' + ' | '.join(params) + f' | {metric} |',
                   '| --- | ' + ' | '.join('---' for _ in params) + ' | --- |']
         for n, v in s['variants'].items():
             if 'params' in v:
@@ -399,7 +431,9 @@ def report(e, s, c):
     lines += ['', '## Worth keeping', '']
     try:
         if winner:
-            git(s['worktree'], 'switch', '--detach', s['variants'][winner]['commit'])
+            chosen = s['variants'][winner]
+            lines.append(f"Evaluated commit `{chosen['commit']}` (branch `{chosen['branch']}`).")
+            git(s['worktree'], 'switch', '--detach', chosen['commit'])
         for label in ('Held-out', 'Checks'):
             result = 'ABSENT' if not c[label] else 'n/a (no winner)'
             if winner and c[label]:
