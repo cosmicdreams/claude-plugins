@@ -73,6 +73,11 @@ def initialize(s, c, text):
             description='Unchanged base', tradeoff='Existing implementation', status='pending', runs=[])
 
 
+def active_variants(s):
+    return {n: v for n, v in s['variants'].items()
+            if s['strategy'] != 'explore' or v['round'] == s['round']}
+
+
 def viable(s):
     return [n for n, v in s['variants'].items() if v['status'] == 'measured']
 
@@ -82,6 +87,9 @@ def ranked(s, c):
 
 
 def next_action(s, c):
+    if s['strategy'] == 'explore':
+        from experiment_explore import next_action as explore_next
+        return explore_next(s, c)
     if s['status'] != 'running':
         return dict(action='stop', ending=s['ending'])
     cfg = s['compare']
@@ -108,6 +116,9 @@ def next_action(s, c):
 
 
 def finish(s, c):
+    if s['strategy'] == 'explore':
+        from experiment_explore import finish_round
+        return finish_round(s, c)
     names = viable(s)
     confirmation = s.get('confirmation')
     def runs(n):
@@ -198,7 +209,7 @@ def measure_variants(e, s, c):
     require(next_action(s, c)['action'] == 'measure', 'variants must be built before measuring')
     ownership(s, s['base'])
     rng = random.Random(s['seed'])
-    scheduled = [n for n, v in s['variants'].items() if v['commit']]
+    scheduled = [n for n, v in active_variants(s).items() if v['commit']]
     try:
         for i in range(int(c['Runs'])):
             order = scheduled[:]
@@ -307,6 +318,11 @@ def dispatch(a, e, s, c):
 def dispatch_command(a, e, s, c):
     cmd = a.command
     require(digest(s['methodology']) == s['methodology_sha256'], 'methodology changed since init')
+    if s['strategy'] == 'explore':
+        from experiment_explore import dispatch_command as explore_command
+        handled = explore_command(a, e, s, c)
+        if handled is not None:
+            return handled
     if cmd == 'report':
         if s['scorer'] == 'council':
             from experiment_council import report as council_report
@@ -315,7 +331,12 @@ def dispatch_command(a, e, s, c):
     require(s['status'] == 'running', 'engagement is not running')
     if cmd == 'variant':
         require(s['compare']['mode'] != 'grid' or a.variant_command == 'discard', 'use grid build')
-        require(s['measurements_used'] == 0, 'variants cannot change after measuring')
+        if s['strategy'] == 'explore':
+            from experiment_explore import prepare_variant
+            prepare_variant(a, s, c)
+        else:
+            require(not getattr(a, 'parent', None), 'parent requires explore strategy')
+            require(s['measurements_used'] == 0, 'variants cannot change after measuring')
         if a.variant_command == 'begin':
             ownership(s, s['base'])
             require(not s['building'], 'variant already open')
@@ -330,6 +351,8 @@ def dispatch_command(a, e, s, c):
             branch = s['branch'] + '--' + a.name
             require(not git(s['worktree'], 'branch', '--list', branch), 'variant branch already exists')
             s['building'] = dict(name=a.name, tradeoff=a.tradeoff, description=description, branch=branch)
+            if s['strategy'] == 'explore':
+                s['building'].update(round=s['round'], parent=a.parent)
         elif a.variant_command == 'commit':
             require(s['building'], 'no variant open')
             ownership(s, s['base'], dirty=True)
@@ -406,9 +429,13 @@ def add_commands(sub):
             if command == 'variant' and action == 'begin':
                 child.add_argument('--tradeoff', required=True)
                 child.add_argument('--description')
-    for command in ('measure', 'decide', 'score', 'record'):
+                child.add_argument('--parent')
+    for command in ('measure', 'decide', 'score', 'record', 'announce'):
         p = sub.add_parser(command)
         p.add_argument('--engagement', required=True)
+        if command == 'announce':
+            p.add_argument('--name', required=True)
+            p.add_argument('--note', required=True)
         if command == 'measure':
             p.add_argument('--panel')
             p.add_argument('--seed', type=int, default=0)
@@ -477,37 +504,9 @@ def report(e, s, c):
     lines += ['', '## Router notes', '', strategy.read_text().strip() if strategy.exists() else 'Absent.', '', '## Validity', '']
     if not available:
         lines += ['**VALIDITY NOT RE-VERIFIED:** the experiment worktree is gone, so the git-based checks below could not run. Treat this decision as unverified until they are rerun.', '']
-    unchanged = all(Path(p).is_file() and digest(p) == sha for p, sha in s['scorer_sha256'].items())
-    for v in s['variants'].values():
-        if not available or not v['commit']:
-            continue
-        for p, sha in s['scorer_sha256'].items():
-            rel = Path(p).relative_to(s['worktree']).as_posix()
-            # Hash raw blobs; text decoding would alter non-text scorers.
-            blob = subprocess.run(['git', '-C', s['worktree'], 'show', v['commit'] + ':' + rel], capture_output=True)
-            unchanged &= blob.returncode == 0 and hashlib.sha256(blob.stdout).hexdigest() == sha
-    one_commit = available and all(n == 'incumbent' or not v['commit'] or
-                     git(s['worktree'], 'rev-list', '--parents', '-n', '1', v['commit']).split() == [v['commit'], s['base']]
-                     for n, v in s['variants'].items())
-    expected = set(s['variants']) - {n for n, v in s['variants'].items() if not v['commit']}
-    rng = random.Random(s['seed'])
-    replay = []
-    for _ in range(int(c['Runs'])):
-        row = [n for n in s['variants'] if n in expected]
-        rng.shuffle(row)
-        if len(row) > 1 and replay and row == replay[-1]:
-            row = row[1:] + row[:1]
-        replay.append(row)
-    interleaved = s['order'] == replay
+    validity(lines, s, c, available)
     confirmed = bool(s['confirmation'] and winner == s['confirmation']['variant'] and
                      len(s['confirmation']['runs']) == int(c['Runs']) and not s['confirmation'].get('reason'))
-    for label, ok in [('Scorer files unchanged', unchanged), ('Each variant is one commit on base', one_commit),
-                      ('Experiment branch never moved', available and git(s['worktree'], 'rev-parse', s['branch']) == s['base']),
-                      (f"Measurement order interleaved (seed {s['seed']})", interleaved)]:
-        result = ('PASS' if ok else 'FAIL')
-        if not available and not label.startswith('Measurement order'):
-            result = 'n/a (worktree unavailable)'
-        lines.append(f'- {label}: {result}')
     lines.append('- Confirmation present: ' + ('PASS' if confirmed else 'FAIL') if end and end.get('basis') == 'margin'
                  else '- Confirmation present: n/a (basis is not margin)')
     lines += ['', '## Worth keeping', '']
@@ -533,3 +532,35 @@ def report(e, s, c):
     path = e / 'report.md'
     path.write_text('\n'.join(lines) + '\n')
     return dict(path=str(path))
+
+
+def validity(lines, s, c, available):
+    unchanged = all(Path(p).is_file() and digest(p) == sha for p, sha in s['scorer_sha256'].items())
+    for v in s['variants'].values():
+        if not available or not v['commit']:
+            continue
+        for p, sha in s['scorer_sha256'].items():
+            rel = Path(p).relative_to(s['worktree']).as_posix()
+            # Hash raw blobs; text decoding would alter non-text scorers.
+            blob = subprocess.run(['git', '-C', s['worktree'], 'show', v['commit'] + ':' + rel], capture_output=True)
+            unchanged &= blob.returncode == 0 and hashlib.sha256(blob.stdout).hexdigest() == sha
+    one_commit = available and all(n == 'incumbent' or not v['commit'] or
+                     git(s['worktree'], 'rev-list', '--parents', '-n', '1', v['commit']).split() == [v['commit'], s['base']]
+                     for n, v in s['variants'].items())
+    expected = set(s['variants']) - {n for n, v in s['variants'].items() if not v['commit']}
+    rng = random.Random(s['seed'])
+    replay = []
+    for _ in range(int(c['Runs'])):
+        row = [n for n in s['variants'] if n in expected]
+        rng.shuffle(row)
+        if len(row) > 1 and replay and row == replay[-1]:
+            row = row[1:] + row[:1]
+        replay.append(row)
+    interleaved = s['order'] == replay
+    for label, ok in [('Scorer files unchanged', unchanged), ('Each variant is one commit on base', one_commit),
+                      ('Experiment branch never moved', available and git(s['worktree'], 'rev-parse', s['branch']) == s['base']),
+                      (f"Measurement order interleaved (seed {s['seed']})", interleaved)]:
+        result = ('PASS' if ok else 'FAIL')
+        if not available and not label.startswith('Measurement order'):
+            result = 'n/a (worktree unavailable)'
+        lines.append(f'- {label}: {result}')
