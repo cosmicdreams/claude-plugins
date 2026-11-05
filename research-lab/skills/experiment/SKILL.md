@@ -36,7 +36,7 @@ Args may preload `strategy=<remediate|climb|compare|explore|auto>` and `scorer=<
 - `route` → run the router in `strategies.md`. "Not an experiment" → say so in one line and stop. Otherwise write and show the strategy card, with a drafted `methodology.md` if none was given, and **pause** for accept, edit or switch. Re-run `CHECK` with the accepted choice.
 - `refused` → STOP; report `reason` and each `missing` item.
 
-`climb` and `remediate` run with the scripted scorer; other strategies and the council scorer stop after the card with `CHECK`'s reason. After acceptance (or a `ready` preload) the run is unattended.
+`climb`, `remediate` and `compare` run with the scripted scorer; other strategies and the council scorer stop after the card with `CHECK`'s reason. After acceptance (or a `ready` preload) the run is unattended.
 
 ## Input contract
 
@@ -59,6 +59,7 @@ Run `EXP next --engagement E` and do its one action, then repeat:
 | `edit` / `rework` | Finish or rework the open trial's edits, then `trial commit` and `trial score`. |
 | `resolve` | `EXP trial score --engagement E` |
 | `confirm` | `EXP confirm --engagement E` |
+| `add-variants`, `build-grid`, `measure`, `decide` | compare: see `strategies/compare.md`. |
 | `pause` | Report the reason and end the session. Chris clears it with `EXP resume`. |
 | `stop` | Go to Step 3. |
 
