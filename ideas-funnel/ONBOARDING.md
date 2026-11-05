@@ -1,4 +1,4 @@
-# Onboarding 3.1.0
+# Onboarding 3.1.1
 
 1. Read current global/project instructions. Point the funnel at the live vault folder and write it in place, with no vault worktree, branch or merge. The pipeline refuses a vault inside a git checkout named `main` or a linked worktree. Preserve unrelated vault work. Do not create or move a T3 project/thread/worktree to work around a binding failure.
 2. Create a virtual environment, install `requirements.txt` with its interpreter, and record that absolute Python path in every run/task packet. Verify `<python> -c "import yaml"`; never rely on bare `python3`. Copy/edit domain YAML configs; `active: false` pauses a domain. The supported feed contract is `feeds.rss[]`, `feeds.api[]` (Hacker News Algolia only), `keywords[]`, `exclude_keywords[]`, and `pull.max_items` (default 15, maximum 100). Domain slugs must be kebab case. Unsupported `web_search` is reported, never silently implemented with guessed credentials.
