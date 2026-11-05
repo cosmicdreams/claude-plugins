@@ -10,7 +10,7 @@ import uuid
 from runtime import atomic_json, locked, read_json
 
 
-def run(vault, action, owner=None, item=None, pages=None, error=None):
+def run(vault, action, owner=None, item=None, pages=None, error=None, url=None):
     lease_path = vault / '_meta/ideas-funnel-owner.json'
     with locked(vault):
         lease = read_json(lease_path, {})
@@ -49,6 +49,8 @@ def run(vault, action, owner=None, item=None, pages=None, error=None):
                 raise ValueError('release or finish claims before closing')
             atomic_json(lease_path, {})
             return {'closed': True}
+        if action == 'resolve':
+            return resolve(vault, index, index_path, url, pages)
         if action == 'index':
             if not isinstance(item, str) or not item.startswith('Raw/Inbox/') or '..' in Path(item).parts:
                 raise ValueError('index requires a vault-relative inbox file')
@@ -101,16 +103,71 @@ def run(vault, action, owner=None, item=None, pages=None, error=None):
         return record
 
 
+def resolve(vault, index, index_path, url, pages):
+    """Clear one URL conflict after its duplicate Sources were merged by hand.
+
+    The conflict clears only when exactly one Source page on disk still names
+    the URL as its identity, and that page is the one given in --pages. Index
+    and manifest references to the merged-away pages are repointed to it. No
+    item state changes."""
+    from pull import urls
+    from runtime import canonical, hubs
+    if not url:
+        raise ValueError('resolve requires --url')
+    url = canonical(url)
+    conflict = next((c for c in index.get('conflicts', []) if c['url'] == url), None)
+    if conflict is None:
+        raise ValueError('no conflict recorded for this URL')
+    if not pages or len(pages) != 1:
+        raise ValueError('resolve requires exactly one surviving page in --pages')
+    survivor = pages[0]
+    if Path(survivor).is_absolute() or '..' in Path(survivor).parts or not survivor.startswith('Sources/'):
+        raise ValueError('surviving page must be a vault-relative Sources/ page')
+    extra = hubs(vault)
+    # Scan every Source, not only the recorded ones: a page added after migration counts too.
+    citing = sorted(str(p.relative_to(vault)) for p in (vault / 'Sources').rglob('*.md')
+                    if url in urls(p, extra))
+    if citing != [survivor]:
+        raise ValueError('expected only ' + survivor + ' to name the URL; found ' + (', '.join(citing) or 'none'))
+    merged = sorted(set(conflict['sources']) - {survivor})
+
+    def repoint(paths):
+        result = []
+        for path in paths:
+            path = survivor if path in merged else path
+            if path not in result:
+                result.append(path)
+        return result
+
+    entry = index['urls'].setdefault(url, {'state': 'ingested', 'paths': []})
+    entry['paths'] = repoint(entry['paths'] + [survivor])
+    for record in index['items'].values():
+        if 'pages' in record:
+            record['pages'] = repoint(record['pages'])
+    index['conflicts'] = [c for c in index['conflicts'] if c['url'] != url]
+    manifest_path = vault / 'Raw/.manifest.json'
+    manifest = read_json(manifest_path)
+    if manifest:
+        for value in manifest.get('entries', {}).values():
+            if isinstance(value, dict) and isinstance(value.get('wiki_pages'), list):
+                value['wiki_pages'] = repoint(value['wiki_pages'])
+        atomic_json(manifest_path, manifest)
+    atomic_json(index_path, index)
+    return {'url': url, 'survivor': survivor, 'merged': merged,
+            'conflicts_remaining': len(index['conflicts'])}
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--vault', type=Path, required=True)
-    parser.add_argument('action', choices=['acquire','status','index','claim','finish','fail','release','close','recover'])
+    parser.add_argument('action', choices=['acquire','status','index','claim','finish','fail','release','close','recover','resolve'])
     parser.add_argument('--owner')
     parser.add_argument('--item')
     parser.add_argument('--pages', nargs='+')
     parser.add_argument('--error')
+    parser.add_argument('--url')
     args = parser.parse_args()
     try:
-        print(json.dumps(run(args.vault, args.action, args.owner, args.item, args.pages, args.error), indent=2))
+        print(json.dumps(run(args.vault, args.action, args.owner, args.item, args.pages, args.error, args.url), indent=2))
     except (ValueError, KeyError, TypeError, OSError, RuntimeError) as exc:
         parser.exit(1, str(exc) + '\n')

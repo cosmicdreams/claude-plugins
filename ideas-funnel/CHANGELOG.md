@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.3.0 — 2026-11-05
+
+- `pipeline.py resolve --owner <token> --url <url> --pages Sources/<kept>.md` clears one URL conflict after its duplicate Source pages were merged. It refuses unless the kept page is the only Source still naming the URL, repoints index `paths`, item `pages` and manifest `wiki_pages` from the merged pages to the kept one, and never changes item states. Dispatch and onboarding describe the merge procedure.
+- Claude and Codex manifests share version 3.3.0.
+
 ## 3.2.0 — 2026-11-05
 
 - Hub URLs are not source identities. Feed URLs (`/atom/`, `/rss.xml`, `/feed` and similar) and subreddit front pages are excluded automatically; shared site roots and listing pages are excluded when listed in the vault's `_meta/ideas-funnel-hubs.txt`. Migration, `pipeline.py index` and pulls ignore them, so distinct Sources that cite one hub no longer conflict, and pulls skip feed items that link only to a hub (counted as `hubs`).
