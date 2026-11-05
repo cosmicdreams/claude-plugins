@@ -11,9 +11,19 @@ Choose between variants and say what each costs. There is no incumbent to beat s
 - **grid**: `Grid <param>:` lines and an `Apply:` command; the script builds every point itself (`build-grid`). Use it for tuning known settings.
 - `Include incumbent: yes` measures the unchanged base too, so "none of these beats what we have" is a possible answer.
 
-Each variant is one commit on the base, on its own branch `<branch>--<name>`; the experiment branch never moves. Build a given or generated variant with `variant begin --name N --tradeoff "…"` (generated also `--description "…"`), edit, then `variant commit`; the script returns the worktree to the base. `variant discard --name N` drops one before measuring.
+Each variant is one commit on the base, on its own branch `<branch>--<name>`; the experiment branch never moves. Every command takes `--engagement E`:
+
+| Action | Command |
+|---|---|
+| `add-variants` | `EXP variant begin --engagement E --name N --tradeoff "…"` (generated mode also `--description "…"`), edit in `W`, `EXP variant commit --engagement E`. The action's `remaining` says what is still to build. `EXP variant discard --engagement E --name N` drops one before measuring. |
+| `build-grid` | `EXP grid build --engagement E` |
+| `measure` | `EXP measure --engagement E` (long: run it in the foreground) |
+| `confirm` | `EXP confirm --engagement E` |
+| `decide` | `EXP decide --engagement E --choose N --reason "…"` |
 
 ## Measuring and deciding
+
+The margin is `Margin:` when set, else twice the pooled median absolute deviation of the variants' runs. Set `Margin:` when the metric is coarsely rounded or noisier than a few runs show, so one rounding step cannot separate variants.
 
 `measure` runs every variant `Runs` times in an interleaved, seeded order, so drift over time spreads across all of them. A variant whose measurement fails is marked invalid, and one that fails `Checks` is marked as failing; the others continue.
 

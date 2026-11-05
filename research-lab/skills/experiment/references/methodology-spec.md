@@ -21,9 +21,9 @@ Judged methodologies use headings of the form `## <n>. <Title>`; `judged.py` par
 | `Measure:` | yes | Command run in the worktree. Prints `METRIC name=value` lines, or one bare number as its last line (remediate: the open findings count). |
 | `Checks:` | yes | Command; exit 0 means every guardrail passes. |
 | `Budget:` | yes | Maximum trials. |
-| `Target:` / `Direction:` | climb | Numeric target; `higher` or `lower`. Remediate: target defaults to 0, direction is lower. |
+| `Target:` / `Direction:` | climb; `Direction:` also compare | Numeric target; `higher` or `lower`. Remediate: target defaults to 0, direction is lower. |
 | `Runs:` | no | Measurements per evaluation (default 3); the median is used. |
-| `Margin:` | no | Minimum gain to keep; default twice the median absolute deviation of the baseline runs. |
+| `Margin:` | no | Minimum gain to keep; default twice the median absolute deviation of the baseline runs (compare: of all variants' runs, pooled). |
 | `Futility:` | no | Consecutive discards before escalating (default 5). |
 | `Metric name:` | no | Which `METRIC` line is primary when several are printed. |
 | `Bound:` | no | A measured floor or ceiling; a target beyond it is refused. |

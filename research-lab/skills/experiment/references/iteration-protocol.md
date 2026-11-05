@@ -40,7 +40,7 @@ Each line in `results.jsonl` is a JSON object:
 
 ### Scripted Records (`experiment.py`)
 
-Scripted `climb` and `remediate` runs write every record through `experiment.py`; never call `log-iteration.sh` for them. Decisions: `keep` (iteration 0 is the baseline), `discard`, `retry` (the candidate gained but failed a guardrail and gets one rework; `gate: fail`) and `confirm` (re-measure of the incumbent at the target). Extras: `strategy`, `runs`, `mad`, `trial`, `tradeoff`, `escalation`, `base`, `commit`, `incumbent`, `score` (remediate), and on the baseline `margin`. The script also owns the git steps below: it commits the trial, amends it on a rework, and reverts it through `discard-trial.py` on a discard.
+Scripted `climb` and `remediate` runs write every record through `experiment.py`; never call `log-iteration.sh` for them. Compare runs log `measured` (one per variant) and `confirm` records with extras `variant`, `commit` and `checks`. Decisions: `keep` (iteration 0 is the baseline), `discard`, `retry` (the candidate gained but failed a guardrail and gets one rework; `gate: fail`) and `confirm` (re-measure of the incumbent at the target). Extras: `strategy`, `runs`, `mad`, `trial`, `tradeoff`, `escalation`, `base`, `commit`, `incumbent`, `score` (remediate), and on the baseline `margin`. The script also owns the git steps below: it commits the trial, amends it on a rework, and reverts it through `discard-trial.py` on a discard.
 
 ### Judged Records
 

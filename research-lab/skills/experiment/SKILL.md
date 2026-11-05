@@ -22,7 +22,7 @@ Read before starting:
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/iteration-protocol.md` — records and git protocol
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/judged-metrics.md` — judged runs only
 
-`EXP` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/experiment.py`, `CHECK` means `EXP check`, and `JUDGED` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/judged.py`.
+`EXP` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/experiment.py` (in zsh define it as a function, not a variable), `CHECK` means `EXP check`, and `JUDGED` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/judged.py`.
 
 ## Golden Rule: Worktree = Branch
 
@@ -44,7 +44,7 @@ Args may preload `strategy=<remediate|climb|compare|explore|auto>` and `scorer=<
 
 ## Step 0 — Start or resume
 
-**Scripted:** if `E/state.json` exists, the run resumes: go to Step 1. Otherwise `EXP init --engagement E --worktree W --methodology M --strategy S --scorer scripted`; a refusal is a STOP with its reason. Then `cd W` and stay there: the hooks that keep an unattended run going only see engagements of the worktree the session is in.
+**Scripted:** if `E/state.json` exists, the run resumes: go to Step 1. Otherwise `EXP init --engagement E --worktree W --methodology M --strategy S --scorer scripted`; a refusal is a STOP with its reason, and its output is the first action. Then `cd W` and stay there: the hooks that keep an unattended run going only see engagements of the worktree the session is in.
 
 **Judged:** the whole loop is: run `JUDGED next`, perform its one action per `judged-metrics.md`, repeat. The first call is the resume. On `pause`, report the gate or rule and reason, and wait for Chris's `resolve`. On `stop`, go to Step 3. Judged is **refused for now** — the acceptance smoke test failed; see **Status** in `judged-metrics.md`. Once unblocked: confirm `mcp__t3-code__delegate_task` is available, then `JUDGED validate --host t3`; any error → STOP.
 
@@ -66,7 +66,7 @@ Run `EXP next --engagement E` and do its one action, then repeat:
 Rules:
 - Run `baseline`, `trial score` and `confirm` in the foreground with the longest timeout your shell allows; they measure `Runs` times and hold a lock while they work. Never start a second one; if one refuses because another is running, wait for it. The lock is released by the operating system when its command exits or is killed, so a leftover `E/.lock` file never needs removing.
 - Never run git yourself to commit, revert or reset a trial: `trial commit` stages every change in `W` outside `E`. The measurement commands must leave `W` clean; if `baseline` refuses because they did, fix the methodology (for example ignore generated files) rather than cleaning by hand.
-- In `E`, never edit `state.json`, `results.jsonl` or `progress.log`. You write `strategy.md` (the card and any `router_disagrees`) and, after the last `report`, the "worth maintaining?" column of `report.md`; running `report` again overwrites that column.
+- In `E`, never edit `state.json`, `results.jsonl` or `progress.log`. You write `strategy.md` (the card, or for a preload just any `router_disagrees`) and, after the last `report`, the agent's-view column of `report.md` by hand; running `report` again overwrites it.
 - `propose` returns `tried` (changes discarded against the current incumbent), `kept` (changes kept so far) and, for remediate, `findings` (open finding IDs when the measure script prints `FINDING <id>` lines). Do not repeat a `tried` change.
 - `tradeoff` is one sentence on what the change costs to keep (complexity, a dependency, changed behavior, maintenance).
 - A climb with proof the target cannot be reached ends with `EXP conclude --kind bound|scope --evidence "…"` at any escalation level; remediate records an unfixable finding with `EXP exception add`.
@@ -84,7 +84,7 @@ Judged runs only. `JUDGED next`'s `propose` action uses these:
 
 ## Step 3 — Report
 
-**Scripted:** `EXP report --engagement E` writes `E/report.md`. Fill its "worth maintaining?" column with your view, marked as yours, and show Chris the ending, the decisions to review and any validity or worth-keeping failure. Never call a run done unless its ending is `met` or `exceptions`.
+**Scripted:** `EXP report --engagement E` writes `E/report.md`. Fill its agent's-view column ("worth maintaining?", or "worth adopting?" for compare) with your view, and show Chris the ending, the decisions to review and any validity or worth-keeping failure. Never call a run done unless its ending is `met` or `exceptions`.
 
 **Judged:** on `stop target`, Chris reviews the artifacts; a rejection is `JUDGED resolve --decision reject --worktree W` and the climb continues. Report keeps vs discards, the latest calibrated or confirmed *M*, judge requests spent, and whether drift was monitored.
 
