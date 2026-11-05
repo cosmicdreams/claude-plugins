@@ -8,7 +8,7 @@ Choose between variants and say what each costs. There is no incumbent to beat s
 
 - **given**: one `Variant <name>:` line per option you were handed (for example Redis vs database cache). Build each one.
 - **generated**: write `Count:` variants of the stated `Idea:`. Make them genuinely different answers to the idea, each differing in one main choice, so the comparison says something. A redesign of the current approach is a generated variant.
-- **grid**: `Grid <param>:` lines and an `Apply:` command; the script builds every point itself (`build-grid`). Use it for tuning known settings.
+- **grid**: `Grid <param>:` lines and an `Apply:` command; the script builds every point itself (`build-grid`). Use it for tuning known settings. `{param}` in `Apply` is replaced already shell-quoted: do not put quotes around it, and do not write `${…}`.
 - `Include incumbent: yes` measures the unchanged base too, so "none of these beats what we have" is a possible answer.
 
 Each variant is one commit on the base, on its own branch `<branch>--<name>`; the experiment branch never moves. Every command takes `--engagement E`:
