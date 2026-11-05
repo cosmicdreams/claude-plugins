@@ -36,3 +36,14 @@ Among viable variants:
 ## Reporting
 
 The report lists every viable variant with its median, noise, distance from the best, checks and trade-off, marks the choice, and for a grid shows the response surface and each parameter's sensitivity. Fill the "worth adopting?" column with your view. The winner is never merged; the report names its branch.
+
+## Council scoring
+
+With `scorer=council`, judges compare the variants two at a time instead of a script measuring them. The methodology carries a judged protocol (`judged-metrics.md`: `artifact_command`, rubric, references, panel roles), `Budget:` counts judge requests (pairs × 2 orders × judges), and at most 5 variants count, incumbent included.
+
+1. `EXP init --engagement E --worktree W --methodology M --strategy compare --scorer council --transport t3|direct`, then build the variants as above.
+2. `EXP measure --engagement E --panel P --seed N` opens the pairwise round and lists the request directories. Each request shows two variants, blinded as `X` and `Y`; every pair is asked in both orders, of every judge.
+3. Send each `request.md` verbatim to its judge: T3 `delegate_task` with that role's panel target, or `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/council_call.py --request DIR --role ROLE --panel P` without T3. Record each reply with `EXP record --engagement E --request DIR --return-file R --invocation-file I`, where I is the provider, model and options the host reports (T3) or the panel entry (direct).
+4. `EXP score --engagement E` decides once every request is recorded.
+
+A judge's preference counts only when it picks the same variant in both orders; picking whichever came first is a tie. A variant every judge prefers over every other wins (`council: unanimous`); otherwise the unbeaten variants go to `decide` on trade-offs, and an unbeaten incumbent ends in no path to pursue. The report shows every preference by judge and order, and how often each judge was swayed by position.

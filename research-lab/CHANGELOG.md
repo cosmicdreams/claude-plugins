@@ -1,5 +1,15 @@
 # research-lab Changelog
 
+## 5.4.0 — 2026-11-05
+
+**Council scoring runs (phase 4 of `plans/research-lab/experiment-designs.md`).** `climb` and `compare` can be scored by a cross-family panel of model judges instead of a script.
+
+- The acceptance smoke test passed on its third attempt (T3), after fixing three defects it found: a drift limit below one score point, malformed judge replies reported without naming the judge, and empty trial commits that could not be reverted. A trial can no longer start after the loop has stopped.
+- Judges can be called without T3: `scripts/council_call.py` runs one request through the `codex`, `claude` or `gemini` CLI, pinned to an exact model name; aliases are refused and a reported model mismatch invalidates the reply. This direct transport passed its own check. Calibration is per transport.
+- `compare · council`: blind pairwise preference, asked in both orders of every judge; only position-consistent preferences count; a unanimous winner is decided, otherwise the unbeaten variants are chosen on trade-offs.
+- `council-status.json` records which transports passed; `check` reads it.
+- A compare report whose worktree is gone says plainly that its validity checks were not re-verified.
+
 ## 5.3.0 — 2026-11-04
 
 **`compare` runs (phase 3 of `plans/research-lab/experiment-designs.md`).** Choose between variants and report what each costs.

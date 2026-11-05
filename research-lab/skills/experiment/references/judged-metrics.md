@@ -8,7 +8,7 @@ Judged runs execute in the orchestrating session. The `experimentalist` agent re
 
 ## Status
 
-`council-status.json` is authoritative for passed transports. T3 passed the acceptance smoke test: `analysis-reports/research/experiment-hill-climb/smoke-r3-result.md`. Direct remains unavailable until its check passes.
+`council-status.json` is authoritative for passed transports. T3 passed the acceptance smoke test: `analysis-reports/research/experiment-hill-climb/smoke-r3-result.md`. Direct (no T3, judges called through `scripts/council_call.py`) passed its check: `analysis-reports/research/experiment-hill-climb/smoke-direct-result.md`.
 
 ---
 

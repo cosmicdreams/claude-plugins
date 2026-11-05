@@ -11,7 +11,7 @@ Every run has a **strategy** (how candidates are generated, accepted and ended) 
 | `compare` | Which of these is better, and at what cost? | no target; a preregistered primary metric and decision rule | decision with trade-offs · no path to pursue | **runs** (scripted) |
 | `explore` | What's possible here? | none | budget spent; a ranked gallery | not built |
 
-Scorers: `scripted` (a trusted number from a script) or `council` (cross-family judges anchored to references; `metric_type: judged` in a methodology means `council`). `council` is **blocked** until its smoke test passes (Status in `judged-metrics.md`).
+Scorers: `scripted` (a trusted number from a script) or `council` (cross-family judges anchored to references; `metric_type: judged` in a methodology means `council`). `council` runs for `climb` and `compare` on the transports listed in `council-status.json` (T3, or direct CLI calls without T3).
 
 A redesign is not a strategy: it is `compare` with a generated variant, or a `climb`'s last escalation rung.
 

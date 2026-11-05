@@ -36,7 +36,7 @@ Args may preload `strategy=<remediate|climb|compare|explore|auto>` and `scorer=<
 - `route` → run the router in `strategies.md`. "Not an experiment" → say so in one line and stop. Otherwise write and show the strategy card, with a drafted `methodology.md` if none was given, and **pause** for accept, edit or switch. Re-run `CHECK` with the accepted choice.
 - `refused` → STOP; report `reason` and each `missing` item.
 
-`climb`, `remediate` and `compare` run with the scripted scorer; other strategies and the council scorer stop after the card with `CHECK`'s reason. After acceptance (or a `ready` preload) the run is unattended.
+`climb`, `remediate` and `compare` run with the scripted scorer; `climb` and `compare` also with `council`. Others stop after the card with `CHECK`'s reason. After acceptance (or a `ready` preload) the run is unattended.
 
 ## Input contract
 
@@ -46,7 +46,7 @@ Args may preload `strategy=<remediate|climb|compare|explore|auto>` and `scorer=<
 
 **Scripted:** if `E/state.json` exists, the run resumes: go to Step 1. Otherwise `EXP init --engagement E --worktree W --methodology M --strategy S --scorer scripted`; a refusal is a STOP with its reason, and its output is the first action. Then `cd W` and stay there: the hooks that keep an unattended run going only see engagements of the worktree the session is in.
 
-**Judged:** the whole loop is: run `JUDGED next`, perform its one action per `judged-metrics.md`, repeat. The first call is the resume. On `pause`, report the gate or rule and reason, and wait for Chris's `resolve`. On `stop`, go to Step 3. Judged is **refused for now** — the acceptance smoke test failed; see **Status** in `judged-metrics.md`. Once unblocked: confirm `mcp__t3-code__delegate_task` is available, then `JUDGED validate --host t3`; any error → STOP.
+**Judged:** the whole loop is: run `JUDGED next`, perform its one action per `judged-metrics.md`, repeat. The first call is the resume. On `pause`, report the gate or rule and reason, and wait for Chris's `resolve`. On `stop`, go to Step 3. Dispatch judges with `mcp__t3-code__delegate_task`, or without T3 with `council_call.py` (Transports in `judged-metrics.md`); `JUDGED validate --host t3|direct` first, any error → STOP. Council `compare`: see `compare.md`.
 
 ## Step 1 — The loop (scripted)
 
