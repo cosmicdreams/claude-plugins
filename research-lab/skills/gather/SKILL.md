@@ -24,16 +24,11 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 > Collect and curate sources on a question or topic. Create a NotebookLM notebook, seed sources, fire deep web research, curate with the user, run synthesis queries, and produce a structured source summary. The "librarian" verb of the research arc — it brings material in; digesting it is understand's job. Use standalone for any knowledge-gathering task. Say "gather research on", "research this topic", "build a notebook on", "collect sources on", or "research-lab:gather". Formerly research-lab:literary-review (renamed in 2.0).
 
-Collect and curate knowledge via NotebookLM and deep web research. The **librarian** of the
-research arc (`frame → gather → understand → synthesize → interrogate → experiment → teach`):
-it brings material *in*. It does not digest that material — that is `understand`.
+Collect and curate knowledge via NotebookLM and deep web research. The **librarian** of the research arc (`frame → gather → understand → synthesize → interrogate → experiment → teach`): it brings material *in*. It does not digest that material — that is `understand`.
 
-**Stance:** librarian — comprehensive collection, then ruthless curation.
-**Notebook persona:** `nlm chat configure NOTEBOOK_ID --goal default` (per-notebook, set after creation).
+**Stance:** librarian — comprehensive collection, then ruthless curation. **Notebook persona:** `nlm chat configure NOTEBOOK_ID --goal default` (per-notebook, set after creation).
 
-**NotebookLM CLI reference:** `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/nlm-cli.md`
-**NotebookLM scripts:** `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-*.sh` — use these instead of calling
-`nlm` directly; they encode correct CLI syntax and retry degraded answers.
+**NotebookLM CLI reference:** `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/nlm-cli.md` **NotebookLM scripts:** `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-*.sh` — use these instead of calling `nlm` directly; they encode correct CLI syntax and retry degraded answers.
 
 ---
 
@@ -91,15 +86,13 @@ Use the provided notebook ID. Proceed to Phase 3.
 
 ### Wait for research
 
-Deep research takes 15–30 minutes. Run as a **background Bash task** (`run_in_background: true`) —
-the harness re-invokes on completion:
+Deep research takes 15–30 minutes. Run as a **background Bash task** (`run_in_background: true`) — the harness re-invokes on completion:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-research-wait.sh NOTEBOOK_ID
 ```
 
-`nlm` splits waiting and importing into two calls (`research status` then `research import`); the
-wrapper does both and auto-detects the task id. Do not hand-roll it.
+`nlm` splits waiting and importing into two calls (`research status` then `research import`); the wrapper does both and auto-detects the task id. Do not hand-roll it.
 
 ---
 
@@ -110,8 +103,7 @@ Dedup (automatic):
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-dedup.sh NOTEBOOK_ID --apply
 ```
 
-Relevance prune — list sources, propose cuts grouped by reason, user approves. Do not silently
-delete on relevance judgement:
+Relevance prune — list sources, propose cuts grouped by reason, user approves. Do not silently delete on relevance judgement:
 ```bash
 nlm source list NOTEBOOK_ID --json
 nlm source delete SOURCE_ID --confirm
@@ -138,18 +130,15 @@ args: { topic, facets: [{key, query}], notebookId }
 
 Only reach for this on a genuinely broad topic — a narrow one is cheaper queried directly.
 
-When headroom is present (`command -v headroom`), large fetched sources can be compressed before
-digestion to reduce context consumption.
+When headroom is present (`command -v headroom`), large fetched sources can be compressed before digestion to reduce context consumption.
 
 ---
 
 ## Phase 5 — Output
 
-Write `02-gather.md` to the engagement directory (notebook ID, source count, core concepts,
-common patterns, known pitfalls, key sources). Present inline when standalone.
+Write `02-gather.md` to the engagement directory (notebook ID, source count, core concepts, common patterns, known pitfalls, key sources). Present inline when standalone.
 
-In standalone mode, hand `02-gather.md` to `lib:vault-store` for Obsidian archival. Close with
-the postflight version check:
+In standalone mode, hand `02-gather.md` to `lib:vault-store` for Obsidian archival. Close with the postflight version check:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-postflight.sh
