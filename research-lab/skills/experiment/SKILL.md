@@ -89,7 +89,9 @@ Judged runs only. `JUDGED next`'s `propose` action uses these:
 
 **Judged:** on `stop target`, Chris reviews the artifacts; a rejection is `JUDGED resolve --decision reject --worktree W` and the climb continues. Report keeps vs discards, the latest calibrated or confirmed *M*, judge requests spent, and whether drift was monitored.
 
-`EXP status --all --repo R` lists every engagement in a repository's worktrees. Offer a chart (`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/generate-chart.py E/results.jsonl`) or a vault archive.
+`EXP status --all --repo R` lists every engagement in a repository's worktrees. Offer a chart (`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/generate-chart.py E/results.jsonl`).
+
+**Register the run** once it has ended, with or without a librarian: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/research_lab.py register-run --engagement E --slug "<short name>" --question "<the question it answered>"`, adding `--used-by <engagement name>` when a librarian ran it. It copies the report and methodology into a uniquely named folder under the vault's `Experiments/` and leaves `results.jsonl` and `state.json` in `E`. Tell the user the run's name, which is how other notes refer to it. If it refuses as unconfigured, say so in one line and move on.
 
 ## Suggest next
 

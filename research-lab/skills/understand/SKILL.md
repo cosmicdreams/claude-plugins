@@ -102,9 +102,9 @@ Fan-out to parallel subagents only when independently explorable facets benefit 
   ```bash
   nlm note create NOTEBOOK_ID --title "Understanding: TARGET" --content "$(cat /tmp/understanding.md)"
   ```
-- **Vault** — hand to `lib:vault-store`, which owns Obsidian placement.
+- **Vault** — in standalone mode, hand to `lib:vault-store`, which owns Obsidian placement. Under `research-lab:consult` the engagement directory is already in the vault, so skip the handoff.
 
-research-lab does not reimplement vault writes. The record also stays in the engagement directory.
+research-lab does not reimplement vault writes. When an engagement directory exists, also write the record there as `03-understand.md`.
 
 ---
 

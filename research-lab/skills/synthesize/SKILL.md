@@ -94,7 +94,7 @@ If a notebook is in play, co-locate the position as a note:
 nlm note create NOTEBOOK_ID --title "Position: TOPIC" --content "$(cat 04-synthesize.md)"
 ```
 
-Hand `04-synthesize.md` to `lib:vault-store` for Obsidian archival. research-lab does not reimplement the vault write; the position also stays in the engagement directory.
+In standalone mode, hand `04-synthesize.md` to `lib:vault-store` for Obsidian archival. research-lab does not reimplement the vault write; the position also stays in the engagement directory. Under `research-lab:consult` the engagement directory is already in the vault, so skip the handoff.
 
 ---
 
