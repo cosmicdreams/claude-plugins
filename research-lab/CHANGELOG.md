@@ -1,5 +1,18 @@
 # research-lab Changelog
 
+## 5.2.0 — 2026-11-04
+
+**`climb` and `remediate` run end to end through a script (phase 2 of `plans/research-lab/experiment-designs.md`).** The agent proposes and edits; `experiment.py` does the rest.
+
+- New commands: `init`, `next`, `baseline`, `trial begin|commit|score`, `confirm`, `conclude`, `exception add`, `resume`, `report`, `status --all`. `next` returns one action at a time.
+- The script owns git for trials: it commits each trial as one commit, amends it on a rework, and reverts it through `discard-trial.py` on a discard.
+- Hill-climb rules from the agreed definition: three endings (met on a confirming re-measurement, unreachable with evidence, paused with the goal open); repeated discards escalate through four levels instead of stopping; a target beyond a declared `Bound:` is refused up front.
+- `remediate`: keeps when the findings count falls and the tool's score does not regress beyond noise; unfixable findings are recorded as exceptions with evidence; the report offers a follow-up climb when the score target is unmet.
+- One rework for a candidate that gains but fails a guardrail; an optional declared simplicity tie-break; a progress line after every trial; measure scripts print `METRIC name=value` (a bare number still works).
+- The report leads with decisions to review (each keep with its trade-off), then rejected directions, router notes, validity checks and a held-out check.
+- Claude `Stop` and `SessionStart` hooks keep a running engagement going unattended and pause it after three continuations without progress. They do nothing outside a running engagement.
+- Methodologies for scripted climbs now need `Measure:` and `Checks:` commands (`methodology-spec.md`).
+
 ## 5.1.0 — 2026-11-03
 
 **Judged path ships blocked.** The acceptance smoke test failed on its first calibration (provider-reported option missing from the panel; a string score). Both causes are fixed; `metric_type: judged` stays refused until a rerun passes. Everything else below is active.

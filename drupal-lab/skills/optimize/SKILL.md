@@ -36,7 +36,7 @@ RESEARCH_LAB_ROOT="$(ls -d ~/.claude/plugins/cache/local/research-lab/* 2>/dev/n
 
 - Never modify `worktrees/main/`. All changes happen in a dedicated worktree.
 - Always target local DDEV. Never hit remote environments (dev, staging, production).
-- The experiment loop controls termination. Do not declare the engagement complete until the loop terminates: target achieved, budget exhausted, or futility threshold.
+- The experiment loop controls termination. Do not declare the engagement complete until it ends: met (target confirmed), unreachable (with evidence), or paused (goal still open; report it as unfinished).
 
 ## Pipeline
 
@@ -51,7 +51,7 @@ Completed phase outputs skip ahead:
 - `02-gather.md` exists → skip to Synthesize
 - `04-synthesize.md` exists → skip to Methodology
 - `05-methodology.md` exists → skip to Experiment
-- `results.jsonl` with keeps → skip to Report
+- `state.json` whose status is `stopped` → skip to Report; `running` or `paused` → resume the Experiment phase
 
 ### Phase 1 — Setup
 

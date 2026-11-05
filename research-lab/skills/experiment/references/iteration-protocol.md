@@ -1,6 +1,8 @@
 # Iteration Protocol
 
-Canonical specification for the experiment iteration loop. The experimentalist reads this before starting.
+Canonical specification for the experiment iteration loop.
+
+**Scripted `climb` and `remediate` runs:** `experiment.py` does everything in the Git Protocol, Measurement Validity, Ratchet and Futility sections below: it records trial ownership in `state.json`, commits, reverts through `discard-trial.py`, logs, and keeps the engagement directory out of Git by adding it to the repository's `info/exclude` at `init` (the only ignore rule it writes). Futility escalates instead of stopping (`strategies/climb.md`). Keep no extra notes and run no git for trials. The sections below are the rules the script enforces, and the procedure for judged runs and for methodologies the script cannot run.
 
 ---
 
@@ -35,6 +37,10 @@ Each line in `results.jsonl` is a JSON object:
 | `ratchet` | float \| null | Ratchet value after this iteration (updated on keep, unchanged on discard) |
 | `decision` | "keep" \| "discard" \| "skip" \| "calibrate" \| "confirm" \| "invalid" | The iteration outcome; the last three are judged only |
 | `reason` | string | Why this decision was made |
+
+### Scripted Records (`experiment.py`)
+
+Scripted `climb` and `remediate` runs write every record through `experiment.py`; never call `log-iteration.sh` for them. Decisions: `keep` (iteration 0 is the baseline), `discard`, `retry` (the candidate gained but failed a guardrail and gets one rework; `gate: fail`) and `confirm` (re-measure of the incumbent at the target). Extras: `strategy`, `runs`, `mad`, `trial`, `tradeoff`, `escalation`, `base`, `commit`, `incumbent`, `score` (remediate), and on the baseline `margin`. The script also owns the git steps below: it commits the trial, amends it on a rework, and reverts it through `discard-trial.py` on a discard.
 
 ### Judged Records
 

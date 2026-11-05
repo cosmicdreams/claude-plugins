@@ -6,8 +6,8 @@ Every run has a **strategy** (how candidates are generated, accepted and ended) 
 
 | Strategy | Question it answers | Goal | Ends | Status |
 |---|---|---|---|---|
-| `remediate` | Work through this tool's findings | findings = 0 except documented exceptions | met · exceptions with evidence · paused | not built |
-| `climb` | Get this artifact to a target | metric, direction, numeric target | met (confirmed) · unreachable with evidence · paused | **runs** |
+| `remediate` | Work through this tool's findings | findings = 0 except documented exceptions | met · exceptions with evidence · paused | **runs** (scripted) |
+| `climb` | Get this artifact to a target | metric, direction, numeric target | met (confirmed) · unreachable with evidence · paused | **runs** (scripted) |
 | `compare` | Which of these is better, and at what cost? | no target; a preregistered primary metric and decision rule | decision with trade-offs · no path to pursue | not built |
 | `explore` | What's possible here? | none | budget spent; a ranked gallery | not built |
 

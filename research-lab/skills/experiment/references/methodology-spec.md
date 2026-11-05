@@ -1,12 +1,12 @@
 # Methodology Spec
 
-Format definition for `05-methodology.md` files. The experimentalist reads this to know what to expect.
+Format of an experiment methodology file (any path; drupal-lab names it `05-methodology.md`).
 
 ---
 
 ## Required Sections
 
-A valid methodology.md MUST contain all of these:
+A `climb` or judged methodology MUST contain all of these sections; a `remediate` methodology needs only Objective, Scope Constraints and Working Directory. Fields are `name: value` or `**Name:** value` lines.
 
 Judged methodologies use headings of the form `## <n>. <Title>`; `judged.py` parses them.
 
@@ -14,6 +14,22 @@ Judged methodologies use headings of the form `## <n>. <Title>`; `judged.py` par
 - Optional `strategy: <remediate|climb|compare|explore>` and `scorer: <scripted|council>` lines (`strategies.md`); an argument overrides them, and absent means the router decides
 - `metric_type: scripted` or `metric_type: judged` on its own line (absent = `scripted`; `judged` means `scorer: council`, and a conflicting `scorer:` is an error)
 - For `climb`: `Target:`, `Direction:` (higher/lower) and, in Iteration Rules, `Budget:` as `name: value` lines; `experiment.py check` refuses without them
+- Scripted `climb` and `remediate` runs are driven by `experiment.py`, which reads these `name: value` lines (anywhere in the file):
+
+| Field | Required | Meaning |
+|---|---|---|
+| `Measure:` | yes | Command run in the worktree. Prints `METRIC name=value` lines, or one bare number as its last line (remediate: the open findings count). |
+| `Checks:` | yes | Command; exit 0 means every guardrail passes. |
+| `Budget:` | yes | Maximum trials. |
+| `Target:` / `Direction:` | climb | Numeric target; `higher` or `lower`. Remediate: target defaults to 0, direction is lower. |
+| `Runs:` | no | Measurements per evaluation (default 3); the median is used. |
+| `Margin:` | no | Minimum gain to keep; default twice the median absolute deviation of the baseline runs. |
+| `Futility:` | no | Consecutive discards before escalating (default 5). |
+| `Metric name:` | no | Which `METRIC` line is primary when several are printed. |
+| `Bound:` | no | A measured floor or ceiling; a target beyond it is refused. |
+| `Tiebreak:` + `Readability:` | no | Simplicity measure (lower is simpler) and a readability check; together they let a within-margin, simpler candidate keep. |
+| `Held-out:` | no | A check never used for decisions, run once in the report. |
+| `Score:` / `Score target:` | remediate, no | The tool's overall score as a guardrail; a target below which the report offers a follow-up climb. |
 - What metric is being optimized
 - Target value (numeric, measurable); for judged, the Judging Protocol's `target`
 - Direction: is lower better or higher better? Judged is always `direction: higher`
