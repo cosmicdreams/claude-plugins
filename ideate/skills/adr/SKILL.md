@@ -4,13 +4,6 @@ description: >
   Capture an Architecture Decision Record — context, options considered, decision,
   consequences — into the Neurons vault at Architecture/ADRs/. Use for tool selection,
   retirement, process changes, and documenting why something was NOT done.
-triggers:
-  - "architecture decision"
-  - "adr"
-  - "document this decision"
-  - "record this decision"
-  - "why we chose"
-  - "ideate:adr"
 allowed-tools: Bash, Read, Write
 ---
 

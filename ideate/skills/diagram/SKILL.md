@@ -5,22 +5,6 @@ description: >
   architecture, component relationships, data flow, sequences, dependency graphs, decision
   trees, pipelines. Can chain after ideate:brainstorm. Not for bar/line/pie charts or
   prose.
-triggers:
-  - "create a diagram"
-  - "diagram this"
-  - "draw a diagram"
-  - "make a diagram"
-  - "excalidraw"
-  - "sketch this out"
-  - "map this out"
-  - "draw a flowchart"
-  - "create a flowchart"
-  - "show the architecture"
-  - "draw the flow"
-  - "show how"
-  - "map the dependencies"
-  - "now diagram that"
-  - "chart this out"
 allowed-tools: Bash, Read, Write
 ---
 

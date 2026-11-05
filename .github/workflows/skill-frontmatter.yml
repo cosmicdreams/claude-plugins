@@ -1,0 +1,35 @@
+name: Skill frontmatter
+
+on:
+  pull_request:
+    paths:
+      - '**/SKILL.md'
+      - 'scripts/skill-creator/**'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml
+      - name: Validate changed skills with skill-creator's quick_validate
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git diff --name-only --diff-filter=ACMR "origin/$BASE_REF...HEAD" -- '*SKILL.md' > changed.txt
+          if [ ! -s changed.txt ]; then echo "No skill changes."; exit 0; fi
+          status=0
+          while IFS= read -r f; do
+            dir=$(dirname "$f")
+            if out=$(python3 scripts/skill-creator/quick_validate.py "$dir" 2>&1); then
+              echo "ok   $dir"
+            else
+              echo "FAIL $dir: $out"; status=1
+            fi
+          done < changed.txt
+          exit $status

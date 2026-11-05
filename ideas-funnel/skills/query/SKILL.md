@@ -1,14 +1,9 @@
 ---
-name: ideas-funnel:query
+name: query
 description: >
   Answer a question against the vault: scan index.md for candidates, read the relevant
   bodies, synthesize with [[wikilink]] citations, and optionally file the answer back as a
   domain synthesis draft or Refinery promotion request when it is novel enough to deserve one.
-triggers:
-  - query
-  - /ideas-funnel:query
-  - query the vault
-  - ask the vault
 allowed-tools:
   - Read
   - Write
@@ -58,8 +53,7 @@ Write a response:
 
 ## Step 4 — File back if novel
 
-If the answer represents a synthesis that doesn't exist as its own page, offer
-to create a draft:
+If the answer represents a synthesis that doesn't exist as its own page, offer to create a draft:
 
 ```
 This answer is a synthesis across [[A]], [[B]], [[C]]. File as a domain draft
@@ -72,8 +66,7 @@ If user accepts:
 2. Write to `Raw/Synthesis/<YYYY-MM-DD>-<slug>.md` when the domain is unclear.
 3. Append a `log.md` line with `query | refinery-request: <path>`.
 
-Do not write directly to `Concepts/`, `Entities/`, `Bridges/`, or `Conflicts/`.
-Those are Refinery-only shared layers.
+Do not write directly to `Concepts/`, `Entities/`, `Bridges/`, or `Conflicts/`. Those are Refinery-only shared layers.
 
 ## Step 5 — Log
 

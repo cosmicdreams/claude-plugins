@@ -3,12 +3,6 @@ name: testrail
 description: >
   Read TestRail projects, suites, plans, sections, and test cases via the REST API — the
   data layer for turning TestRail cases into Playwright tests.
-triggers:
-  - "lib:testrail"
-  - "testrail plans"
-  - "read testrail"
-  - "list test cases"
-  - "get test plan"
 allowed-tools: Bash, Read
 ---
 

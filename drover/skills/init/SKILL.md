@@ -1,5 +1,5 @@
 ---
-name: drover:init
+name: init
 description: >
   Discover a project's Drupal/Acquia config and write .drover/manifest.json — application
   UUID, environment ids, and per-environment log types — inferred from drush aliases,
@@ -17,8 +17,7 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 ## What it does
 
-Discovers Drupal/Acquia configuration from local breadcrumbs and the
-Acquia Cloud Platform API. Writes a `.drover/manifest.json` with:
+Discovers Drupal/Acquia configuration from local breadcrumbs and the Acquia Cloud Platform API. Writes a `.drover/manifest.json` with:
 
 - App UUID and name
 - Every environment's name, env ID, default domain
@@ -26,8 +25,7 @@ Acquia Cloud Platform API. Writes a `.drover/manifest.json` with:
 - Hosting profile (`drupal-acquia` — forward-compat for future platforms)
 - Schema version + retention window
 
-Once written, `/drover:acquia-pull` and `/drover:report` operate from
-that manifest.
+Once written, `/drover:acquia-pull` and `/drover:report` operate from that manifest.
 
 ## Prerequisites
 
@@ -63,11 +61,8 @@ python3 "$INIT_PY" --app AHRI
 
 In priority order — any one source is enough to resolve the app:
 
-1. **Drush aliases** — `drush/sites/*.site.yml` (D8+ format). Best
-   source: gives `host` (SSH endpoint) and `uri` (site URL) per env,
-   which match Acquia env domains directly.
-2. **composer.json** — `name` field for the project slug; `acquia/*`
-   dependencies as a positive Acquia signal.
+1. **Drush aliases** — `drush/sites/*.site.yml` (D8+ format). Best source: gives `host` (SSH endpoint) and `uri` (site URL) per env, which match Acquia env domains directly.
+2. **composer.json** — `name` field for the project slug; `acquia/*` dependencies as a positive Acquia signal.
 3. **`.ddev/config.yaml`** — `name:` field.
 4. **`acquia-pipelines.yml`** — presence-only; confirms Acquia project.
 5. **git remote** — fallback name source.
@@ -83,10 +78,7 @@ In priority order — any one source is enough to resolve the app:
 | Multiple apps tied at top score | Aborts; lists candidates; requires `--app NAME`. |
 | Manifest already exists | Aborts; suggests `--force`. |
 
-The `--app` argument is a case-insensitive substring match — `--app pncb`
-matches "Pediatric Nursing Certification Board" if its `name` field
-contains "pncb" (it doesn't, in PNCB's case — use the actual app name
-substring as visible in `acli api:applications:list`).
+The `--app` argument is a case-insensitive substring match — `--app pncb` matches "Pediatric Nursing Certification Board" if its `name` field contains "pncb" (it doesn't, in PNCB's case — use the actual app name substring as visible in `acli api:applications:list`).
 
 ## What gets written
 
@@ -113,18 +105,13 @@ substring as visible in `acli api:applications:list`).
 }
 ```
 
-Edit the manifest by hand if you want to narrow types per env, exclude
-an env from analysis, or adjust the project slug. The schema is stable
-across slice 2.x releases.
+Edit the manifest by hand if you want to narrow types per env, exclude an env from analysis, or adjust the project slug. The schema is stable across slice 2.x releases.
 
-`manifest.json` is the **only** file init writes. In particular it does
-not write a design file or a logo — see below.
+`manifest.json` is the **only** file init writes. In particular it does not write a design file or a logo — see below.
 
 ## Branding: you do not supply anything
 
-Reports come out Velir-branded with **zero configuration**. The design
-tokens and the logo ship inside the plugin and are used automatically, so
-there is nothing to copy into your project and nothing to hunt down.
+Reports come out Velir-branded with **zero configuration**. The design tokens and the logo ship inside the plugin and are used automatically, so there is nothing to copy into your project and nothing to hunt down.
 
 Each asset resolves through a chain, first match wins:
 
@@ -134,15 +121,9 @@ Each asset resolves through a chain, first match wins:
 | Logo | `--logo` → `$DROVER_LOGO` → `.drover/branding/velir-logo.png` → **bundled** |
 | Templates | `--templates <dir>` → `.drover/templates` → **bundled** |
 
-Only create the project-local paths when you deliberately want to
-*override* the defaults — for example a client engagement with its own
-palette. Copying the bundled `DESIGN.md` into a project "to be safe" is
-counterproductive: it freezes a snapshot that never receives plugin
-updates, so projects silently drift apart on branding while appearing
-configured.
+Only create the project-local paths when you deliberately want to *override* the defaults — for example a client engagement with its own palette. Copying the bundled `DESIGN.md` into a project "to be safe" is counterproductive: it freezes a snapshot that never receives plugin updates, so projects silently drift apart on branding while appearing configured.
 
-To confirm what a render actually used, read its output — it prints the
-resolved `design:` and `logo:` paths on every run.
+To confirm what a render actually used, read its output — it prints the resolved `design:` and `logo:` paths on every run.
 
 ## Next steps
 

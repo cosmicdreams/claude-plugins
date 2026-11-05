@@ -1,5 +1,5 @@
 ---
-name: drover:report
+name: report
 description: >
   Render a calendar-month log report from local logs and the coverage ledger:
   Velir-branded HTML by default, PDF for delivery, markdown as fallback. Stakeholder

@@ -5,12 +5,6 @@ description: >
   shaped for Mavenlink timesheet entry. --day is a skippable digest; --week is the
   mandatory artifact and must work with no prior daily run. Never fabricates hours — only
   calendar blocks carry durations.
-triggers:
-  - "workshop:recap"
-  - "recap my day"
-  - "recap my week"
-  - "what did I do this week"
-  - "timesheet summary"
 allowed-tools: Bash, Read, Skill
 ---
 

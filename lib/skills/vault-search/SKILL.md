@@ -4,16 +4,6 @@ description: >
   Search the Obsidian Neurons vault by content, follow [[wikilinks]] one hop to show each
   hit's neighborhood, and open the top result. For storing new content use
   lib:vault-store.
-triggers:
-  - vault-search
-  - search the vault
-  - find in vault
-  - search my notes
-  - find in my notes
-  - do I have a note about
-  - look up in my vault
-  - what notes mention
-  - where did I write about
 ---
 
 # vault-search
@@ -37,8 +27,7 @@ Use `VAULT_ROOT` for all file operations. Use `VAULT_NAME` for the Obsidian URI.
 
 ## Step 1 — Parse the query
 
-Extract search term(s) from the user's message. Strip any slash-command prefix.
-If no query is provided, ask: "What are you searching for?"
+Extract search term(s) from the user's message. Strip any slash-command prefix. If no query is provided, ask: "What are you searching for?"
 
 ## Step 2 — Search
 

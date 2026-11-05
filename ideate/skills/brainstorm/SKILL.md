@@ -4,15 +4,6 @@ description: >
   Diverge on options, open a local browser canvas to annotate them, then synthesize the
   annotated choices into a concrete plan. Also handles the synthesize phase when you
   return from annotating. Not for questions with an obvious answer.
-triggers:
-  - "brainstorm"
-  - "let's brainstorm"
-  - "explore options"
-  - "help me decide"
-  - "what are my options"
-  - "synthesize"
-  - "I've annotated"
-  - "I'm done annotating"
 allowed-tools: Bash, Read, Write, Edit
 ---
 

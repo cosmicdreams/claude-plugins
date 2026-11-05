@@ -5,12 +5,6 @@ description: >
   channel, current production release, and the tag or branch being deployed. You edit the
   emoji in Slack as it proceeds; this skill does not track status. Not for reading Slack
   (lib:slack).
-triggers:
-  - "workshop:deploy-post"
-  - "post deployment checklist"
-  - "deploy checklist"
-  - "deploy post"
-  - "deployment announcement"
 allowed-tools: Bash, Read
 ---
 
@@ -22,8 +16,7 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 > Post a deployment checklist to Slack. Guides the user through three inputs — target channel, current production release, and the tag or branch being deployed — then renders the canonical checklist (every task starting at :rocket: pending) and posts it once via agent-slack. The user edits the emojis directly in Slack as the deployment proceeds; this skill does not track or update status. Use when the user says "post deployment checklist", "send deploy checklist", "deploy post", "announce a deployment", or "workshop:deploy-post". Do NOT use for reading Slack (use lib:slack) or for non-deployment posts.
 
-Post a single deployment checklist to Slack. The user edits the emojis in place as work proceeds —
-this skill only creates the initial post.
+Post a single deployment checklist to Slack. The user edits the emojis in place as work proceeds — this skill only creates the initial post.
 
 ## Inputs to collect
 
@@ -56,5 +49,4 @@ The date is today's date — do not ask for it.
 
 ## Template
 
-The canonical checklist lives in `assets/checklist.tpl`. Edit that file to change the task list —
-do not hardcode tasks here.
+The canonical checklist lives in `assets/checklist.tpl`. Edit that file to change the task list — do not hardcode tasks here.

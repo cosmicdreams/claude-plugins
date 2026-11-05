@@ -1,12 +1,9 @@
 ---
-name: ideas-funnel:rescue
+name: rescue
 description: >
   Recovers stalled or weak memory: stale raw inbox items, orphan domain pages,
   at-risk concepts, and unlinked mentions. Trigger phrases: "rescue funnel",
   "/ideas-funnel:rescue".
-triggers:
-  - /ideas-funnel:rescue
-  - rescue funnel
 allowed-tools:
   - Bash
   - Read

@@ -1,16 +1,10 @@
 ---
-name: ideas-funnel:ingest
+name: ingest
 description: >
-  Process unprocessed items in Raw/ and Raw/Inbox/<domain>/ into Source, Concept, and
+  Process unprocessed items in Raw/ and Raw/Inbox/DOMAIN/ into Source, Concept, and
   Entity pages; update index.md, log.md, and .manifest.json; emit the concept-density
   signal when a concept crosses three unrelated sources. Adds multi-domain dispatch and
   the v2 frontmatter schema.
-triggers:
-  - ingest
-  - /ideas-funnel:ingest
-  - process raw items
-  - process inbox
-  - process daily notes
 allowed-tools:
   - Bash
   - Read

@@ -4,13 +4,6 @@ description: >
   Reinstall every locally installed CLAUDE-PLUGINS plugin at its latest version and update
   hardcoded version paths in CLAUDE.md. Run after a version bump. Not for npm, pip, or
   composer packages.
-triggers:
-  - "update plugins"
-  - "update my plugins"
-  - "update the plugins"
-  - "get latest plugins"
-  - "plugin update"
-  - "refresh plugins"
 allowed-tools: Bash
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: ideas-funnel:dispatch
+name: dispatch
 description: >
   Run the bounded T3 pull, daily, or weekly pipeline and report to the Ideas Funnel desk.
   Not for registration; use ideas-funnel:schedule.

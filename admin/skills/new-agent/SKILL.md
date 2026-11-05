@@ -4,11 +4,6 @@ description: >
   Write a brand-new agent definition — agent-team role, standalone specialist, or plugin
   agent. Not for editing, reviewing, listing, or optimizing existing agents
   (admin:optimize-agents).
-triggers:
-  - "create an agent"
-  - "new agent"
-  - "add a role"
-  - "build an agent"
 ---
 
 # Agent Creator

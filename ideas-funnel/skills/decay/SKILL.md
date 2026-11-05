@@ -1,12 +1,9 @@
 ---
-name: ideas-funnel:decay
+name: decay
 description: >
   Applies the ideas-funnel memory state machine: confidence decay, confirmation
   aging, hardened flag updates, at-risk transitions, and archive candidates.
   Trigger phrases: "decay funnel memory", "/ideas-funnel:decay".
-triggers:
-  - /ideas-funnel:decay
-  - decay funnel memory
 allowed-tools:
   - Bash
   - Read

@@ -4,14 +4,6 @@ description: >
   Answer a question from the Obsidian wiki, optionally filling gaps from the web, then
   file the answer as a new Concept or Source page and update index.md. For plain lookup
   use lib:vault-search.
-triggers:
-  - "wiki-query"
-  - "ask the wiki"
-  - "research this in my vault"
-  - "what does my wiki say about"
-  - "query the vault"
-  - "what do I know about"
-  - "wiki answer"
 allowed-tools:
   - Bash
   - Read

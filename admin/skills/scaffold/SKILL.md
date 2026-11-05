@@ -4,16 +4,6 @@ description: >
   Set up a generic project structure for agent-assisted work: creates .claude/,
   analysis-reports/, plans/, and CLAUDE.md. Pass --silent to suppress the detection
   prompt. Not for DDEV setup, worktrees, or an already-scaffolded project.
-triggers:
-  - "scaffold this project"
-  - "set up this project for agents"
-  - "prepare this project for multi-agent work"
-  - "initialize project structure"
-  - "set up admin for this project"
-  - "silence scaffold prompt"
-  - "don't ask about scaffolding"
-  - "disable scaffold prompt"
-  - "stop asking about scaffold"
 allowed-tools: Read, Bash, Glob, Grep
 ---
 

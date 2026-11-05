@@ -5,26 +5,6 @@ description: >
   design is. Runs one of three strategies: gap (what is missing), fit (which option suits
   this context), trade-off (what each choice costs). Not for generating new ideas or
   general research.
-triggers:
-  - "compare"
-  - "compare these options"
-  - "compare A vs B"
-  - "which is better"
-  - "side by side"
-  - "gap analysis"
-  - "do a gap analysis"
-  - "what am I missing"
-  - "what have I overlooked"
-  - "is my design complete"
-  - "fit analysis"
-  - "which fits our stack"
-  - "which is right for us"
-  - "which fits our project"
-  - "trade-off analysis"
-  - "tradeoff"
-  - "what do I give up"
-  - "help me choose between"
-  - "evaluate options"
 allowed-tools: Read, WebFetch, Bash, AskUserQuestion
 ---
 

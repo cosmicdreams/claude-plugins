@@ -4,12 +4,6 @@ description: >
   Profile PHP inside DDEV — page load, memory allocation, database query patterns —
   emitting JSON score tuples for the experiment ratchet, including callgraph_top_10. Not
   for frontend performance (test-lab:perf-measure).
-triggers:
-  - "profile this page"
-  - "drupal performance"
-  - "xhprof"
-  - "slow query"
-  - "drupal-lab:perf-measure"
 ---
 
 # perf-measure

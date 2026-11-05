@@ -4,14 +4,6 @@ description: >
   Bump the semantic version of one or all CLAUDE-PLUGINS plugins: update every version
   reference, write CHANGELOG entries, and print the reinstall command. Not for checking an
   installed version or for npm/composer packages.
-triggers:
-  - "bump version"
-  - "increment version"
-  - "release new version"
-  - "version bump"
-  - "bump the version"
-  - "semver"
-  - "update plugin version"
 allowed-tools: Read, Write, Edit, Bash
 ---
 

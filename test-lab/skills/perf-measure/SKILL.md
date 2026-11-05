@@ -5,14 +5,6 @@ description: >
   for the experiment ratchet — Lighthouse scores, Core Web Vitals, hyperfine timings,
   token spend. Pass --a11y to delegate to test-lab:accessibility-scan. Not for PHP/DDEV
   profiling (drupal-lab:perf-measure).
-triggers:
-  - "measure performance"
-  - "lighthouse score"
-  - "benchmark this command"
-  - "core web vitals"
-  - "test-lab:perf-measure"
-  - "token cost measurement"
-  - "token spend"
 ---
 
 # perf-measure
