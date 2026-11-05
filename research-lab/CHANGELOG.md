@@ -1,5 +1,14 @@
 # research-lab Changelog
 
+## 5.6.1 — 2026-11-05
+
+**Same section headings in every skill.** Each of the seven skills now has exactly one `## Input contract`, one `## Preflight` and one `## Suggest next`, so a caller can pull those sections out by heading.
+
+- `## Chaining` is renamed `## Suggest next` everywhere, and its first line is always `Never auto-invoke.`
+- `interrogate`'s preflight heading loses its suffix; the desk-reject note moves into the body.
+- `experiment` gains a `## Preflight` (the fail-fast and `CHECK` refusal) and a `## Suggest next` (`synthesize`, `teach`).
+- New `tests/test_skill_sections.py` checks the headings, the opening line, and that every suggested skill exists.
+
 ## 5.6.0 — 2026-11-05
 
 **Keyword-only skill descriptions.** Each skill's description now says only which phrases trigger it and which sibling handles the nearest neighbouring request. What the skill does lives in its body.

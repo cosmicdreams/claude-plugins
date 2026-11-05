@@ -135,7 +135,9 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-postflight.sh
 
 ---
 
-## Chaining
+## Suggest next
+
+Never auto-invoke.
 
 - **After gather** → `research-lab:understand` to digest the curated notebook (typical next move).
 - **After gather** → `research-lab:synthesize` to go straight to a formed position.

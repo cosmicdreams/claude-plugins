@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.2 — 2026-11-05
+
+- `lint` skips `Research-Lab/`, which research-lab manages: no scan, flags or frontmatter writes there.
+
 ## 3.1.1 — 2026-11-05
 
 - `init` runs the in-place vault check before creating the scaffold, so it refuses a vault inside a `main` reference checkout or a linked git worktree, like the pull and pipeline commands.

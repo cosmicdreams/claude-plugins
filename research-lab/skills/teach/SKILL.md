@@ -181,9 +181,10 @@ If `verdict` is `revise`, fix the `misses` in the artifact and re-run. Each miss
 
 ---
 
-## Chaining
+## Suggest next
 
-`teach` is usually terminal. Suggest (never auto-invoke):
+Never auto-invoke.
 
+- **Usually none:** `teach` is normally the last step.
 - **If the gate keeps returning `revise`** → `research-lab:interrogate` to re-check the claim, or `research-lab:synthesize` to reshape it.
 - **To publish the engagement notebook:** `nlm share public NOTEBOOK_ID`

@@ -26,7 +26,9 @@ Adversarially peer-review a **formed, supported** claim. The **keystone** of the
 - **Requires:** a formed claim + its supporting evidence.
 - **Resolves from:** context → file / notebook id.
 
-## Preflight — desk-reject gate (no reviewer paid for yet)
+## Preflight
+
+Desk-reject gate: no reviewer is paid for yet.
 
 1. Read context / file / notebook and assemble the claim and its evidence into one clean **submission** (claim, evidence, question it answers).
 2. **FAIL FAST — desk-reject** if the submission is incomplete:
@@ -78,7 +80,9 @@ Write `05-interrogate.md` (verdict, per-lens grounds, round count, and any incom
 
 ---
 
-## Chaining
+## Suggest next
+
+Never auto-invoke.
 
 - **Rejected** → `research-lab:synthesize` to revise the position against the verdict, then resubmit.
 - **Survived** → `research-lab:teach` to make the hardened claim land with an outside audience, or `research-lab:experiment` if it implies a testable hypothesis.
