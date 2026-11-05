@@ -7,8 +7,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).parents[1] / 'scripts'))
-from runtime import atomic_json, canonical, locked, read_json
-from pull import collect, migrate, parse
+from runtime import atomic_json, canonical, hub, locked, read_json
+from pull import collect, migrate, parse, prune_hubs
 from pipeline import run
 
 
@@ -69,7 +69,10 @@ class RuntimeTests(unittest.TestCase):
         legacy = {'custom': 'preserved', 'entries': {'legacy': {'hash': 'sha256:x'}}}
         atomic_json(self.vault / 'Raw/.manifest.json', legacy)
         index = migrate(self.vault)
-        self.assertTrue(keys.issubset(index['urls']))
+        hubs = {k for k in keys if hub(k)}
+        self.assertEqual(hubs, {'http://simonwillison.net/atom/everything/'})
+        self.assertTrue((keys - hubs).issubset(index['urls']))
+        self.assertFalse(hubs & set(index['urls']))
         self.index(index)
         feed = ('<rss><channel>' + ''.join('<item><title>Title</title><link>' + u.replace('https://simonwillison.net', 'https://SIMONWILLISON.NET:443').replace('&', '&amp;') + ('&amp;utm_source=regression' if '?' in u else '?utm_source=regression') + '#atom-everything' + '</link></item>' for u in sorted(keys)) + '</channel></rss>').encode()
         for _ in range(2):
@@ -91,6 +94,52 @@ class RuntimeTests(unittest.TestCase):
             p = self.vault / 'Sources' / (name + '.md');p.parent.mkdir(exist_ok=True)
             p.write_text('origin: https://example.com/a#' + name)
         self.assertEqual(len(migrate(self.vault)['conflicts']), 1)
+
+    def test_hub_urls_are_not_identities(self):
+        for url in ('http://simonwillison.net/atom/everything/',
+                    'https://www.drupal.org/planet/rss.xml', 'https://www.reddit.com/r/ClaudeCode/'):
+            self.assertTrue(hub(canonical(url)), url)
+        for url in ('https://example.com/', 'https://getspeakup.app/', 'https://example.com/?p=12', 'https://simonwillison.net/2026/May/19/datasette-llm/',
+                    'https://www.reddit.com/r/ClaudeCode/comments/abc/title/',
+                    'https://drupal.slack.com/archives/C072JMEPUS1/p1790856540770419',
+                    'https://www.youtube.com/watch?v=yrQvzJrQELY'):
+            self.assertFalse(hub(canonical(url)), url)
+        listed = canonical('https://events.drupal.org/rotterdam2026/schedule')
+        self.assertFalse(hub(listed))
+        self.assertTrue(hub(listed, {listed}))
+
+    def test_shared_hub_and_listed_page_do_not_conflict(self):
+        (self.vault / '_meta').mkdir()
+        (self.vault / '_meta/ideas-funnel-hubs.txt').write_text('# shared listing\nhttps://events.example.com/schedule\nhttps://drupal.slack.com/\n')
+        (self.vault / 'Sources').mkdir()
+        for name in ('one', 'two'):
+            (self.vault / 'Sources' / (name + '.md')).write_text(
+                'url: https://drupal.slack.com/\nsource: https://events.example.com/schedule\n')
+        index = migrate(self.vault)
+        self.assertEqual(index['conflicts'], [])
+        self.assertNotIn('https://drupal.slack.com/', index['urls'])
+
+    def test_prune_hubs_keeps_states_and_real_conflicts(self):
+        index = self.index({'version': 1, 'items': {
+                'Raw/Inbox/a/x.md': {'urls': ['http://simonwillison.net/', 'https://example.com/a'], 'state': 'ingested'},
+                'Raw/Inbox/a/y.md': {'urls': ['http://simonwillison.net/atom/everything/'], 'state': 'failed'}},
+            'urls': {'http://simonwillison.net/': {'state': 'ingested', 'paths': ['Sources/1.md', 'Sources/2.md']},
+                     'http://simonwillison.net/atom/everything/': {'state': 'ingested', 'paths': ['Sources/3.md', 'Sources/4.md']},
+                     'https://example.com/a': {'state': 'ingested', 'paths': ['Sources/5.md', 'Sources/6.md']}},
+            'conflicts': [{'url': 'http://simonwillison.net/', 'sources': ['Sources/1.md', 'Sources/2.md']},
+                          {'url': 'http://simonwillison.net/atom/everything/', 'sources': ['Sources/3.md', 'Sources/4.md']},
+                          {'url': 'https://example.com/a', 'sources': ['Sources/5.md', 'Sources/6.md']}]})
+        result = prune_hubs(index, {'http://simonwillison.net/'})
+        self.assertEqual((result['conflicts_cleared'], result['conflicts_remaining']), (2, 1))
+        self.assertEqual(index['items']['Raw/Inbox/a/x.md'], {'urls': ['https://example.com/a'], 'state': 'ingested'})
+        self.assertEqual(index['items']['Raw/Inbox/a/y.md'], {'urls': [], 'state': 'failed'})
+        self.assertEqual(list(index['urls']), ['https://example.com/a'])
+
+    def test_pull_skips_hub_links(self):
+        self.index()
+        data = b'<rss><channel><item><title>Home</title><link>https://example.com/feed</link></item></channel></rss>'
+        report = collect(self.vault, self.config, lambda _: data)[0]
+        self.assertEqual((report['created'], report['hubs']), (0, 1))
 
     def test_lock_is_exclusive_and_releases_on_exit(self):
         code = "from pathlib import Path; from runtime import locked; import sys\nwith locked(Path(sys.argv[1])): print('acquired')"

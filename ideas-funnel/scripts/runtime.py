@@ -9,6 +9,9 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 TRACKING = {'fbclid', 'gclid', 'mc_cid', 'mc_eid', 'utm_source', 'utm_medium',
             'utm_campaign', 'utm_term', 'utm_content', 'utm_id'}
+# Last path segments that name a feed rather than one piece of content.
+FEED_SEGMENTS = {'atom', 'rss', 'feed', 'feeds', 'everything', 'atom.xml', 'rss.xml', 'feed.xml', 'index.xml'}
+HUBS_FILE = '_meta/ideas-funnel-hubs.txt'
 
 
 def canonical(url):
@@ -24,6 +27,34 @@ def canonical(url):
     query = urlencode([(k, v) for k, v in parse_qsl(p.query, keep_blank_values=True)
                        if k.lower() not in TRACKING])
     return urlunsplit((p.scheme.lower(), host, p.path or '/', query, ''))
+
+
+def hub(url, extra=()):
+    """True for a canonical URL many distinct sources share: a feed, a subreddit
+    front page, or a URL listed in the vault's hubs file. Site roots are not hubs
+    by default, because a product's homepage is often its only identity; list
+    shared roots (a blog or chat workspace) in the hubs file. Hubs are not source
+    identities, so they never dedupe or conflict."""
+    p = urlsplit(url)
+    parts = [s for s in p.path.split('/') if s]
+    if parts and parts[-1].lower() in FEED_SEGMENTS:
+        return True
+    if (p.hostname or '').endswith('reddit.com') and len(parts) == 2 and parts[0] == 'r':
+        return True
+    return url in extra
+
+
+def hubs(vault):
+    """Canonical URLs from the vault's hubs file, one per line; # starts a comment."""
+    path = Path(vault) / HUBS_FILE
+    if not path.exists():
+        return frozenset()
+    result = set()
+    for line in path.read_text().splitlines():
+        line = line.split('#', 1)[0].strip()
+        if line:
+            result.add(canonical(line))
+    return frozenset(result)
 
 
 def read_json(path, default=None):
