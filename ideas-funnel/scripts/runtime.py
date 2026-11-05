@@ -45,8 +45,27 @@ def atomic_json(path, value):
             os.unlink(name)
 
 
+def require_in_place_vault(vault):
+    """Refuse vaults that sit in a main reference checkout or a linked worktree.
+
+    The funnel writes the live vault folder in place. A checkout named `main`
+    is a read-only reference under the golden rule, and a linked worktree
+    hides output from Obsidian until someone merges it.
+    """
+    resolved = Path(vault).resolve()
+    for folder in (resolved, *resolved.parents):
+        marker = folder / '.git'
+        if marker.exists():
+            if folder.name == 'main':
+                raise RuntimeError(f'refusing to write: {folder} is a main reference checkout')
+            if marker.is_file():
+                raise RuntimeError(f'refusing to write: {folder} is a linked git worktree; use the live vault folder')
+            return
+
+
 @contextlib.contextmanager
 def locked(vault):
+    require_in_place_vault(vault)
     path = Path(vault) / '_meta' / 'ideas-funnel.lock'
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open('a+') as stream:

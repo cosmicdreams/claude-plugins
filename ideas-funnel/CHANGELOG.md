@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.0 — 2026-11-05
+
+- Write the live vault in place. Dispatch, onboarding and schedule no longer ask for a dedicated vault worktree, a reviewed funnel branch or a local merge; Obsidian sees output as soon as a run writes it.
+- The funnel lock refuses a vault inside a git checkout folder named `main` or a linked git worktree, so pull and pipeline commands cannot write a golden-rule reference or hide output in a worktree.
+- Each run still holds durable ownership, uses one coordinator writer and commits only the files it touched, with no push. Desk reports name the commit instead of a pending merge.
+- Claude and Codex manifests share version 3.1.0.
+
 ## 3.0.0 — 2026-11-02
 
 - Replace session cron with approval-gated T3 registration and a five-line desk report. New tasks are disabled; shaping remains excluded.

@@ -1,6 +1,6 @@
 # ideas-funnel
 
-Version 3.0.0 moves collection and dispatch to T3 Code. Deterministic scripts collect feeds and maintain a canonical URL index; bounded read-only workers propose knowledge changes and one locked coordinator writes them. Ingest, Refinery and decay knowledge rules stay intact. Claude-host Workflow remains an explicitly manual fallback.
+Version 3.0.0 moves collection and dispatch to T3 Code. Deterministic scripts collect feeds and maintain a canonical URL index; bounded read-only workers propose knowledge changes and one locked coordinator writes them in place in the live vault. Version 3.1.0 drops the vault worktree and merge step and refuses vaults inside a `main` reference checkout or a linked worktree. Ingest, Refinery and decay knowledge rules stay intact. Claude-host Workflow remains an explicitly manual fallback.
 
 ## Start safely
 
