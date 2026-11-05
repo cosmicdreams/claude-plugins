@@ -1,5 +1,6 @@
 """Compare acceptance contracts through the public CLI and disposable worktrees."""
 import json
+import random
 from pathlib import Path
 import subprocess
 import sys
@@ -43,6 +44,141 @@ class CompareTests(ReportTests):
             if n != 'incumbent' and v['commit']:
                 self.assertEqual(self.git('rev-list', '--parents', '-n', '1', v['commit']).split(),
                                  [v['commit'], s['base']])
+
+    def test_detached_variant_recovers_on_locked_command(self):
+        self.init_compare()
+        self.variant('a', 5)
+        self.variant('b', 8)
+        for command, commit in [('measure', 'a'), ('confirm', None), ('report', 'a')]:
+            s = self.state()
+            self.git('switch', '--detach', s['variants'][commit]['commit'] if commit else s['base'])
+            self.command(command)
+            self.assert_base()
+
+    def test_sigterm_restores_measurement_checkout(self):
+        ready = self.root / 'ready'
+        (self.w / 'measure.sh').write_text(
+            f'#!/bin/sh\ntouch "{ready}"\nsleep 1\ncat metric\n')
+        self.git('add', 'measure.sh')
+        self.git('commit', '-m', 'test: interruptible scorer')
+        self.init_compare()
+        self.variant('a', 5)
+        self.variant('b', 8)
+        proc = subprocess.Popen([sys.executable, str(SCRIPT), 'measure', '--engagement', str(self.e)],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            deadline = time.monotonic() + 10
+            while not ready.exists() and time.monotonic() < deadline:
+                time.sleep(.02)
+            self.assertTrue(ready.exists())
+            proc.terminate()
+            proc.communicate(timeout=10)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assert_base()
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.communicate(timeout=10)
+
+    def test_resumed_sample_without_checks_runs_checks(self):
+        self.init_compare(runs=1)
+        self.variant('a', 5, guard=1)
+        self.variant('b', 8)
+        s = self.state()
+        s['variants']['a']['runs'] = [5]
+        s['measurements_used'] = 1
+        (self.e / 'state.json').write_text(json.dumps(s))
+        self.command('measure')
+        self.assertFalse(self.state()['variants']['a']['checks'])
+        self.assertEqual(self.state()['variants']['a']['status'], 'fails checks')
+        self.assertEqual(self.state()['measurements_used'], 2)
+        self.assert_base()
+
+    def test_rejected_commit_cleans_variant_and_grid_branches(self):
+        for mode in ('given', 'grid'):
+            with self.subTest(mode=mode):
+                self.setUp()
+                self.init_compare('Grid x: 5,8\nApply: echo {x} > metric\n' if mode == 'grid' else '', mode=mode)
+                hooks = self.root / 'hooks'
+                hooks.mkdir()
+                hook = hooks / 'pre-commit'
+                hook.write_text('#!/bin/sh\nexit 1\n')
+                hook.chmod(0o755)
+                self.git('config', 'core.hooksPath', str(hooks))
+                if mode == 'given':
+                    self.command('variant', 'begin', '--name', 'a', '--tradeoff', 'cost')
+                    self.files(metric=5)
+                    self.command('variant', 'commit', ok=False)
+                    self.assertEqual(self.git('branch', '--list', 'experiment--a'), '')
+                    hook.unlink()
+                    self.command('variant', 'commit')
+                    self.assertIn('a', self.state()['variants'])
+                else:
+                    self.command('grid', 'build')
+                    self.assertTrue(all(v['status'] == 'invalid' for v in self.state()['variants'].values()))
+                    self.assertEqual(self.git('branch', '--list', 'experiment--p*'), '')
+                self.assert_base()
+
+    def test_confirmation_fallback_reapplies_incumbent_and_margin(self):
+        for failure, incumbent in ((False, False), (True, False), (False, True), (True, True)):
+            with self.subTest(failure=failure, incumbent=incumbent):
+                self.setUp()
+                self.init_compare('Margin: 2\nVariant c: third approach\n' +
+                                  ('Include incumbent: yes\n' if incumbent else ''))
+                self.variant('a', 5)
+                self.variant('b', 14 if incumbent else 8)
+                self.variant('c', 20)
+                self.command('measure')
+                self.override.write_text('bad metric\n' if failure else '18\n')
+                out = self.command('confirm')
+                if incumbent:
+                    self.assertEqual(out['ending']['detail'], 'no variant beats the incumbent')
+                else:
+                    self.assertEqual((out['action'], out['group']), ('decide', ['b']))
+                    self.command('decide', '--choose', 'c', '--reason', 'outsider', ok=False)
+                self.assertLessEqual(self.state()['measurements_used'], 15)
+                self.assert_base()
+
+    def test_resumed_measure_preserves_seed_and_order(self):
+        self.init_compare()
+        self.variant('a', 5)
+        self.variant('b', 8)
+        s = self.state()
+        seed = s['seed']
+        row = list(s['variants'])
+        random.Random(seed).shuffle(row)
+        s['order'] = [row]
+        s['variants'][row[0]].update(runs=[5 if row[0] == 'a' else 8], checks=True)
+        s['measurements_used'] = 1
+        (self.e / 'state.json').write_text(json.dumps(s))
+        self.command('measure')
+        s = self.state()
+        self.assertEqual((s['seed'], len(s['order']), s['order'][0]), (seed, 3, row))
+        self.assertEqual(s['measurements_used'], 6)
+        self.assertEqual(s['variants']['a']['runs'], [5, 5, 5])
+        self.assertIn(f'Measurement order interleaved (seed {seed}): PASS', self.report())
+        self.assert_base()
+
+    def test_pending_grid_surface_uses_status(self):
+        self.init_compare('Grid x: 5,8\nApply: echo {x} > metric\n', mode='grid')
+        self.command('grid', 'build')
+        self.assertIn('| p1 | 5 | pending |', self.report())
+        self.assertIn('| p2 | 8 | pending |', self.report())
+        self.assert_base()
+
+    def test_unusable_incumbent_is_explained_in_report(self):
+        for status, reason in (('fails checks', 'Checks failed'), ('invalid', 'measurement failed')):
+            with self.subTest(status=status):
+                self.setUp()
+                self.init_compare('Include incumbent: yes\n')
+                self.variant('a', 5)
+                self.variant('b', 8)
+                s = self.state()
+                s['variants']['incumbent'].update(status=status, reason=reason)
+                (self.e / 'state.json').write_text(json.dumps(s))
+                self.command('measure')
+                self.assertIn('The incumbent was not a usable comparison: ' + reason, self.report())
+                self.assert_base()
 
     def test_confirmation_log_and_report_evidence(self):
         for value, outcome in [(6, 'held'), (10, 'within noise')]:

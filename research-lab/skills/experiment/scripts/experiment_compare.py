@@ -4,6 +4,7 @@ import itertools
 import random
 import re
 import shlex
+import signal
 import statistics
 import subprocess
 from pathlib import Path
@@ -91,21 +92,29 @@ def next_action(s, c):
 
 
 def finish(s, c):
-    names = ranked(s, c)
+    names = viable(s)
+    confirmation = s.get('confirmation')
+    def runs(n):
+        if confirmation and confirmation['variant'] == n and not confirmation.get('reason'):
+            return confirmation['runs']
+        return s['variants'][n]['runs']
+    values = {n: statistics.median(runs(n)) for n in names}
+    names.sort(key=lambda n: -c['sign'] * values[n])
+    s['group'] = None
     if not names:
         ending(s, 'no-path', 'no variant is viable')
         s['ending']['reasons'] = {n: v.get('reason', v['status']) for n, v in s['variants'].items()}
         return
-    deviations = [abs(x - s['variants'][n]['median']) for n in names for x in s['variants'][n]['runs']]
+    deviations = [abs(x - values[n]) for n in names for x in runs(n)]
     s['margin'] = c['Margin'] if c['Margin'] is not None else 2 * statistics.median(deviations)
-    best = s['variants'][names[0]]['median']
+    best = values[names[0]]
     inc = s['variants'].get('incumbent')
     if inc and inc['status'] == 'measured' and not any(
-            n != 'incumbent' and (inc['median'] - s['variants'][n]['median']) * -c['sign'] > s['margin']
+            n != 'incumbent' and (values[n] - values['incumbent']) * c['sign'] > s['margin']
             for n in names):
         ending(s, 'no-path', 'no variant beats the incumbent')
-    elif len(names) > 1 and abs(best - s['variants'][names[1]]['median']) <= s['margin']:
-        s['group'] = [n for n in names if abs(best - s['variants'][n]['median']) <= s['margin']]
+    elif confirmation or (len(names) > 1 and abs(best - values[names[1]]) <= s['margin']):
+        s['group'] = [n for n in names if abs(best - values[n]) <= s['margin']]
 
 
 def choose(s, name, basis, reason):
@@ -132,14 +141,18 @@ def commit_variant(e, s, v, name):
     paths = [p for p in paths if not (Path(w) / p).resolve().is_relative_to(e)]
     require(paths, 'empty change')
     git(w, 'switch', '-c', v['branch'])
+    committed = False
     try:
         git(w, 'add', '--all', '--', *paths)
         require(git(w, 'diff', '--cached', '--stat'), 'empty change')
         git(w, 'commit', '-m', f"perf({e.name}): {v['description']}")
+        committed = True
         v.update(commit=git(w, 'rev-parse', 'HEAD'), status='pending', runs=[])
         s['variants'][name] = v
     finally:
         git(w, 'switch', s['branch'])
+        if not committed and git(w, 'rev-parse', v['branch']) == s['base']:
+            git(w, 'branch', '-D', v['branch'])
 
 
 def sample(s, c, v):
@@ -170,22 +183,28 @@ def measure_variants(e, s, c):
     ownership(s, s['base'])
     rng = random.Random(s['seed'])
     pending = [n for n, v in s['variants'].items() if v['status'] == 'pending']
+    scheduled = [n for n, v in s['variants'].items() if v['commit']]
     try:
         for i in range(int(c['Runs'])):
-            order = pending[:]
+            order = scheduled[:]
             rng.shuffle(order)
-            if len(order) > 1 and s['order'] and order == s['order'][-1]:
+            if i and len(order) > 1 and order == s['order'][i - 1]:
                 order = order[1:] + order[:1]
-            s['order'].append(order)
+            if i < len(s['order']):
+                order = s['order'][i]
+            else:
+                s['order'].append(order)
+                save(e, s)
             for name in order:
                 v = s['variants'][name]
-                if v['status'] != 'pending' or len(v['runs']) > i:
+                if v['status'] != 'pending' or (len(v['runs']) > i and 'checks' in v):
                     continue
                 try:
                     git(s['worktree'], 'switch', '--detach', v['commit'])
-                    v['runs'].append(sample(s, c, v))
+                    if len(v['runs']) <= i:
+                        v['runs'].append(sample(s, c, v))
                     require_clean(s['worktree'], measurement=True)
-                    if i == 0:
+                    if 'checks' not in v:
                         v['checks'] = shell(s['worktree'], c['Checks']).returncode == 0
                         require_clean(s['worktree'], measurement=True)
                         if not v['checks']:
@@ -227,29 +246,39 @@ def confirm(e, s, c):
             choose(s, name, 'margin', 'confirmed gain beyond margin')
         else:
             result['outcome'] = 'within noise'
-            values = {n: result['median'] if n == name else s['variants'][n]['median'] for n in names}
-            best = max(values.values(), key=lambda x: x * c['sign'])
-            s['group'] = [n for n in names if abs(values[n] - best) <= s['margin']]
+            finish(s, c)
         log_result(e, s, c, result, 'confirm', result['outcome'], before=v['median'],
                    change=name, extras=dict(variant=name, commit=v['commit'],
                                             median=result['median'], outcome=result['outcome']))
     except (ValueError, OSError) as error:
         v.update(status='invalid', reason='confirmation failed: ' + str(error))
         s['confirmation'] = dict(result, reason=str(error))
-        remaining = ranked(s, c)
-        if remaining:
-            s['group'] = remaining
-        else:
-            finish(s, c)
+        finish(s, c)
     finally:
         restore(s)
         save(e, s)
 
 
 def dispatch(a, e, s, c):
-    cmd = a.command
-    if cmd == 'next':
+    if a.command == 'next':
         return next_action(s, c)
+    def terminate(signum, frame):
+        raise KeyboardInterrupt
+    previous = signal.signal(signal.SIGTERM, terminate)
+    try:
+        # Only locked commands may recover a checkout left behind by a killed command.
+        if a.command in ('variant', 'grid', 'measure', 'confirm', 'decide', 'report'):
+            w = s['worktree']
+            known = {s['base']} | {v['commit'] for v in s['variants'].values() if v['commit']}
+            if git(w, 'rev-parse', '--abbrev-ref', 'HEAD') == 'HEAD' and git(w, 'rev-parse', 'HEAD') in known:
+                restore(s)
+        return dispatch_command(a, e, s, c)
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+
+def dispatch_command(a, e, s, c):
+    cmd = a.command
     require(digest(s['methodology']) == s['methodology_sha256'], 'methodology changed since init')
     if cmd == 'report':
         return report(e, s, c)
@@ -359,6 +388,9 @@ def report(e, s, c):
     lines = ['## Ending and goal', '', 'Ending: ' + (end['kind'] + ': ' + end['detail'] if end else 'running')]
     if winner:
         lines += [f"Winner: {winner}; basis: {end['basis']}; adopt branch `{end['branch']}` (never merged)."]
+    inc = s['variants'].get('incumbent')
+    if inc and inc['status'] in ('invalid', 'fails checks'):
+        lines += ['The incumbent was not a usable comparison: ' + cell(inc.get('reason', inc['status'])) + '.']
     metric = cell(c['Metric name'] or s.get('metric_name') or 'metric')
     if s['margin'] is not None:
         derivation = 'declared Margin:' if c['Margin'] is not None else '2 × pooled MAD ='
@@ -387,7 +419,7 @@ def report(e, s, c):
         for n, v in s['variants'].items():
             if 'params' in v:
                 lines.append('| ' + n + ' | ' + ' | '.join(cell(v['params'][p]) for p in params) + ' | ' +
-                             (f"{v['median']:g}" if v.get('median') is not None else 'invalid') + ' |')
+                             (f"{v['median']:g}" if v.get('median') is not None else v['status']) + ' |')
         lines += ['', '### Parameter sensitivity', '']
         for p in params:
             means = []
