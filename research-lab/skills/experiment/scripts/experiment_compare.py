@@ -466,6 +466,8 @@ def report(e, s, c):
             lines.append(f"- {p}: {max(means) - min(means):g}" if means else f'- {p}: absent')
     strategy = e / 'strategy.md'
     lines += ['', '## Router notes', '', strategy.read_text().strip() if strategy.exists() else 'Absent.', '', '## Validity', '']
+    if not available:
+        lines += ['**VALIDITY NOT RE-VERIFIED:** the experiment worktree is gone, so the git-based checks below could not run. Treat this decision as unverified until they are rerun.', '']
     unchanged = all(Path(p).is_file() and digest(p) == sha for p, sha in s['scorer_sha256'].items())
     for v in s['variants'].values():
         if not available or not v['commit']:

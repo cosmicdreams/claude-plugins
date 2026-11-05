@@ -8,6 +8,7 @@ Exit 0 = ready, 2 = route (no strategy given; run the router and pause),
 """
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -15,7 +16,8 @@ from pathlib import Path
 STRATEGIES = ('remediate', 'climb', 'compare', 'explore')
 SCORERS = ('scripted', 'council')
 NOT_BUILT = {'explore': 5}
-COUNCIL_STATUS = Path(__file__).resolve().parent.parent / 'references/council-status.json'
+COUNCIL_STATUS = Path(os.environ.get('RESEARCH_LAB_COUNCIL_STATUS')
+                      or Path(__file__).resolve().parent.parent / 'references/council-status.json')
 
 
 def council_transport(transport):
