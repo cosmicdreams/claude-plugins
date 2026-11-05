@@ -39,6 +39,8 @@ cd ~/Vaults/Neurons
 grep -rliF "<key-term>" Concepts Entities Sources Domains --include="*.md"
 ```
 
+When the question is about research done in the vault (an engagement, an experiment run, a measured result), also search `Research-Lab/`, starting from its index file. That folder belongs to the research-lab plugin: read and cite its pages, but never write, tag or link anything there, and never file an answer back into it.
+
 ## Step 2 — Read page bodies
 
 Open the shortlist. Pay attention to `summary:` frontmatter — that's the one-line gist. Skim bodies for the specific claims that answer the question.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.3.1 — 2026-11-05
+
+- `query` may search `Research-Lab/` for questions about research done in the vault, starting from its index, but reads and cites only: it never writes, tags or links there, and never files an answer back into it.
+- `rescue` never adds orphan links inside `Research-Lab/`, which the research-lab plugin owns.
+- Claude and Codex manifests share version 3.3.1.
+
 ## 3.3.0 — 2026-11-05
 
 - `pipeline.py resolve --owner <token> --url <url> --pages Sources/<kept>.md` clears one URL conflict after its duplicate Source pages were merged. It refuses unless the kept page is the only Source still naming the URL, repoints index `paths`, item `pages` and manifest `wiki_pages` from the merged pages to the kept one, and never changes item states. Dispatch and onboarding describe the merge procedure.

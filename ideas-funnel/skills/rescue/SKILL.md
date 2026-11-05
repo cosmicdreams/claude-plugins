@@ -29,7 +29,7 @@ Recover useful material without promoting noise.
 ## Actions
 
 1. For stale raw items: group by source/domain and recommend top-N for next coordinator-supervised ingest. Do not blindly process the whole backlog.
-2. For orphans: search for exact title mentions and add candidate links only when confidence is high.
+2. For orphans: search for exact title mentions and add candidate links only when confidence is high. Never add links inside `Research-Lab/` (owned by research-lab); a mention there is not a link target.
 3. For `at_risk` pages: add them to the review lane or write a compact `log.md` rescue line if Beads is unavailable.
 4. For repeated stale themes: emit a recommendation for `ideas-funnel:supervise` to add a priority term or suppress a noisy feed.
 
