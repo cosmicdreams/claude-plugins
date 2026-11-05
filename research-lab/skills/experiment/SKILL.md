@@ -46,7 +46,7 @@ Args may preload `strategy=<remediate|climb|compare|explore|auto>` and `scorer=<
 
 **Scripted:** if `E/state.json` exists, the run resumes: go to Step 1. Otherwise `EXP init --engagement E --worktree W --methodology M --strategy S --scorer scripted`; a refusal is a STOP with its reason, and its output is the first action. Then `cd W` and stay there: the hooks that keep an unattended run going only see engagements of the worktree the session is in.
 
-**Judged:** run `JUDGED next`, do its one action per `judged-metrics.md`, repeat; the first call resumes. On `pause`, report the gate or rule and reason, and wait for Chris's `resolve`. On `stop`, go to Step 3. Dispatch judges with `mcp__t3-code__delegate_task`, or without T3 with `council_call.py` (Transports in `judged-metrics.md`); first `JUDGED validate --host t3|direct --worktree W` (keeps `E` out of Git), any error → STOP. Council `compare` has its own loop: `compare.md`.
+**Judged:** run `JUDGED next`, do its one action per `judged-metrics.md`, repeat; the first call resumes. On `pause`, report the gate or rule and reason, and wait for Chris's `resolve`. On `stop`, go to Step 3. Dispatch judges with `mcp__t3-code__delegate_task`, or without T3 with `council_call.py` (Transports in `judged-metrics.md`); first `JUDGED validate --host t3|direct --worktree W` (keeps `E` out of Git); any error → STOP. Council `compare`: own loop, `compare.md`.
 
 ## Step 1 — The loop (scripted)
 
