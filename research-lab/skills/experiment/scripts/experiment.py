@@ -14,7 +14,7 @@ from pathlib import Path
 
 STRATEGIES = ('remediate', 'climb', 'compare', 'explore')
 SCORERS = ('scripted', 'council')
-NOT_BUILT = {'compare': 3, 'explore': 5}
+NOT_BUILT = {'explore': 5}
 COUNCIL_BLOCKED = ('council scoring is blocked: the acceptance smoke test failed; see Status in '
                    'skills/experiment/references/judged-metrics.md')
 CLIMB_SECTIONS = ('Objective', 'Baseline', 'Hypotheses', 'Iteration Rules', 'Measurement Protocol',
@@ -132,7 +132,11 @@ def check(strategy_arg, scorer_arg, methodology_path):
     if strategy == 'remediate' and not field(text, 'Budget'):
         out['missing'].append('budget: maximum iterations')
     try:
-        validate(config(text, strategy))
+        c = config(text, strategy)
+        validate(c)
+        if strategy == 'compare':
+            from experiment_compare import configuration
+            configuration(text, c)
     except ValueError as error:
         out['reason'] = str(error)
         return out
