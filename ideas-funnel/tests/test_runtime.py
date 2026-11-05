@@ -141,6 +141,35 @@ class RuntimeTests(unittest.TestCase):
         report = collect(self.vault, self.config, lambda _: data)[0]
         self.assertEqual((report['created'], report['hubs']), (0, 1))
 
+    def test_resolve_clears_only_a_merged_conflict(self):
+        sources = self.vault / 'Sources'; sources.mkdir()
+        (sources / 'keep.md').write_text('origin: https://example.com/a\n# Kept\n')
+        (sources / 'dup.md').write_text('origin: https://example.com/a#copy\n# Duplicate\n')
+        (sources / 'other1.md').write_text('origin: https://example.com/b\n')
+        (sources / 'other2.md').write_text('origin: https://example.com/b\n')
+        raw = self.vault / 'Raw/Inbox/x/one.md'; raw.parent.mkdir(parents=True)
+        raw.write_text('url: https://example.com/a\n')
+        index = migrate(self.vault)
+        index['items']['Raw/Inbox/x/one.md'].update(state='ingested', pages=['Sources/dup.md', 'Sources/keep.md'])
+        self.index(index)
+        atomic_json(self.vault / 'Raw/.manifest.json', {'entries': {'Raw/2026-04-01.md': {'wiki_pages': ['Sources/dup.md']}}})
+        owner = run(self.vault, 'acquire')['owner']
+        with self.assertRaisesRegex(ValueError, 'owner'):
+            run(self.vault, 'resolve', 'wrong', pages=['Sources/keep.md'], url='https://example.com/a')
+        with self.assertRaisesRegex(ValueError, 'found Sources/dup.md, Sources/keep.md'):
+            run(self.vault, 'resolve', owner, pages=['Sources/keep.md'], url='https://example.com/a')
+        # Merge by hand: the duplicate becomes a redirect stub with no identity field.
+        (sources / 'dup.md').write_text('Merged into [[Sources/keep]].\n')
+        result = run(self.vault, 'resolve', owner, pages=['Sources/keep.md'], url='https://example.com/a#x')
+        self.assertEqual((result['merged'], result['conflicts_remaining']), (['Sources/dup.md'], 1))
+        index = read_json(self.vault / 'Raw/.url-index.json')
+        self.assertEqual([c['url'] for c in index['conflicts']], ['https://example.com/b'])
+        self.assertEqual(index['urls']['https://example.com/a']['paths'], ['Raw/Inbox/x/one.md', 'Sources/keep.md'])
+        self.assertEqual(index['items']['Raw/Inbox/x/one.md'], {'urls': ['https://example.com/a'], 'state': 'ingested', 'pages': ['Sources/keep.md']})
+        self.assertEqual(read_json(self.vault / 'Raw/.manifest.json')['entries']['Raw/2026-04-01.md']['wiki_pages'], ['Sources/keep.md'])
+        with self.assertRaisesRegex(ValueError, 'no conflict'):
+            run(self.vault, 'resolve', owner, pages=['Sources/keep.md'], url='https://example.com/a')
+
     def test_lock_is_exclusive_and_releases_on_exit(self):
         code = "from pathlib import Path; from runtime import locked; import sys\nwith locked(Path(sys.argv[1])): print('acquired')"
         with locked(self.vault):

@@ -27,6 +27,10 @@ Run `<python> <plugin>/scripts/pull.py --vault <vault> --config <domains>` befor
 6. Run a single tier 4 Refinery only when returned density signals verify three unrelated origins. Recheck allowance; read-only proposal, coordinator applies under the same owner. Shared Concepts, Entities, Bridges and Conflicts remain Refinery-only knowledge decisions.
 7. Record actual outcomes/allowance in stats, commit only the files this run touched in the vault (no push), release any unused claims and run `close --owner <token>`. Report the commit, or that nothing was committed. On interruption, leave ownership intact and report its token, heartbeat and outstanding claims. Never delete owner/lock files to bypass exclusion.
 
+## Duplicate Sources
+
+A URL-index conflict means several Source pages name the same URL. Merge them only with Chris's approval, in place, under one run owner with no pull or daily run active. Keep distinct claims, dated sections, provenance and unassessed confidence; turn each merged page into a redirect stub with no `url`, `source` or `origin` field, or rewrite links to the kept page and verify they resolve. Then run `pipeline.py --vault <vault> resolve --owner <token> --url <url> --pages Sources/<kept>.md`. It refuses unless the kept page is the only one still naming the URL, repoints index and manifest references and never changes item states. Never edit the index by hand or rerun migration to clear a conflict.
+
 ## Recovery
 
 Ownership never expires automatically: a paused agent could resume and write, so elapsed time alone is not safe evidence to steal it. Before `recover --owner <old-token>`, stop the owning run and all its delegates, verify no coordinator remains, and inspect partial writes. Only then explicitly recover: it clears ownership and marks abandoned processing items failed for reconciliation. A stale heartbeat is an anomaly/decision marker, not automatic takeover authority. Recovery and the next acquisition are separate commands. Short transition locks serialize JSON updates; the durable owner serializes whole-run page writes across host/tool turns. All manual writers must follow this advisory contract.
