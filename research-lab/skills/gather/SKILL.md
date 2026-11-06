@@ -11,11 +11,11 @@ allowed-tools: Bash, Read, Write, Agent, Workflow
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> Collect and curate sources on a question or topic. Create a NotebookLM notebook, seed sources, fire deep web research, curate with the user, run synthesis queries, and produce a structured source summary. The "librarian" verb of the research arc — it brings material in; digesting it is understand's job. Use standalone for any knowledge-gathering task. Say "gather research on", "research this topic", "build a notebook on", "collect sources on", or "research-lab:gather". Formerly research-lab:literary-review (renamed in 2.0).
+> Collect and curate sources on a question or topic. Create a NotebookLM notebook, seed sources, fire deep web research, curate with the user, run synthesis queries, and produce a structured source summary. The collecting verb of the research arc — it brings material in; digesting it is understand's job. Use standalone for any knowledge-gathering task. Say "gather research on", "research this topic", "build a notebook on", "collect sources on", or "research-lab:gather". Formerly research-lab:literary-review (renamed in 2.0).
 
-Collect and curate knowledge via NotebookLM and deep web research. The **librarian** of the research arc (`frame → gather → understand → synthesize → interrogate → experiment → teach`): it brings material *in*. It does not digest that material — that is `understand`.
+Collect and curate knowledge via NotebookLM and deep web research. The **collector** of the research arc (`frame → gather → understand → synthesize → interrogate → experiment → teach`): it brings material *in*. It does not digest that material — that is `understand`.
 
-**Stance:** librarian — comprehensive collection, then ruthless curation. **Notebook persona:** `nlm chat configure NOTEBOOK_ID --goal default` (per-notebook, set after creation).
+**Stance:** collector — comprehensive collection, then ruthless curation. **Notebook persona:** `nlm chat configure NOTEBOOK_ID --goal default` (per-notebook, set after creation).
 
 **NotebookLM CLI reference:** `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/nlm-cli.md` **NotebookLM scripts:** `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-*.sh` — use these instead of calling `nlm` directly; they encode correct CLI syntax and retry degraded answers.
 

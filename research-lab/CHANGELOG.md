@@ -1,5 +1,16 @@
 # research-lab Changelog
 
+## 5.7.0 — 2026-11-05
+
+**`consult`: one librarian per research job.** A new skill runs a whole job through the verbs, with a librarian as the user's single point of contact. It reads each verb's `## Preflight` and `## Suggest next` at runtime, invokes verbs by exact name, sends lookups to researcher agents, and stops only at the user's gates (strategy and scope, accepting a claim, going unattended, splitting, allowance, data and permissions, knowledge only the user has).
+
+- New `librarian` agent, for running one job or one part of a split job as its own session.
+- `researcher` gains a corpus-query mode: one corpus, one question, a cited answer.
+- New `scripts/research_lab.py` manages a research-lab folder in the user's vault: `Engagements/` (one record per job), `Experiments/` (one folder per experiment run) and a derived index. The vault, folder name and index name come from `research-lab.json` in the Claude configuration directory. Every write is refused if it would land outside that folder.
+- `experiment` registers each finished run under `Experiments/` with a unique dated name, copying its report and methodology; raw results stay in the run's engagement directory.
+- `synthesize` and `understand` hand off to `lib:vault-store` only when run standalone; `understand` writes `03-understand.md` to the engagement directory. `gather` no longer calls itself the librarian.
+- The tests README now runs the suite from `research-lab/`, which six experiment test files need.
+
 ## 5.6.1 — 2026-11-05
 
 **Same section headings in every skill.** Each of the seven skills now has exactly one `## Input contract`, one `## Preflight` and one `## Suggest next`, so a caller can pull those sections out by heading.

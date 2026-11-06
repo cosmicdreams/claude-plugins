@@ -22,13 +22,13 @@ Judged-metric tests (`judged.py`, v1 contract in `analysis-reports/research/expe
 - `judged_fixtures.py` — shared fixtures (text artifacts, fake judge returns).
 - `test_log_iteration.py`, `test_generate_chart.py` — log extras argument and the judged chart summary.
 
-Run from the repository root:
+Run from `research-lab/` (several experiment tests import `tests.…`, which only resolves from there):
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
-  -s research-lab/tests -p 'test_*.py' -v
-node --test research-lab/tests/test_interrogate_panel.cjs
-node --test research-lab/tests/test_teach_gate.cjs
+cd research-lab
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py' -v
+node --test tests/test_interrogate_panel.cjs
+node --test tests/test_teach_gate.cjs
 ```
 
 The tests use temporary fixtures, disposable Git repositories/worktrees, fake CLI commands, and controlled reviewer, learner, and evaluator results. They do not need real `nlm` authentication, notebooks, model inference, or live web requests. The panel shim executes the script's decision logic; the teaching shim executes the authoritative inline script extracted from `skills/teach/SKILL.md`, not a local helper proposal. Neither establishes compatibility with a particular host's Workflow API.
@@ -38,3 +38,5 @@ Tests must fail for the unsafe behavior, not treat the old failures as expected 
 These are correctness regressions, **not** an Astra/Fable benchmark. They do not establish real-service compatibility, prove skill effectiveness, guarantee that a model obeys the learner's evidence boundary or a judge's blinding instruction, make arbitrary concurrent Git operations safe, or address all setup/dedup failures.
 
 Strategy routing: `test_experiment_check.py` — `experiment.py check` precedence, refusals, and legacy `metric_type`.
+
+Vault folder: `test_research_lab.py` — `research_lab.py` naming, configuration, run registration, the index, and that every write stays inside the configured folder.
