@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.2 — 2026-11-05
+
+- `obsidian-rules.md`: general research notes now live in `Research-Lab/Topics/<topic>/`, which placement and organizing skills may file into and organize. The rest of `Research-Lab/` (`Engagements/`, `Experiments/`, the index) stays research-lab's alone. `Research/` keeps only `Model-Routing/`. `organize`'s example follows.
+
 ## 2.6.1
 
 - `obsidian-rules.md` reserves `Research-Lab/` for the research-lab plugin: placement and organizing skills must not move, re-tag, rename or restructure anything there.

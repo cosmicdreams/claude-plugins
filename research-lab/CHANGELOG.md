@@ -1,5 +1,9 @@
 # research-lab Changelog
 
+## 5.7.1 — 2026-11-05
+
+- The research report template's Vault row points at the engagement folder under the research-lab folder (`research_lab.py root`), not `Research/<engagement>/`.
+
 ## 5.7.0 — 2026-11-05
 
 **`consult`: one librarian per research job.** A new skill runs a whole job through the verbs, with a librarian as the user's single point of contact. It reads each verb's `## Preflight` and `## Suggest next` at runtime, invokes verbs by exact name, sends lookups to researcher agents, and stops only at the user's gates (strategy and scope, accepting a claim, going unattended, splitting, allowance, data and permissions, knowledge only the user has).

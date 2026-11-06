@@ -50,7 +50,7 @@ grep -rl "{topic}" "$VAULT_ROOT/Concepts" "$VAULT_ROOT/Entities" "$VAULT_ROOT/So
 
 Read each matching page. Build a picture of what the wiki already knows.
 
-Also check `Next-Adventures/` and `Research/` for related content outside the wiki layer.
+Also check `Next-Adventures/`, `Research-Lab/Topics/` (or the configured research-lab folder's `Topics/`) and `Research/Model-Routing/` for related content outside the wiki layer.
 
 ## Step 3 — Identify gaps
 

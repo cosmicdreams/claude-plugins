@@ -25,8 +25,7 @@ Before determining where any file goes, read `obsidian-rules.md`:
 ```bash
 cat ~/.claude/plugins/cache/local/workshop/*/references/obsidian-rules.md | tail -1 | xargs cat
 ```
-Use the purpose taxonomy and path patterns there to decide each file's destination.
-Do not assume all files belong under `Projects/` — content type determines placement.
+Use the purpose taxonomy and path patterns there to decide each file's destination. Do not assume all files belong under `Projects/` — content type determines placement.
 
 ## Archiving workflow
 
@@ -35,41 +34,40 @@ Do not assume all files belong under `Projects/` — content type determines pla
    find DIRECTORY -name "*.md" -o -name "*.txt" | sort
    ```
 
-2. **Determine placement**: for each file, read its content and apply `obsidian-rules.md`
-   to determine the correct vault path. Check existing vault folders first — prefer
-   matching an existing folder over creating a new one.
+2. **Determine placement**: for each file, read its content and apply `obsidian-rules.md` to determine the correct vault path. Check existing vault folders first — prefer matching an existing folder over creating a new one.
 
-3. **Preview and confirm** — file deletion is irreversible. Always require explicit
-   confirmation before touching any files:
-   > Found X files to archive:
-   > - file1.md → Research/topic/file1.md
-   > - file2.md → Projects/my-project/file2.md
-   >
-   > Proceed? (yes/no)
+3. **Preview and confirm** — file deletion is irreversible. Always require explicit confirmation before touching any files:
+
+   ```text
+   Found X files to archive:
+   - file1.md → Research-Lab/Topics/topic/file1.md
+   - file2.md → Projects/my-project/file2.md
+
+   Proceed? (yes/no)
+   ```
 
    Do NOT proceed without explicit "yes".
 
 4. **For each file** (after confirmation):
-   a. Resolve full destination: `$VAULT_ROOT/<vault-path>`
-   b. Create destination directory:
+   1. Resolve full destination: `$VAULT_ROOT/<vault-path>`
+   2. Create destination directory:
       ```bash
       mkdir -p "$VAULT_ROOT/<destination-folder>"
       ```
-   c. Copy to vault:
+   3. Copy to vault:
       ```bash
       cp "LOCAL_PATH" "$VAULT_ROOT/<destination>"
       ```
-   d. Verify the file exists at the destination before deleting the source.
-   e. **Only after confirmed success** — delete the local file:
+   4. Verify the file exists at the destination before deleting the source.
+   5. **Only after confirmed success** — delete the local file:
       ```bash
       rm "LOCAL_PATH"
       ```
-   f. Report: "Archived: FILENAME → VAULT_PATH"
+   6. Report: "Archived: FILENAME → VAULT_PATH"
 
 5. **Summary**: list all successfully archived files and any failures
 
 ## Error handling
 
 - Copy fails: report the error, keep the local file, continue with next file
-- Partial failure: show which files succeeded and which failed; local files for failed
-  items are always preserved
+- Partial failure: show which files succeeded and which failed; local files for failed items are always preserved

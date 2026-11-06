@@ -59,7 +59,7 @@ Template for the final research write-up. Archive it to the vault with a plain f
 | Methodology | analysis-reports/research/<engagement>/05-methodology.md |
 | Results | analysis-reports/research/<engagement>/results.jsonl |
 | NotebookLM | <notebook ID> |
-| Vault | ~/Vaults/Neurons/Research/<engagement>/ |
+| Vault | <research-lab folder>/Engagements/<engagement>/ (`research_lab.py root`) |
 ```
 
 ---
