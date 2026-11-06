@@ -134,6 +134,22 @@ class ResearchLabTest(unittest.TestCase):
         self.assertIn(f'[[{folder.name}/record\\|{folder.name}]] | active | Which edge cache?', index)
         self.assertIn('notebook: Drupal caching', index)
 
+    def test_index_lists_topics_with_their_newest_dated_note(self):
+        topics = self.vault / 'Research-Lab' / 'Topics'
+        (topics / 'Security').mkdir(parents=True)
+        (topics / 'Security' / '2026-03-10-imperva.md').write_text('a\n')
+        (topics / 'Security' / '2026-10-21-log-hunt.md').write_text('b\n')
+        (topics / 'Security' / 'notes.md').write_text('c\n')
+        (topics / 'Empty').mkdir()
+        (topics / 'compendium.md').write_text('d\n')
+        before = self.files_written()
+        index = pathlib.Path(self.run_cli('index')[1]['index']).read_text()
+        self.assertIn('| `Topics/Security/` | 3 | [[Topics/Security/2026-10-21-log-hunt\\|2026-10-21-log-hunt]] |',
+                      index)
+        self.assertIn('| [[Topics/compendium\\|compendium]] | 1 | |', index)
+        self.assertNotIn('Empty', index)
+        self.assertEqual({p.name for p in self.files_written() - before}, {'Index.md'})
+
     def test_every_write_stays_inside_the_configured_folder(self):
         """The funnel lock rule: nothing here may touch index.md, log.md or Sources/."""
         e = self.experiment()

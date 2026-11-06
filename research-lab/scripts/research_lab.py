@@ -184,6 +184,30 @@ def cell(value):
     return str('' if value is None else value).replace('|', '\\|').replace('\n', ' ')
 
 
+def topic_rows(topics):
+    """One row per topic folder, and one per loose note, so query can find them."""
+    if not topics.is_dir():
+        return []
+    out = []
+    for entry in sorted(topics.iterdir(), key=lambda p: p.name.lower()):
+        if entry.name.startswith('.'):
+            continue
+        if entry.is_dir():
+            notes = sorted((p for p in entry.rglob('*.md') if not p.name.startswith('.')),
+                           key=lambda p: p.name, reverse=True)
+            if not notes:
+                continue
+            dated = [p for p in notes if re.match(r'\d{4}-\d{2}-\d{2}', p.name)]
+            latest = (dated or notes)[0]
+            link = latest.relative_to(topics.parent).with_suffix('').as_posix()
+            out.append(f'| `Topics/{cell(entry.name)}/` | {len(notes)} | '
+                       f'[[{link}\\|{cell(latest.stem)}]] |')
+        elif entry.suffix == '.md':
+            link = entry.relative_to(topics.parent).with_suffix('').as_posix()
+            out.append(f'| [[{link}\\|{cell(entry.stem)}]] | 1 | |')
+    return out
+
+
 def index(s):
     """Rebuild the index from the folders. It is derived; never edit it by hand."""
     root = s['root']
@@ -203,6 +227,10 @@ def index(s):
         lines.append(f"| [[{name}/run\\|{name}]] | {cell(f.get('strategy'))} | "
                      f"{cell(f.get('outcome'))} | {cell(f.get('question'))} | "
                      f"{cell(', '.join(f.get('used_by') or []))} |")
+    lines += ['', '## Topics', '',
+              'General research notes, filed by other skills. Newest dated note first in each row.', '',
+              '| Topic | Notes | Latest |', '| --- | --- | --- |']
+    lines += topic_rows(root / 'Topics')
     root.mkdir(parents=True, exist_ok=True)
     path = inside(root, root / s['index'])
     path.write_text('\n'.join(lines) + '\n')
