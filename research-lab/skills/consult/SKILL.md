@@ -70,7 +70,7 @@ Send lookups to researcher agents (`research-lab:researcher`, corpus-query mode)
 
 ### 4. Revise when a claim is sent back
 
-When `interrogate` rejects the claim, or the user sends it back at the claim gate, revise through the verbs: run `synthesize` again (keep the rejected version as `04-synthesize.v<N>.md`), rebuild the evidence brief from scratch so superseded statements don't reach the reviewers, then run `interrogate` again. Never revise the position file by hand.
+Revise only after the user has seen the verdicts at the claim gate (gate 2) and explicitly sent the claim back; a rejection on its own never starts a revision. Then revise through the verbs: run `synthesize` again (keep the rejected version as `04-synthesize.v<N>.md`), rebuild the evidence brief from scratch so superseded statements don't reach the reviewers, then run `interrogate` again. Never revise the position file by hand.
 
 ### 5. Deliver and close
 

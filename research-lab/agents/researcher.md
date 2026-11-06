@@ -29,7 +29,7 @@ When a librarian hands you one corpus and one question:
 - Cite every claim: a source title or URL for a notebook or the web, a file path and heading for files and the vault, a thread and turn for agent history.
 - Treat agent history as a record of what was said, not as independent evidence: an agent agreeing with an agent is not confirmation. Quote the turn you rely on.
 - Return the cited answer and the gaps in your final message, nothing else. No position; that is the librarian's job.
-- Write no files, not even scratch files in a temporary folder. Read command output directly; if a command can only write to a file, say so in your answer instead of running it.
+- Write no files of your own, not even scratch files in a temporary folder. Read command output directly. Temporary files that this plugin's scripts create and remove themselves (such as `notebook-ask.sh`'s error buffer) are fine.
 
 **NotebookLM interaction:**
 - Use `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh` for all notebook queries
