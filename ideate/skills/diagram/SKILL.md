@@ -112,7 +112,7 @@ If chained from `ideate:brainstorm`:
 VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
 # Architecture/<topic>/ for system/component/data-flow diagrams
 # Architecture/ADRs/<topic>/ for decision trees
-# Research-Lab/Topics/<topic>/ for dependency maps
+# Research-Lab/Topics/<topic>/ for dependency maps (use the `folder` from research-lab.json if it sets one)
 if [ -d "$VAULT_ROOT" ]; then
   mkdir -p "$VAULT_ROOT/$SUBFOLDER"
   cp "$FILENAME" "$VAULT_ROOT/$SUBFOLDER/$FILENAME"

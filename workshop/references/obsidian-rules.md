@@ -23,7 +23,7 @@ When ingesting content or creating wiki pages, read `wiki-schema.md` at vault ro
 | `Scratches/` | Working scratch space, organized by project |
 | `Personal/` | Personal notes, ideas, non-work content |
 | `Research/` | Only `Model-Routing/` (model-routing reports). File nothing new here; general research goes to `Research-Lab/Topics/`. |
-| `Research-Lab/` | The research-lab plugin's folder. `Topics/<topic>/` holds general research notes (AI-Ecosystem, Claude-Plugins, Security, ...); file and organize those like any notes. Never move, re-tag, rename or restructure anything else here (`Engagements/`, `Experiments/`, the index); research-lab writes those. |
+| `Research-Lab/` | The research-lab plugin's folder. `Topics/<topic>/` holds general research notes (AI-Ecosystem, Claude-Plugins, Security, ...); file and organize those like any notes. Never move, re-tag, rename or restructure anything else here (`Engagements/`, `Experiments/`, the index); research-lab writes those. `Research-Lab` is the default folder name; if `research-lab.json` (in `$CLAUDE_CONFIG_DIR`, else `~/.claude`, or the file named by `RESEARCH_LAB_CONFIG`) sets `folder`, use that name instead. |
 | `Archive/` | Retired content, historical records |
 
 ## Projects structure
