@@ -119,7 +119,7 @@ test('successful results retain exactly the original public keys and vocabulary'
     const votes = clean().map((v, i) => i < count ? { ...v, refuted: true, severity: 'major' } : v)
     const { result } = await run([votes], { balances: [100000, 40000] })
     assert.equal(result.verdict, verdict)
-    assert.deepEqual(Object.keys(result).sort(), ['ceilingHit', 'roundCount', 'rounds', 'verdict'])
+    assert.deepEqual(Object.keys(result).sort(), ['ceilingHit', 'roundCapHit', 'roundCount', 'rounds', 'verdict'])
   }
 })
 
@@ -140,11 +140,39 @@ test('agent and parallel exceptions propagate without serializing circular error
   }
 })
 
-test('a nonfatal refutation resets consecutive clean rounds in thorough mode', async () => {
+test('a major refutation resets consecutive clean rounds in thorough mode', async () => {
   const disputed = clean()
-  disputed[0] = { ...disputed[0], refuted: true, severity: 'minor', grounds: 'Small factual gap.' }
+  disputed[0] = { ...disputed[0], refuted: true, severity: 'major', grounds: 'Factual gap.' }
   const { result } = await run([clean(), disputed, clean(), clean()], { thorough: true })
   assert.equal(result.verdict, 'survived')
   assert.equal(result.roundCount, 4)
   assert.deepEqual(result.rounds[1], disputed)
+})
+
+test('a single pass runs exactly one round even when a lens refutes', async () => {
+  // Regression: single pass used to rerun the unchanged claim until a round came back clean.
+  const disputed = clean()
+  disputed[1] = { ...disputed[1], refuted: true, severity: 'major', grounds: 'Version boundary is wrong.' }
+  const { result, calls } = await run([disputed])
+  assert.equal(result.roundCount, 1)
+  assert.equal(calls.length, 4)
+  assert.equal(result.verdict, 'contested')
+  assert.equal(result.roundCapHit, true)
+})
+
+test('minor refutations are fixes to make, not grounds to fail or retry', async () => {
+  const votes = clean().map(v => ({ ...v, refuted: true, severity: 'minor', grounds: 'Wording.' }))
+  const { result } = await run([votes])
+  assert.equal(result.verdict, 'survived')
+  assert.equal(result.roundCount, 1)
+  assert.deepEqual(result.rounds[0], votes)
+})
+
+test('thorough mode stops at four rounds and reports the cap', async () => {
+  const disputed = clean()
+  disputed[0] = { ...disputed[0], refuted: true, severity: 'major', grounds: 'Gap.' }
+  const { result } = await run([disputed, disputed, disputed, disputed], { thorough: true })
+  assert.equal(result.roundCount, 4)
+  assert.equal(result.verdict, 'contested')
+  assert.equal(result.roundCapHit, true)
 })

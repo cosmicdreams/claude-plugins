@@ -72,7 +72,7 @@ No rigid phase structure. The natural shape:
 
 Fan-out to parallel subagents only when independently explorable facets benefit from concurrent depth — the 1M context window holds the whole corpus for a single target.
 
-**3. Share findings; ask about gaps.** Be specific about what you now understand, what surprised you, and what remains open. Frame questions as contributions to the shared pool, not as an interview.
+**3. Share findings; ask about gaps.** Be specific about what you now understand, what surprised you, and what remains open. Frame questions as contributions to the shared pool, not as an interview. When run by `research-lab:consult` in an unattended stretch, the user is not there to answer: write the open gaps into the record instead, and the librarian brings them to the user at the next gate.
 
 **4. Walk every branch.** Continue the cycle until every branch is either understood or explicitly deferred, and both you and the user can describe the target consistently.
 

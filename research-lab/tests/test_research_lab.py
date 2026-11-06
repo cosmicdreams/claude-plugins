@@ -125,6 +125,14 @@ class ResearchLabTest(unittest.TestCase):
         note = rl.frontmatter((folder / 'run.md').read_text())
         self.assertEqual((note['scorer'], note['outcome']), ('council', 'target'))
 
+    def test_registered_run_keeps_the_day_it_ran(self):
+        e = self.experiment()
+        code, out = self.run_cli('register-run', '--engagement', str(e), '--date', '2026-11-04')
+        self.assertEqual(code, 0)
+        folder = pathlib.Path(out['path'])
+        self.assertTrue(folder.name.startswith('2026-11-04-'))
+        self.assertEqual(rl.frontmatter((folder / 'run.md').read_text())['date'], '2026-11-04')
+
     def test_index_lists_engagement_records(self):
         folder = pathlib.Path(self.run_cli('new', 'engagement', 'edge caching')[1]['path'])
         (folder / 'record.md').write_text(rl.render({

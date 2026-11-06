@@ -91,7 +91,7 @@ Judged runs only. `JUDGED next`'s `propose` action uses these:
 
 `EXP status --all --repo R` lists every engagement in a repository's worktrees. Offer a chart (`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/generate-chart.py E/results.jsonl`).
 
-**Register the run** once it has ended, with or without a librarian: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/research_lab.py register-run --engagement E --slug "<short name>" --question "<the question it answered>"`, adding `--used-by <engagement name>` when a librarian ran it. A judged run has no `state.json`: first write your report to `E/report.md`, then add `--methodology <protocol> --scorer council --outcome <how it stopped>`. It copies the report and methodology into a uniquely named folder under the vault's `Experiments/` and leaves `results.jsonl` and `state.json` in `E`. Tell the user the run's name, which is how other notes refer to it. If it refuses as unconfigured, say so in one line and move on.
+**Register the run** once it has ended, with or without a librarian: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/research_lab.py register-run --engagement E --slug "<short name>" --question "<the question it answered>"`, adding `--used-by <engagement name>` when a librarian ran it. A judged run has no `state.json`: first write your report to `E/report.md`, then add `--methodology <protocol> --scorer council --outcome <how it stopped>`. It copies the report and methodology into a uniquely named folder under the vault's `Experiments/` and leaves `results.jsonl` and `state.json` in `E`. When registering a run on a later day, add `--date <YYYY-MM-DD the run happened>`. Tell the user the run's name, which is how other notes refer to it. If it refuses as unconfigured, say so in one line and move on.
 
 ## Suggest next
 

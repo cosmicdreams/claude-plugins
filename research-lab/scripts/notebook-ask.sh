@@ -2,6 +2,10 @@
 # Ask a NotebookLM notebook a question.
 #
 # Usage: notebook-ask.sh <notebook-id> <question> [--save-as-note --note-title <title>] [--json] [-s SOURCE_ID]...
+#                        [--timeout SECONDS]
+#
+# --timeout is passed to `nlm notebook query` (default 300; source-heavy
+# notebooks need it). stdin is closed so nlm can never wait on it.
 #
 # Note: --save-as-note is a bare boolean; the title rides on a separate
 # --note-title <title> flag (NOT `--save-as-note <title>`).
@@ -28,12 +32,14 @@ SAVE_NOTE=0
 NOTE_TITLE=""
 WANT_JSON=0
 SOURCE_IDS=""
+TIMEOUT=300
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --save-as-note) SAVE_NOTE=1; shift ;;
     --note-title)   NOTE_TITLE="${2:-}"; shift 2 ;;
     --json|-j)      WANT_JSON=1; shift ;;
+    --timeout|-t)   TIMEOUT="${2:-300}"; shift 2 ;;
     -s|--source-ids)
       if [ -n "$SOURCE_IDS" ]; then SOURCE_IDS="$SOURCE_IDS,${2:-}"; else SOURCE_IDS="${2:-}"; fi
       shift 2 ;;
@@ -44,6 +50,7 @@ done
 QUERY_ARGS=()
 [ "$WANT_JSON" = 1 ] && QUERY_ARGS+=(--json)
 [ -n "$SOURCE_IDS" ] && QUERY_ARGS+=(--source-ids "$SOURCE_IDS")
+QUERY_ARGS+=(--timeout "$TIMEOUT")
 
 # The ${arr[@]+"${arr[@]}"} form expands to nothing when the array is empty,
 # instead of tripping `set -u` on bash 3.2 (macOS /bin/bash).
@@ -51,7 +58,7 @@ err=$(mktemp)
 trap 'rm -f "$err"' EXIT
 for attempt in 1 2; do
   # Failed calls (including auth/quota failures) are never retry candidates.
-  if out=$(nlm notebook query "$NOTEBOOK_ID" "$QUESTION" ${QUERY_ARGS[@]+"${QUERY_ARGS[@]}"} 2>"$err"); then
+  if out=$(nlm notebook query "$NOTEBOOK_ID" "$QUESTION" ${QUERY_ARGS[@]+"${QUERY_ARGS[@]}"} 2>"$err" </dev/null); then
     cat "$err" >&2
   else
     status=$?

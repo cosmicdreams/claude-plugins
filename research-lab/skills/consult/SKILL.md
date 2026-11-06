@@ -62,13 +62,17 @@ For each step:
 1. Read the verb's `## Preflight` and `## Suggest next` sections from `${CLAUDE_PLUGIN_ROOT}/skills/<verb>/SKILL.md`. Do not rely on memory of them; they change.
 2. Invoke it by exact name: `Skill("research-lab:<verb>", args="engagement=<dir> ...")`, where `<dir>` is the engagement folder for the `main` part and `parts/<part>/` inside it for any other part. Plain-language requests mid-job ("write this up for the execs") are yours to map to a verb (`teach`); do not leave them to description matching, where host publishing tools often win.
 3. Pick the next step from that verb's Suggest next list. Leave the list only to reroute, and write the reason in the record's Log.
-4. Append one Log line: date, verb, what it produced (a path), and the next step. Update `next`.
+4. Read back what the verb produced and confirm it holds what the step claims (an edit that matched nothing changes nothing). Only then append one Log line: date, verb, what it produced (a path), and the next step. Update `next`.
 
 Send lookups to researcher agents (`research-lab:researcher`, corpus-query mode): one corpus and one question each, many at once. Take back only their cited answers, never raw dumps; your context holds the job, not the sources.
 
 `experiment` is the exception to step 2: never give it the engagement folder, because its loop writes raw state and results into its engagement directory and those stay out of the vault. Give it a directory inside its experiment worktree, as its input contract asks. Its strategy card is already the user's gate; feed it the methodology inputs and let its loop run, without driving its internal steps. When it ends, it registers the run under `Experiments/` (pass it `used-by=<engagement name>`); add the run's name to the record.
 
-### 4. Deliver and close
+### 4. Revise when a claim is sent back
+
+When `interrogate` rejects the claim, or the user sends it back at the claim gate, revise through the verbs: run `synthesize` again (keep the rejected version as `04-synthesize.v<N>.md`), rebuild the evidence brief from scratch so superseded statements don't reach the reviewers, then run `interrogate` again. Never revise the position file by hand.
+
+### 5. Deliver and close
 
 Run `teach` for an audience or `experiment` for a metric, as the plan says. Then set the record's `status` to `done`, write its Outcome section, run `RL index`, and report back: the answer, its confidence, the verdicts, and the paths to every product.
 
@@ -87,6 +91,10 @@ Stop and ask only for these:
 7. **Knowledge only the user has.**
 
 Settle everything else yourself, or record it under Open questions.
+
+A gate is answered only by an explicit answer to its question. A message about something else, even "carry on", is not an answer: say so, restate the open question, and keep waiting. Ask through the host's question tool when it has one, so the session shows it is waiting rather than finished.
+
+When two reviews of the same claim disagree (for example the `interrogate` panel and a second look from another model family), the finding backed by a checked primary source wins. Put both verdicts and the deciding source in front of the user at the claim gate.
 
 Every request to the user:
 

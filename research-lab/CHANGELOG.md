@@ -1,5 +1,18 @@
 # research-lab Changelog
 
+## 5.8.0 — 2026-11-06
+
+Fixes from the first end-to-end `consult` pilot (a Drupal caching question scored against a sealed answer key).
+
+- **`interrogate` panel runs the rounds it promises.** `thorough: false` now means exactly one round. Before, the script reran the unchanged claim until a round happened to come back clean: in the pilot a 4-agent review became 52 agents and about 3.3M tokens, and "survived" meant "eventually rolled clean". `thorough: true` stops after four rounds and reports `roundCapHit`. Only `major` and `fatal` refutations count against a claim; `minor` ones are reported as fixes and never trigger another round.
+- **`interrogate` asks for a second look from another model family** after the panel, when the host can run one, and reports both verdicts. In the pilot the same-family panel passed a claim with four major errors that a cross-family reviewer, checking pinned source code, caught. It also reads `05-interrogate.md` back before reporting the step as done.
+- **`consult`:** a gate is answered only by an explicit answer, never inferred from an unrelated message; questions go through the host's question tool when it has one; each Log line is written only after the product is read back; when two reviews disagree, the finding backed by a checked primary source wins; a rejected claim is revised through `synthesize` and re-reviewed with a rebuilt evidence brief (new step 4).
+- **`gather`:** screen a reused notebook's sources for client or unprovable material; prefer release-pinned primary sources when the answer depends on a version; in an approved unattended run, remove only failed sources and list proposed relevance cuts.
+- **`understand`:** in an unattended `consult` stretch, record open gaps for the next gate instead of asking.
+- **`researcher` corpus-query mode writes no files**, not even scratch files.
+- **`notebook-ask.sh`** forwards `--timeout` (default 300 seconds) and closes stdin; the pilot's source summary hung for 30 minutes without them.
+- **`research_lab.py`:** the index lists `Topics/` (one row per topic folder with its newest dated note, one per loose note), so `ideas-funnel:query` can find them; `register-run --date` records the day a run happened when it is registered later.
+
 ## 5.7.1 — 2026-11-05
 
 - The research report template's Vault row points at the engagement folder under the research-lab folder (`research_lab.py root`), not `Research/<engagement>/`.

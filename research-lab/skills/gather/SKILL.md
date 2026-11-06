@@ -87,12 +87,16 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-research-wait.sh NOTEBOOK_ID
 
 ## Phase 3 — Source review (optional dedup, then prune)
 
+When reusing an existing notebook, list its sources first. Leave out of every query (`--source-ids`) any source that holds client or confidential data, or that you cannot show is public.
+
+When the answer depends on a software version, prefer primary sources pinned to a release (source files at a tag, change records). Versioned documentation pages can lag behind the code; say which version each cited source reflects.
+
 Dedup (automatic):
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-dedup.sh NOTEBOOK_ID --apply
 ```
 
-Relevance prune — list sources, propose cuts grouped by reason, user approves. Do not silently delete on relevance judgement:
+Relevance prune — list sources, propose cuts grouped by reason, user approves. Do not silently delete on relevance judgement. In a run the user has approved to go unattended (for example under `research-lab:consult`), remove only sources that failed to ingest and list the proposed relevance cuts in the output instead of asking:
 ```bash
 nlm source list NOTEBOOK_ID --json
 nlm source delete SOURCE_ID --confirm
