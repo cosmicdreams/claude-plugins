@@ -51,6 +51,8 @@ nlm infographic create NOTEBOOK_ID --confirm                      # exec one-pag
 nlm flashcards create NOTEBOOK_ID --confirm                       # secondary comprehension probe
 ```
 
+If `gather` left a source allowlist for this notebook, pass it (`-s <ids>`) to every command that accepts one (queries, `report create`, `data-table create`), and skip the ones that don't (`mindmap`, `audio`, `slides`, `infographic`, `flashcards`, `notebook describe`): they read the whole notebook, including the excluded sources.
+
 Report formats: `"Briefing Doc"`, `"Study Guide"`, `"Blog Post"`, `"Create Your Own"` (with `--prompt`).
 
 | Audience / channel | Artifact |

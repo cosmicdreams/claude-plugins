@@ -54,6 +54,8 @@ Build the tree as you explore. Each branch has an identifier, a label, a status 
 
 When a notebook id is in play, `nlm notebook describe NOTEBOOK_ID --json` gives a parseable summary with suggested topics to seed the tree. `nlm mindmap create NOTEBOOK_ID --confirm` builds a Studio mind map, but it is a visual artifact — there is no `--kind note-backed` equivalent to the retired CLI's readable JSON decomposition, so prefer `describe` when you need structure you can *parse*.
 
+If the notebook comes with a source allowlist (from `gather`), never use `describe`, mind maps or any other whole-notebook operation, because they can't be limited to the allowed sources. Decompose with `notebook-ask.sh <id> "<question>" -s <id> ...` instead, passing the allowlist on every query.
+
 Resolve dependencies first, work outward, and do not leave branches unexplored without naming the deferral.
 
 ---
@@ -67,12 +69,12 @@ No rigid phase structure. The natural shape:
 **2. Explore and decompose.** Do your own homework before engaging the user in back-and-forth:
 
 - **Plan / pasted text / file:** read it in full; trace claims and structure.
-- **Notebook id:** read it back; `nlm notebook describe <id> --json` gives a free, parseable structural decomposition.
+- **Notebook id:** read it back; `nlm notebook describe <id> --json` gives a free, parseable structural decomposition (not with a source allowlist; see above).
 - **System or codebase:** read relevant code, configs, docs; trace data flows.
 
 Fan-out to parallel subagents only when independently explorable facets benefit from concurrent depth — the 1M context window holds the whole corpus for a single target.
 
-**3. Share findings; ask about gaps.** Be specific about what you now understand, what surprised you, and what remains open. Frame questions as contributions to the shared pool, not as an interview.
+**3. Share findings; ask about gaps.** Be specific about what you now understand, what surprised you, and what remains open. Frame questions as contributions to the shared pool, not as an interview. When run by `research-lab:consult` in an unattended stretch, the user is not there to answer: write the open gaps into the record instead, and the librarian brings them to the user at the next gate.
 
 **4. Walk every branch.** Continue the cycle until every branch is either understood or explicitly deferred, and both you and the user can describe the target consistently.
 

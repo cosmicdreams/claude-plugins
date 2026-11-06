@@ -50,17 +50,19 @@ args: {
   claim:    "<the formed position>",
   evidence: "<the assembled supporting evidence>",
   question: "<the question the claim answers>",
-  thorough: false   // true = loop-until-dry (two consecutive clean rounds)
+  thorough: false   // true = up to four rounds, until two consecutive clean ones
 }
 ```
 
 **Four lenses** (defined in the script): evidence-quality, alternative-explanation, reproducibility, internal-consistency. Each is a parallel `agent()` with a schema-validated verdict.
 
 **Right-sizing via the `budget` API** (handled in the script):
-- Default → single pass.
-- `thorough: true` → loop-until-dry with `budget.remaining()` as a hard ceiling.
+- Default → exactly one round. The unchanged claim is never re-run.
+- `thorough: true` → rounds until two in a row are clean, at most four, with `budget.remaining()` as a hard ceiling.
 
-The script returns `{ verdict, rounds, roundCount, ceilingHit }` where `verdict` is one of `survived`, `rejected`, or `contested`. A valid fatal refutation is sufficient for rejection even if another lens fails to respond correctly. `rounds` retains the valid votes and their grounds; logs identify incomplete coverage by round, assigned lens, and failure reason. Report those diagnostics alongside a fatal rejection; do not claim all four lenses responded.
+Only `major` and `fatal` refutations count against the claim. `minor` ones are fixes to make: report them, but they neither fail the claim nor trigger another round.
+
+The script returns `{ verdict, rounds, roundCount, ceilingHit, roundCapHit }` where `verdict` is one of `survived`, `rejected`, or `contested`. A valid fatal refutation is sufficient for rejection even if another lens fails to respond correctly. `rounds` retains the valid votes and their grounds; logs identify incomplete coverage by round, assigned lens, and failure reason. Report those diagnostics alongside a fatal rejection; do not claim all four lenses responded.
 
 Without a valid fatal refutation, any missing, malformed, or misattributed response stops execution with an explicit error naming the round, assigned lens, and reason. Such responses cannot establish clean rounds or survival. No budget to run even one round is also an execution error, not a substantive verdict. Thrown agent/parallel errors propagate rather than becoming votes. Local shim tests exercise this script's logic, not the actual Workflow host contracts.
 
@@ -70,13 +72,19 @@ Without a valid fatal refutation, any missing, malformed, or misattributed respo
 
 Tally the panel result and report **a verdict**, not a rewrite:
 
-- **Survived** — no live refutation across the clean rounds. State on what grounds it held.
+- **Survived** — no major or fatal refutation in the clean rounds. State on what grounds it held, and list the minor fixes.
 - **Rejected** — name the lens, the severity, and the exact evidence gap.
-- **Contested** — complete panel without a decisive result (a minority split, or the ceiling reached before enough clean rounds); surface the votes and stopping condition.
+- **Contested** — complete panel without a decisive result (a minority split, or the round cap or budget ceiling reached before enough clean rounds); surface the votes and stopping condition.
 
 An **execution failure** is not `contested` or another verdict. Report the failure diagnostics without inventing a finding about the claim.
 
-Write `05-interrogate.md` (verdict, per-lens grounds, round count, and any incomplete-coverage diagnostics) to the engagement directory when a verdict is returned.
+## Second look from another model family
+
+The panel's agents all come from one model family, and they can share its blind spots. If the host can run a read-only reviewer from a different family (for example a delegated task on another provider), send it the same submission after the panel and ask it to check the claim against primary sources, pinning versions where they matter. Report both verdicts. When they disagree, the finding backed by a checked primary source wins; say which one that is. If no other family is available, say so in the verdict.
+
+## Write the record
+
+Write `05-interrogate.md` (verdict, per-lens grounds, round count, any second-look verdict, and any incomplete-coverage diagnostics) to the engagement directory when a verdict is returned. Read the file back and confirm the verdict is in it before reporting the step as done.
 
 ---
 

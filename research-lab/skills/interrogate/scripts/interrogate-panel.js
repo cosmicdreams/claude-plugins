@@ -8,7 +8,8 @@ export const meta = {
 //   claim: string,      the formed position under review
 //   evidence: string,   the assembled supporting evidence
 //   question: string,   the question the claim answers
-//   thorough: boolean,  true = loop-until-dry (two consecutive clean rounds); false/absent = single pass
+//   thorough: boolean,  true = loop until two consecutive clean rounds, at most MAX_ROUNDS;
+//                       false/absent = exactly one round
 // }
 
 const LENSES = [
@@ -52,12 +53,16 @@ const submission = JSON.stringify({
 })
 
 const cleanRoundsNeeded = args.thorough ? 2 : 1
+const MAX_ROUNDS = args.thorough ? 4 : 1
 const BUDGET_FLOOR = 40000
+// Only major and fatal refutations count against the claim. Minor ones are
+// fixes to make, reported in the votes; they never trigger another round.
+const counts = (v) => v.refuted && (v.severity === 'major' || v.severity === 'fatal')
 let dryRounds = 0
 let fatalHit = false
 const rounds = []
 
-while (dryRounds < cleanRoundsNeeded && budget.remaining() > BUDGET_FLOOR) {
+while (dryRounds < cleanRoundsNeeded && rounds.length < MAX_ROUNDS && budget.remaining() > BUDGET_FLOOR) {
   const responses = await parallel(LENSES.map((L) => () =>
     agent(
       'You are a hostile peer reviewer using ONLY the ' + L.key + ' lens: ' + L.charge + '\n' +
@@ -93,7 +98,7 @@ while (dryRounds < cleanRoundsNeeded && budget.remaining() > BUDGET_FLOOR) {
   }
 
   rounds.push(votes)
-  const live = votes.filter((v) => v.refuted && v.severity !== 'none')
+  const live = votes.filter(counts)
   log('round ' + rounds.length + ': ' + live.length + ' live refutation(s) from ' + votes.length + ' votes')
 
   if (failures.length > 0) {
@@ -115,7 +120,7 @@ if (rounds.length === 0) {
 // Valid fatal grounds reject; a complete dry finish survives; otherwise the
 // complete final round's majority decides, with a minority split reported as contested.
 const finalRound = rounds[rounds.length - 1]
-const refuting = finalRound.filter((v) => v.refuted && v.severity !== 'none')
+const refuting = finalRound.filter(counts)
 let verdict
 if (fatalHit) {
   verdict = 'rejected'
@@ -132,4 +137,5 @@ return {
   rounds,
   roundCount: rounds.length,
   ceilingHit: budget.remaining() <= BUDGET_FLOOR,
+  roundCapHit: verdict !== 'survived' && !fatalHit && rounds.length >= MAX_ROUNDS,
 }

@@ -44,6 +44,8 @@ log = root / "calls.jsonl"
 calls = log.read_text().splitlines() if log.exists() else []
 with log.open("a") as f:
     f.write(json.dumps(sys.argv[1:]) + "\\n")
+with (root / "stdin.jsonl").open("a") as f:
+    f.write(json.dumps(os.fstat(0).st_rdev == os.stat("/dev/null").st_rdev) + "\\n")
 replies = json.loads((root / "replies.json").read_text())
 if len(calls) >= len(replies):
     print("unexpected extra CLI call", file=sys.stderr)
@@ -62,6 +64,8 @@ sys.exit(reply.get("code", 0))
             )
             log = root / "calls.jsonl"
             calls = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+            stdin = root / "stdin.jsonl"
+            self.stdin_closed = [json.loads(line) for line in stdin.read_text().splitlines()] if stdin.exists() else []
             return result, calls
 
     def ask(self, replies, *args):
@@ -75,7 +79,7 @@ sys.exit(reply.get("code", 0))
                 self.assertEqual(result.returncode, 7)
                 self.assertEqual(result.stdout, "")
                 self.assertIn(error, result.stderr)
-                self.assertEqual(calls, [["notebook", "query", "nb", "question"]])
+                self.assertEqual(calls, [["notebook", "query", "nb", "question", "--timeout", "300"]])
 
     def test_query_partial_stdout_on_error_is_not_success(self):
         result, calls = self.ask([{"code": 4, "out": "partial", "err": "failed"}])
@@ -97,8 +101,14 @@ sys.exit(reply.get("code", 0))
                     self.assertEqual(result.stdout, "")
                     self.assertIn(output.strip(), result.stderr)
                     self.assertEqual(calls, [
-                        ["notebook", "query", "nb", "question", *flags],
+                        ["notebook", "query", "nb", "question", *flags, "--timeout", "300"],
                     ] * (len(first_attempt) + 1))
+
+    def test_query_forwards_timeout_and_closes_stdin(self):
+        result, calls = self.ask([{"out": "answer\n"}], "--timeout", "600")
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(calls, [["notebook", "query", "nb", "question", "--timeout", "600"]])
+        self.assertEqual(self.stdin_closed, [True])
 
     def test_query_empty_success_retries_once(self):
         result, calls = self.ask([{"out": " \n"}, {"out": "answer\n"}])
@@ -140,7 +150,7 @@ sys.exit(reply.get("code", 0))
                 self.assertEqual(result.returncode, 0)
                 self.assertEqual(result.stdout, '{"answer":"prose"}\n')
                 self.assertEqual(calls, [
-                    ["notebook", "query", "nb", "question", "--json", "--source-ids", "one,two"],
+                    ["notebook", "query", "nb", "question", "--json", "--source-ids", "one,two", "--timeout", "300"],
                     ["note", "create", "nb", "--content", "prose", "--title", "Title"],
                 ])
 
