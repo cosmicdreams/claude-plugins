@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.1.1 — 2026-11-05
+
+- `compare` archives comparisons, and `diagram` files dependency maps, under `Research-Lab/Topics/<topic>/` instead of `Research/<topic>/`.
+
 ## 4.1.0 — 2026-10-13
 - `diagram` renders previews with the official Excalidraw CLI (`excalidraw render`, from `@excalidraw/cli`) instead of a Python HTML wrapper plus a `playwright-cli` screenshot.
 - Rendering is now local: it no longer loads React and Excalidraw from a content delivery network, and it fails with exit status 1 on malformed JSON, which replaces the separate Python JSON check.

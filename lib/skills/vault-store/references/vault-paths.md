@@ -15,6 +15,8 @@ Complete path template table for all skills that produce output worth preserving
 | `{name}` | `kebab-case` | Short descriptive name for the document (e.g., `auth-flow-comparison`) |
 | `{module}` | machine name | Drupal module machine name (e.g., `webform`, `paragraphs`) |
 
+Research paths go under `Research-Lab/Topics/`, the one part of the research-lab folder that other skills file into. If `research-lab.json` (in the Claude configuration directory) sets a different `folder`, use that name instead of `Research-Lab`. Never file into its `Engagements/`, `Experiments/` or index; research-lab writes those. The old `Research/` folder keeps only `Model-Routing/`.
+
 When a variable cannot be determined automatically, ask the user once. If they do not provide a value, use the fallback slug shown in the Special Cases section below.
 
 ---
@@ -27,12 +29,12 @@ When a variable cannot be determined automatically, ask the user once. If they d
 |---|---|---|---|
 | Brainstorm canvas | Cross-project | `Architecture/ADRs/{topic}/{date}-{topic}.md` | Full canvas: ideas + annotations + synthesis |
 | Decision record | Cross-project | `Architecture/ADRs/{topic}/{date}-decision-record.md` | Final synthesized decision only |
-| Comparison analysis | Cross-project | `Research/{topic}/{date}-{name}.md` | Side-by-side option comparison |
+| Comparison analysis | Cross-project | `Research-Lab/Topics/{topic}/{date}-{name}.md` | Side-by-side option comparison |
 | Brainstorm canvas (project-specific) | Project | `Projects/{project}/Decisions/{date}-{topic}.md` | When ideation is scoped to one project |
 
 **Examples:**
 - `Architecture/ADRs/vault-routing-approach/2026-03-07-vault-routing-approach.md`
-- `Research/mcp-vs-skills/2026-03-07-mcp-vs-skills.md`
+- `Research-Lab/Topics/mcp-vs-skills/2026-03-07-mcp-vs-skills.md`
 - `Projects/client-portal/Decisions/2026-03-07-auth-strategy.md`
 
 ---
@@ -43,15 +45,15 @@ When a variable cannot be determined automatically, ask the user once. If they d
 |---|---|---|---|
 | Issue analysis | Project | `Drupal.org/{project}/{issue}-{name}.md` | Analysis of a specific Drupal.org issue |
 | Contribution comment draft | Project | `Drupal.org/{project}/{issue}-contribution-comment.md` | Drafted comment for posting to Drupal.org |
-| Module research note | Cross-project | `Research/drupal/{module}/{date}-{topic}.md` | General module research not tied to one issue |
-| Core API exploration | Cross-project | `Research/drupal/core/{date}-{topic}.md` | Drupal core internals research |
+| Module research note | Cross-project | `Research-Lab/Topics/drupal/{module}/{date}-{topic}.md` | General module research not tied to one issue |
+| Core API exploration | Cross-project | `Research-Lab/Topics/drupal/core/{date}-{topic}.md` | Drupal core internals research |
 | Patch or diff description | Project | `Drupal.org/{project}/{issue}-patch-notes.md` | Notes accompanying a patch submission |
 
 **Examples:**
 - `Drupal.org/drupal/3412876-ckeditor5-toolbar-regression.md`
 - `Drupal.org/webform/3398201-contribution-comment.md`
-- `Research/drupal/paragraphs/2026-03-07-nested-paragraph-limits.md`
-- `Research/drupal/core/2026-03-07-render-pipeline-hooks.md`
+- `Research-Lab/Topics/drupal/paragraphs/2026-03-07-nested-paragraph-limits.md`
+- `Research-Lab/Topics/drupal/core/2026-03-07-render-pipeline-hooks.md`
 
 ---
 
@@ -62,14 +64,14 @@ When a variable cannot be determined automatically, ask the user once. If they d
 | Log analysis report | Project | `Projects/{project}/Reports/{date}-log-analysis.md` | Output of a log-analyzer skill |
 | Architecture diagram | Cross-project | `Architecture/{topic}/{date}-{name}.excalidraw` | Excalidraw diagrams |
 | Architecture diagram (project) | Project | `Projects/{project}/Architecture/{date}-{name}.excalidraw` | Project-scoped diagrams |
-| Research session | Cross-project | `Research/{topic}/{date}-{topic}.md` | General research not fitting other categories |
+| Research session | Cross-project | `Research-Lab/Topics/{topic}/{date}-{topic}.md` | General research not fitting other categories |
 | Meeting notes | Project | `Projects/{project}/Meetings/{date}-{name}.md` | Notes from a specific meeting |
-| Reference document | Cross-project | `Research/{topic}/{date}-{name}.md` | Evergreen reference material |
+| Reference document | Cross-project | `Research-Lab/Topics/{topic}/{date}-{name}.md` | Evergreen reference material |
 
 **Examples:**
 - `Projects/client-portal/Reports/2026-03-07-log-analysis.md`
 - `Architecture/plugin-system/2026-03-07-plugin-lifecycle.excalidraw`
-- `Research/obsidian-mcp/2026-03-07-obsidian-mcp.md`
+- `Research-Lab/Topics/obsidian-mcp/2026-03-07-obsidian-mcp.md`
 - `Projects/client-portal/Meetings/2026-03-07-kickoff.md`
 
 ---

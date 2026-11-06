@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.2 — 2026-11-05
+
+- `vault-store` (and its `vault-paths.md`), `archive` and `wiki-query` use `Research-Lab/Topics/<topic>/` for research notes instead of `Research/<topic>/`. The folder name follows `folder` in `research-lab.json` when set. `Research/` keeps only `Model-Routing/`.
+
 ## 1.5.1
 
 - `wiki-query` checks `Next-Adventures/` (renamed from `Next-Experiments/`).

@@ -38,8 +38,8 @@ Quick reference (substitute actual values for placeholders):
 | Project retrospective | `Retrospectives/YYYY-MM-DD+project/RETROSPECTIVE.md` |
 | Brainstorm canvas | `Architecture/ADRs/topic/YYYY-MM-DD-topic.md` |
 | Excalidraw diagram | `Architecture/topic/YYYY-MM-DD-name.excalidraw` |
-| Comparison analysis | `Research/topic/YYYY-MM-DD-name.md` |
-| Research session | `Research/topic/YYYY-MM-DD-topic.md` |
+| Comparison analysis | `Research-Lab/Topics/topic/YYYY-MM-DD-name.md` |
+| Research session | `Research-Lab/Topics/topic/YYYY-MM-DD-topic.md` |
 | Drupal issue analysis | `OpenSource/Drupal.org/project/issue-number-short-title.md` |
 | Drupal contribution comment | `OpenSource/Drupal.org/project/issue-number-contribution-comment.md` |
 | Log analysis report | `Projects/project/Reports/YYYY-MM-DD-log-analysis.md` |

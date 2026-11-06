@@ -48,7 +48,7 @@ Display proposed changes before applying anything:
 
 ```
 NOTE_TITLE
-→ Move to: Research/topic/note-title.md
+→ Move to: Research-Lab/Topics/topic/note-title.md
 → Tags: #research, #drupal
 → Reasoning: contains investigation findings on Drupal caching
 ```
