@@ -64,6 +64,8 @@ nlm report create NOTEBOOK_ID --format "Briefing Doc" --confirm
 nlm mindmap create NOTEBOOK_ID --confirm      # visual only — see below if you need to parse it
 ```
 
+If `gather` left a source allowlist for this notebook, pass it (`-s <ids>`) to every command that accepts one (queries, `report create`, `data-table create`), and skip the ones that don't (`mindmap`, `audio`, `slides`, `infographic`, `flashcards`, `notebook describe`): they read the whole notebook, including the excluded sources.
+
 `nlm` has no parseable mind-map equivalent to the retired `--kind note-backed`. When you need structure you can read, use `nlm notebook describe NOTEBOOK_ID --json` instead.
 
 If a generator fails server-side, check `nlm studio status NOTEBOOK_ID --json`. There is no in-place retry, so a failed artifact has to be re-created.
