@@ -45,7 +45,7 @@ Quick reference (substitute actual values for placeholders):
 | Log analysis report | `Projects/project/Reports/YYYY-MM-DD-log-analysis.md` |
 | Skill eval record | `Projects/CLAUDE-PLUGINS/Skill-Evals/plugin/skill-name/YYYY-MM-DD-eval.md` |
 
-`Research-Lab` is the default folder name; if `research-lab.json` (in `$CLAUDE_CONFIG_DIR`, else `~/.claude`, or the file named by `RESEARCH_LAB_CONFIG`) sets `folder`, use that name instead. File only into its `Topics/`; never into `Engagements/`, `Experiments/` or its index.
+`Research-Lab` is the default folder name; if `research-lab.json` (the file named by `RESEARCH_LAB_CONFIG`, else the one in `$CLAUDE_CONFIG_DIR`, else `~/.claude/research-lab.json`) sets `folder`, use that name instead. File only into its `Topics/`; never into `Engagements/`, `Experiments/` or its index.
 
 ## Step 4: Author as Obsidian Flavored Markdown
 

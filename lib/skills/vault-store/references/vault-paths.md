@@ -15,7 +15,7 @@ Complete path template table for all skills that produce output worth preserving
 | `{name}` | `kebab-case` | Short descriptive name for the document (e.g., `auth-flow-comparison`) |
 | `{module}` | machine name | Drupal module machine name (e.g., `webform`, `paragraphs`) |
 
-Research paths go under `Research-Lab/Topics/`, the one part of the research-lab folder that other skills file into. `Research-Lab` is the default folder name; if `research-lab.json` (in `$CLAUDE_CONFIG_DIR`, else `~/.claude`, or the file named by `RESEARCH_LAB_CONFIG`) sets `folder`, use that name instead. Never file into its `Engagements/`, `Experiments/` or index; research-lab writes those. The old `Research/` folder keeps only `Model-Routing/`.
+Research paths go under `Research-Lab/Topics/`, the one part of the research-lab folder that other skills file into. `Research-Lab` is the default folder name; if `research-lab.json` (the file named by `RESEARCH_LAB_CONFIG`, else the one in `$CLAUDE_CONFIG_DIR`, else `~/.claude/research-lab.json`) sets `folder`, use that name instead. Never file into its `Engagements/`, `Experiments/` or index; research-lab writes those. The old `Research/` folder keeps only `Model-Routing/`.
 
 When a variable cannot be determined automatically, ask the user once. If they do not provide a value, use the fallback slug shown in the Special Cases section below.
 

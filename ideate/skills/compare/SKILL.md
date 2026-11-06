@@ -180,4 +180,4 @@ Omit entirely if no UNKNOWN cells.
 
 ## Obsidian storage
 
-Archive to `$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}/Research-Lab/Topics/<topic>/<YYYY-MM-DD>-<comparison-name>.md`. `Research-Lab` is the default folder name; if `research-lab.json` (in `$CLAUDE_CONFIG_DIR`, else `~/.claude`, or the file named by `RESEARCH_LAB_CONFIG`) sets `folder`, use that name instead. Confirm path.
+Archive to `$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}/Research-Lab/Topics/<topic>/<YYYY-MM-DD>-<comparison-name>.md`. `Research-Lab` is the default folder name; if `research-lab.json` (the file named by `RESEARCH_LAB_CONFIG`, else the one in `$CLAUDE_CONFIG_DIR`, else `~/.claude/research-lab.json`) sets `folder`, use that name instead. Confirm path.
