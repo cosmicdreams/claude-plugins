@@ -59,7 +59,7 @@ jq '{scores: {
 }, ts: now | todate, target: .requestedUrl}' /tmp/lighthouse-output.json
 ```
 
-Do not pipe Lighthouse output directly to jq — use `--output-path` then read the file. Run 3 times and take the median for `lighthouse_performance`.
+Do not pipe Lighthouse output directly to jq — use `--output-path` then read the file. Run at least 5 times and take the median for `lighthouse_performance`.
 
 For DDEV sites use the external URL `https://sitename.ddev.site`.
 
@@ -106,6 +106,10 @@ If neither binary is present, omit the `token_cost` block silently — other sco
 ### Accessibility delegation
 
 Pass through to `test-lab:accessibility-scan` with the same URL.
+
+## Before you report a number
+
+Vet every number with the [benchmark checklist](../../references/benchmark-checklist.md) (`${CLAUDE_PLUGIN_ROOT}/references/benchmark-checklist.md`) before reporting or acting on it. At minimum: record `uptime` and the core count, run each side at least 5 times, alternating sides where the tool allows, and lead with a verdict (faster, slower, no measurable difference, or inconclusive) plus the median, range, run count, limiter, error count and how you confirmed the work happened. Inconclusive when the limiter is unknown, one side ran untuned, or errors and work were not checked. Hyperfine's JSON at `/tmp/hyperfine-result.json` holds `.results[].median`, `.min`, `.max` and `.times` for the report; the score tuple is unchanged.
 
 ## Output contract
 

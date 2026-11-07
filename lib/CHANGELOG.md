@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.3 — 2026-11-06
+
+- `hyperfine`: vet numbers with test-lab's benchmark checklist before reporting; lead with a verdict and give median, range, run count, limiter, error count and the work check. The comparison snippet now extracts median, range and run count.
+- `lighthouse`: take the median of at least 5 runs, matching the benchmark checklist.
+
 ## 1.5.2 — 2026-11-05
 
 - `vault-store` (and its `vault-paths.md`), `archive` and `wiki-query` use `Research-Lab/Topics/<topic>/` for research notes instead of `Research/<topic>/`. The folder name follows `folder` in `research-lab.json` when set. `Research/` keeps only `Model-Routing/`, which `wiki-query` still searches. Each skill states how to find the configured folder name (`RESEARCH_LAB_CONFIG`, else `research-lab.json` in `$CLAUDE_CONFIG_DIR` or `~/.claude`).
