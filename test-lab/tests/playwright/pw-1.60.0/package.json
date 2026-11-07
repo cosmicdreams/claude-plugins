@@ -1,0 +1,7 @@
+{
+  "name": "test-lab-compat-pw-1.60.0",
+  "private": true,
+  "devDependencies": {
+    "@playwright/test": "1.60.0"
+  }
+}

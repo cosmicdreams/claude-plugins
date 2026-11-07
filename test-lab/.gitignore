@@ -1,0 +1,7 @@
+node_modules/
+.claude-plugin/types/
+tests/playwright/pw-*/node_modules/
+tests/playwright/pw-*/.kit-check-*/
+.mod-check-*/
+release/
+.test-lab-release-*/

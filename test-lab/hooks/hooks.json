@@ -1,0 +1,4 @@
+{
+    "description": "Shows a test-lab run's readiness verdict in a pane, with its report on the machine that ran it and summary only elsewhere.",
+    "modules": ["./mod/register.tsx"]
+}

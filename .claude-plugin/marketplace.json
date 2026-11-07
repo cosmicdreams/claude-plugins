@@ -70,7 +70,7 @@
     {
       "name": "test-lab",
       "description": "Convert a manual test corpus into an automated Playwright suite, and measure accessibility and performance: pluggable source, authoring methodology, and a per-story conversion skill",
-      "source": "./test-lab",
+      "source": "./releases/test-lab",
       "category": "development"
     },
     {

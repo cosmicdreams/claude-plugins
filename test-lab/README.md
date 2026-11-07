@@ -2,6 +2,71 @@
 
 Turn a manual test corpus into an automated Playwright suite.
 
+## Install
+
+```
+/plugin install test-lab --marketplace cosmicdreams/claude-plugins
+```
+
+Then, once per installed copy (after each install or update), install its one
+runtime dependency, the pinned source parser (TypeScript 6.0.3):
+
+```sh
+node <plugin folder>/scripts/install-runtime.ts
+```
+
+This runs `npm ci` in the copy's own `kit` folder from its lockfile, with
+lifecycle scripts off, and writes nothing outside `kit/node_modules`. The
+plugin ships no `node_modules`; until this step is done, the runner and the
+verdict pane refuse to start and print this exact command with the copy's real
+path. Requires Node.js 24 or newer with npm. `--offline` installs from the local
+npm cache only.
+
+## V2 development
+
+The v2 rewrite is in development. Its purpose is a trustworthy local readiness
+verdict before deploying work for human QA. QA owns the regression scope;
+developers declare an addendum for their work. The core computes four outcomes:
+ready, not ready, inconclusive, and not evaluable.
+
+This checkout contains the verdict foundation, evidence and input-manifest
+validation, scope-history checks, a public Playwright helper and reporter, a
+read-only TestRail snapshot boundary, and a minimal verdict pane. TestRail
+authentication remains in `lib:testrail`. Imported cases require an approved
+interpretation and declared configurations before they can gate a verdict.
+
+An executable local CLI now provides `stage-kit`, `preflight`, `run --tier fast`,
+`verify`, and read-only snapshot `source`. Its coordinator and persisted data
+contract have passed bounded independent integration review. Run
+`node src/cli.ts --help` from this folder for the current arguments. `verify`
+checks policy; its success does not mean the application is ready.
+
+The foundation and declared invocation-input protocol have passed bounded
+independent correctness reviews. The local pilot and live terminal/Desktop
+acceptance remain pending. The existing skills below are the current authoring
+workflow. Passing fixture and mocked-host tests do not establish pilot or live
+UI acceptance. See
+[phase 0 traceability](tests/PHASE0-TRACEABILITY.md) for the evidence and gaps.
+
+Development requires Node 24 or later and the dependencies locked in this folder,
+in `kit`, and in both `tests/playwright/pw-<version>` folders (`npm ci` in each).
+Playwright compatibility tests also require Chromium for each pinned release.
+Mod checks use the installed Claude Code CLI and its SDK declarations. From this
+folder:
+
+```sh
+npm test                  # core, including the release and its no-node_modules gate
+npm run test:install      # the install step on a fresh release copy; needs the parser in the npm cache
+npm run test:playwright
+npm run typecheck
+npm run test:mod
+npm run check:release     # releases/test-lab matches the sources and holds no node_modules
+```
+
+The marketplace installs `releases/test-lab`, built from this folder with
+`npm run build:release`. Rebuild it after any change to a shipped file;
+`check:release` and `npm test` fail until you do.
+
 Two skills, split by unit of work:
 
 | Skill | Unit | Use when |
