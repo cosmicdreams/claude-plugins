@@ -1,6 +1,6 @@
 {
   "name": "process-lab",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Holds agent-assisted work to each project's own process.",
   "author": {
     "name": "Chris Weber"
@@ -12,6 +12,8 @@
     "longDescription": "Reads a project's workflow from its Confluence page, notices when work crosses a step, records what the process requires and whether it was done or waived, recommends Jira tickets from evidence, and runs retrospectives against the process.",
     "developerName": "Chris Weber",
     "category": "Development",
-    "capabilities": ["Write"]
+    "capabilities": [
+      "Write"
+    ]
   }
 }

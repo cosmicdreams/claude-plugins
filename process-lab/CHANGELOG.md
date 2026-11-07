@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 — 2026-11-06
+
+- `retro` step 5 asks of every action item and lesson whether a hook, lint, script, schema or test could enforce it; if so it becomes a tracked card naming the check, handed to `workshop:harden` for the user's own tooling. Prose lessons are kept for judgment calls.
+
 ## 0.1.0 — 2026-09-29
 
 First release, replacing the `improve`, `sprint`, and `retro` plugins. Design: `plans/task-linter-design.md`.

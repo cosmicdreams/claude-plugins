@@ -37,6 +37,8 @@ Ask each participant, or the user on their behalf: what went well, what got in t
 
 Converge on a small number of action items (three is plenty). Each has an owner, a date, and the observable change that will show it worked. Separate them from lessons, which are worth recording but not tracking.
 
+For each action item and lesson, ask whether a hook, lint, script, schema or test could enforce it. If one could, it is not a lesson: make it an action item whose observable change is that check, proposed as a tracked card naming the enforcer, and hand it to `workshop:harden` when the team's tooling is the user's own. Keep prose lessons only for judgment calls nothing can check. A lesson written down as prose and then broken again is the clearest case for enforcement. (Adapted from pstack's `reflect`, Lauren Tan, MIT.)
+
 When a finding is about the process itself (a gate nobody can meet, an obligation that is always waived for the same reason, a step the team does but the page does not mention), write it as a proposed change to the process page and hand it to `process-lab:codify`.
 
 ## 6. Record
