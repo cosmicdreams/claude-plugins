@@ -69,18 +69,18 @@ jq '{
 }' /tmp/lighthouse-output.json
 ```
 
-## Noise — run 3 times, take median
+## Noise — run at least 5 times, take median
 
-Lighthouse scores vary run-to-run (±5 points typical for performance). For ratchet baselines, run 3 times and take the median `lighthouse_performance`:
+Lighthouse scores vary run-to-run (±5 points typical for performance). For ratchet baselines, run at least 5 times and take the median `lighthouse_performance`:
 
 ```bash
-for i in 1 2 3; do
+for i in 1 2 3 4 5; do
   lighthouse <url> --only-categories=performance --output=json \
     --output-path=/tmp/lighthouse-output.json \
     --chrome-flags="--headless --no-sandbox --ignore-certificate-errors" 2>/dev/null
   jq '.categories.performance.score * 100 | round' /tmp/lighthouse-output.json
 done
-# Sort the three values, take the middle one
+# Sort the five values, take the middle one
 ```
 
 ## Output contract
@@ -115,4 +115,4 @@ done
 | `net::ERR_CERT_AUTHORITY_INVALID` | Self-signed cert | Add `--chrome-flags="--ignore-certificate-errors"` |
 | `net::ERR_CONNECTION_REFUSED` | Site not running | Start the local server / DDEV first |
 | Score is `null` | Page errored before audit | Check the page loads manually; inspect `--output=json` for `runtimeError` |
-| High variance between runs | CPU/network contention | Close other apps; run 3× and take median |
+| High variance between runs | CPU/network contention | Close other apps; run at least 5× and take median |

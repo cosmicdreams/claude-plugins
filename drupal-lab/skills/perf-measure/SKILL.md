@@ -149,6 +149,10 @@ ddev exec mysql <dbname> -e "EXPLAIN <query>"
 
 4. Include as `slow_queries` array in output.
 
+## Before you report a number
+
+Vet every number with the benchmark checklist that ships with test-lab (`ls ~/.claude/plugins/cache/local/test-lab/*/references/benchmark-checklist.md | sort -V | tail -1 | xargs cat`; in the plugin repository, `test-lab/references/benchmark-checklist.md`) before reporting or acting on it. At minimum: record `uptime` and the core count, run each side at least 5 times, alternating sides where the tool allows, and lead with a verdict (faster, slower, no measurable difference, or inconclusive) plus the median, range, run count, limiter, error count and how you confirmed the work happened. Inconclusive when the limiter is unknown, one side ran untuned, or errors and work were not checked.
+
 ## Output Contract
 
 ```json

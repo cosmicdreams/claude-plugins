@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.1 — 2026-11-06
+
+- `perf-measure`: vet numbers with test-lab's benchmark checklist before reporting; lead with a verdict and give median, range, run count, limiter, error count and the work check.
+
 ## 5.0.0 — 2026-11-05
 
 - Breaking: remove the `optimize` skill. Its gathering, synthesis and experiment phases now belong to research-lab (`gather`, `synthesize`, `research-lab:experiment` with `strategy=climb`); run those directly. Measure Drupal performance for a climb with `drupal-lab:perf-measure`.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0 — 2026-11-06
+
+- New `references/benchmark-checklist.md`, adapted from pstack (Lauren Tan, MIT): vet a performance number for limiter, tuning, limits, errors, reproducibility, relevance and whether the work happened, and lead the report with a verdict. `perf-measure` links it and now takes the median of at least 5 runs.
+
 ## 0.4.0 — 2026-09-29
 
 - Add `accessibility-scan` and `perf-measure`, moved from the retired improve plugin. Score tuples feed `research-lab:experiment`.

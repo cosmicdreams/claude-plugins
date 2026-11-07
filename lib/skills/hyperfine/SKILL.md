@@ -72,9 +72,13 @@ hyperfine --export-json /tmp/hyperfine-result.json "<command-a>" "<command-b>"
 
 Each command gets its own entry in `results[]`. Extract comparison:
 ```bash
-jq '.results | map({command, mean_ms: (.mean * 1000 | round), stddev_ms: (.stddev * 1000 | round)})' \
+jq '.results | map({command, median_ms: (.median * 1000 | round), min_ms: (.min * 1000 | round), max_ms: (.max * 1000 | round), runs: (.times | length), mean_ms: (.mean * 1000 | round), stddev_ms: (.stddev * 1000 | round)})' \
   /tmp/hyperfine-result.json
 ```
+
+## Before you report a number
+
+Vet every number with the benchmark checklist that ships with test-lab (`ls ~/.claude/plugins/cache/local/test-lab/*/references/benchmark-checklist.md | sort -V | tail -1 | xargs cat`; in the plugin repository, `test-lab/references/benchmark-checklist.md`) before reporting or acting on it. At minimum: record `uptime` and the core count, run each side at least 5 times, alternating sides where the tool allows, and lead with a verdict (faster, slower, no measurable difference, or inconclusive) plus the median, range, run count, limiter, error count and how you confirmed the work happened. Inconclusive when the limiter is unknown, one side ran untuned, or errors and work were not checked. Hyperfine's JSON at `/tmp/hyperfine-result.json` holds `.results[].median`, `.min`, `.max` and `.times` for the report; the score tuple is unchanged.
 
 ## Output contract
 
