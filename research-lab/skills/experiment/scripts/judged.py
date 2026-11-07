@@ -46,6 +46,9 @@ import subprocess
 import tempfile
 
 
+LIMIT_REPLY = re.compile(r"hit your (usage )?limit|usage limit|rate.?limit|quota exceeded|overloaded_error|resets? (at|in) \d", re.I)
+
+
 def read_json(path, default=None):
     return json.loads(path.read_text(encoding='utf-8')) if path.exists() else default
 
@@ -604,11 +607,16 @@ def run(a):
             if result.returncode: raise ValueError('capture command failed')
             manifest = read_json(out / 'manifest.json')
             if not isinstance(manifest, dict) or manifest['tree'] != tree or not isinstance(manifest['files'], list): raise ValueError('invalid manifest')
+            texts = []
             for entry in manifest['files']:
                 target = (out / entry['path']).resolve()
                 if not target.is_relative_to(out.resolve()): raise ValueError('invalid capture path')
-                data = target.read_bytes(); data.decode('utf-8')
+                data = target.read_bytes(); texts.append(data.decode('utf-8'))
                 if digest(data) != entry['sha256']: raise ValueError('capture hash mismatch')
+            # The task must have happened: an empty capture or a bare limit/error reply is not a result.
+            if not any(t.strip() for t in texts): raise ValueError('empty capture: the run produced no output')
+            for t in texts:
+                if len(t.strip()) < 300 and LIMIT_REPLY.search(t): raise ValueError('capture is a limit or error reply, not a result: ' + t.strip()[:80])
             existing = captures(eng, tree, cfp)
             number = max([int(x.name.rsplit('-', 1)[1]) for x in existing], default=0) + 1
             dest = eng / 'captures' / f'{tree}-{cfp[:12]}-{number}'

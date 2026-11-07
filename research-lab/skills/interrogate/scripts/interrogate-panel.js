@@ -42,8 +42,30 @@ const VERDICT = {
     refuted: { type: 'boolean' },
     grounds: { type: 'string' },
     severity: { type: 'string', enum: ['fatal', 'major', 'minor', 'none'] },
+    locator: { type: 'string' },
   },
   required: ['lens', 'refuted', 'grounds', 'severity'],
+}
+
+// A major or fatal refutation counts only after a fresh verifier confirms its
+// locator. Unverified refutations are dropped and reported, never counted.
+const CHECKS = {
+  type: 'object',
+  properties: {
+    checks: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          lens: { type: 'string' },
+          confirmed: { type: 'boolean' },
+          reason: { type: 'string' },
+        },
+        required: ['lens', 'confirmed', 'reason'],
+      },
+    },
+  },
+  required: ['checks'],
 }
 
 const submission = JSON.stringify({
@@ -57,8 +79,12 @@ const MAX_ROUNDS = args.thorough ? 4 : 1
 const BUDGET_FLOOR = 40000
 // Only major and fatal refutations count against the claim. Minor ones are
 // fixes to make, reported in the votes; they never trigger another round.
-const counts = (v) => v.refuted && (v.severity === 'major' || v.severity === 'fatal')
+const weighty = (v) => v.refuted && (v.severity === 'major' || v.severity === 'fatal')
+const hasLocator = (v) => typeof v.locator === 'string' && v.locator.trim() !== ''
 let dryRounds = 0
+const dropped = []
+// Verified major/fatal votes per round, as lens keys.
+const confirmedByRound = []
 let fatalHit = false
 const rounds = []
 
@@ -68,7 +94,10 @@ while (dryRounds < cleanRoundsNeeded && rounds.length < MAX_ROUNDS && budget.rem
       'You are a hostile peer reviewer using ONLY the ' + L.key + ' lens: ' + L.charge + '\n' +
       'Assume the claim is wrong and build the case against it on EVIDENCE AND FACTS only - ' +
       'unsupported or emotional objections do not count. If you cannot refute it on facts, ' +
-      'return refuted: false with severity: none. You see only this submission, nothing else.\n\n' +
+      'return refuted: false with severity: none. For a major or fatal refutation, set locator to ' +
+      'something a fresh checker can verify: the exact passage quoted from the submission, a source ' +
+      'path or URL with the quoted passage, or a command with its output. A major or fatal ' +
+      'refutation without a checkable locator is dropped. You see only this submission, nothing else.\n\n' +
       'SUBMISSION:\n' + submission,
       { label: 'review:' + L.key, phase: 'Review', schema: VERDICT, model: L.model }
     )
@@ -98,8 +127,47 @@ while (dryRounds < cleanRoundsNeeded && rounds.length < MAX_ROUNDS && budget.rem
   }
 
   rounds.push(votes)
-  const live = votes.filter(counts)
-  log('round ' + rounds.length + ': ' + live.length + ' live refutation(s) from ' + votes.length + ' votes')
+  const confirmed = new Set()
+  const toCheck = []
+  for (const v of votes.filter(weighty)) {
+    if (hasLocator(v)) {
+      toCheck.push(v)
+    } else {
+      dropped.push({ round: rounds.length, lens: v.lens, reason: 'no-locator' })
+    }
+  }
+  if (toCheck.length > 0) {
+    const result = await agent(
+      'You verify refutations from a peer review. For each one, check its locator against the ' +
+      'submission and, when the locator names an outside source or a command, against that source ' +
+      'or command output, read-only. Confirm a refutation only when the located text or output exists ' +
+      'and shows what the grounds claim. Anything you could not check is confirmed: false, with the reason. ' +
+      'Return one check per refutation, keyed by its lens. You see only this submission and these refutations.\n\n' +
+      'SUBMISSION:\n' + submission + '\n\nREFUTATIONS:\n' +
+      JSON.stringify(toCheck.map((v) => ({ lens: v.lens, severity: v.severity, grounds: v.grounds, locator: v.locator }))),
+      { label: 'verify:round-' + rounds.length, phase: 'Review', schema: CHECKS, model: 'opus' }
+    )
+    const checks = result && Array.isArray(result.checks) ? result.checks : null
+    const problems = []
+    for (const v of toCheck) {
+      const matches = checks ? checks.filter((c) => c && c.lens === v.lens) : []
+      const check = matches[0]
+      if (matches.length !== 1 || typeof check.confirmed !== 'boolean' || typeof check.reason !== 'string') {
+        problems.push(v.lens + ': invalid-check')
+      } else if (check.confirmed) {
+        confirmed.add(v.lens)
+      } else {
+        dropped.push({ round: rounds.length, lens: v.lens, reason: 'unverified: ' + check.reason })
+      }
+    }
+    if (problems.length > 0) {
+      throw new Error('Interrogation verification failed in round ' + rounds.length + ': ' + problems.join('; '))
+    }
+  }
+  confirmedByRound.push(confirmed)
+  const live = votes.filter((v) => weighty(v) && confirmed.has(v.lens))
+  log('round ' + rounds.length + ': ' + live.length + ' live refutation(s) from ' + votes.length + ' votes, ' +
+    (votes.filter(weighty).length - live.length) + ' dropped as unverified')
 
   if (failures.length > 0) {
     log('incomplete coverage in round ' + rounds.length + ': ' + failures.join('; '))
@@ -120,7 +188,8 @@ if (rounds.length === 0) {
 // Valid fatal grounds reject; a complete dry finish survives; otherwise the
 // complete final round's majority decides, with a minority split reported as contested.
 const finalRound = rounds[rounds.length - 1]
-const refuting = finalRound.filter(counts)
+const finalConfirmed = confirmedByRound[confirmedByRound.length - 1]
+const refuting = finalRound.filter((v) => weighty(v) && finalConfirmed.has(v.lens))
 let verdict
 if (fatalHit) {
   verdict = 'rejected'
@@ -138,4 +207,5 @@ return {
   roundCount: rounds.length,
   ceilingHit: budget.remaining() <= BUDGET_FLOOR,
   roundCapHit: verdict !== 'survived' && !fatalHit && rounds.length >= MAX_ROUNDS,
+  dropped,
 }

@@ -30,7 +30,7 @@ def require(ok, reason):
 def config(text, strategy):
     from experiment import field
     c = {k: field(text, k) for k in ('Measure', 'Checks', 'Tiebreak', 'Readability',
-                                    'Held-out', 'Score', 'Metric name')}
+                                    'Held-out', 'Score', 'Metric name', 'Sensitivity', 'Errors', 'Work')}
     for name, default in [('Target', 0), ('Budget', None), ('Runs', 3),
                           ('Margin', None), ('Futility', 5), ('Bound', None),
                           ('Score target', None)]:
@@ -196,6 +196,27 @@ def measure(s, c, score=False, outputs=None):
     median = statistics.median(runs)
     return dict(median=median, runs=runs,
                 mad=statistics.median(abs(x - median) for x in runs))
+
+
+def harness(w, c):
+    """Errors and Work counts from the harness; refuse a run that errored or did no work."""
+    counts = {name.lower(): number(w, c[name]) for name in ('Errors', 'Work') if c[name]}
+    require(counts.get('errors', 0) == 0,
+            f"harness reported {counts.get('errors', 0):g} errors; fix the harness before measuring")
+    require(counts.get('work', 1) > 0, 'harness reported no work done; the measurement did not happen')
+    return counts or None
+
+
+def sensitivity(s, c, m, margin):
+    """Refuse to freeze a baseline unless a known-worse variant measures worse by more than the margin."""
+    if not c['Sensitivity']:
+        return None
+    runs = [number(s['worktree'], c['Sensitivity'], c['Metric name']) for _ in range(int(c['Runs']))]
+    median = statistics.median(runs)
+    require((m['median'] - median) * c['sign'] > margin,
+            f"harness is not sensitive: the known-worse variant measured {median:g} against baseline "
+            f"{m['median']:g} (margin {margin:g}); fix the workload or metric before freezing")
+    return dict(median=median, runs=runs)
 
 
 def update_findings(s, outputs):
@@ -379,14 +400,17 @@ def evaluate(e, s, c, command):
     score = measure(s, c, True, outputs) if s['strategy'] == 'remediate' and c['Score'] else None
     before = s['ratchet']
     if command == 'baseline':
+        margin = c['Margin'] if c['Margin'] is not None else 2 * m['mad']
+        counts = harness(w, c)
+        sensitive = sensitivity(s, c, m, margin)
         tie = number(w, c['Tiebreak']) if c['Tiebreak'] else None
         require_clean(w, measurement=True)
         update_findings(s, outputs)
-        s.update(baseline=m, margin=c['Margin'] if c['Margin'] is not None else 2 * m['mad'],
+        s.update(baseline=m, margin=margin,
                  ratchet=m['median'], tiebreak=tie, score_baseline=score,
                  score_margin=2 * score['mad'] if score else None)
         log(e, s, c, m, 'keep', 'baseline established', change='Baseline survey',
-            extras={'margin': s['margin'], 'score': score})
+            extras={'margin': s['margin'], 'score': score, 'harness': counts, 'sensitivity': sensitive})
     elif command == 'confirm':
         checks = shell(w, c['Checks']).returncode == 0
         guard = score is None or score['median'] >= s['score_baseline']['median'] - s['score_margin']
@@ -402,6 +426,7 @@ def evaluate(e, s, c, command):
         if not goal(s, c) and s['trials_used'] >= c['Budget']:
             ending(s, 'paused', 'budget spent')
     else:
+        counts = harness(w, c)
         checks = shell(w, c['Checks']).returncode == 0
         guard = score is None or score['median'] >= s['score_baseline']['median'] - s['score_margin']
         delta = (m['median'] - before) * c['sign']
@@ -430,7 +455,7 @@ def evaluate(e, s, c, command):
             require_clean(w, measurement=True)
         t['pending'] = dict(decision=decision, reason=reason, m=m, score=score, tie=tie,
                             gate='pass' if checks and guard else 'fail',
-                            outputs=outputs, tie_before=tie_before, readable=readable)
+                            outputs=outputs, tie_before=tie_before, readable=readable, harness=counts)
         save(e, s)
         return finish_trial(e, s, c)
     save(e, s)
@@ -464,7 +489,7 @@ def finish_trial(e, s, c):
         ending(s, 'paused', 'budget spent')
     log(e, s, c, m, decision, reason, before,
         extras={'score': score, 'tiebreak_before': p['tie_before'],
-                'tiebreak_after': tie, 'readable': p['readable']}, gate=p['gate'])
+                'tiebreak_after': tie, 'readable': p['readable'], 'harness': p.get('harness')}, gate=p['gate'])
     s['trial'] = None
     save(e, s)
     return dict(decision=decision, reason=reason, **next_action(e, s, c))

@@ -1,5 +1,13 @@
 # research-lab Changelog
 
+## 5.9.0 — 2026-11-06
+
+Two checks borrowed from pstack (Lauren Tan, MIT): findings and measurements count only when they can be shown to be real.
+
+- **`interrogate` verifies refutations before they count.** Each `major` or `fatal` refutation must carry a locator (a quoted passage, a source with the passage, or a command with its output). One fresh verifier checks every locator after the round; anything it cannot confirm is dropped, listed in the new `dropped` result field, and never counts. A frozen panel once flagged 56 of 74 correct claims on the reviewer's word alone.
+- **`experiment` refuses a harness that cannot see a regression or that did nothing.** New optional `Sensitivity:`, `Errors:` and `Work:` methodology fields: the baseline will not freeze unless a known-worse variant measures worse by more than the margin, and the baseline and every trial refuse when the harness reports errors or no work. Both counts are recorded.
+- **Judged captures must contain a result.** An all-empty capture, or a short usage-limit or rate-limit reply, is `invalid` and never scored. Past studies had counted rate-limit replies and empty replies as valid output.
+
 ## 5.8.0 — 2026-11-06
 
 Fixes from the first end-to-end `consult` pilot (a Drupal caching question scored against a sealed answer key).
