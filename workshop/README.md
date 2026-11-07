@@ -19,6 +19,7 @@ Skills read `~/.claude/workshop.json` (written by `workshop:config`) to know wha
 | `workshop:obsidian-lint` | Audit vault notes for frontmatter and link violations |
 | `workshop:scout` | Knowledge radar — interest-tuned AI/ecosystem stories that learns from feedback (was ecosystem-pulse) |
 | `workshop:knowledge-check` | Keep the human in the loop during AI-assisted work — restate, fill gaps, quiz before moving on (guards against cognitive surrender) |
+| `workshop:harden` | Turn a repeated mistake into a proven check at the highest level that works; keeps the [rule-to-enforcer table](references/rule-enforcers.md) |
 
 ## Attended PM OS
 

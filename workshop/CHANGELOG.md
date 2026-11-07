@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.7.0 — 2026-11-06
+
+- New `workshop:harden`: turns a mistake agents keep repeating into a check, trying architecture, then a hook, schema, lint or test, with prose last, and proves each check fails on a real past mistake. Adapted from pstack's `correct` (Lauren Tan, MIT).
+- New `references/rule-enforcers.md`, the rule-to-enforcer table, and `scripts/rule_table.py check`, which validates it and lists prose rules broken twice or more.
+
 ## 2.6.2 — 2026-11-05
 
 - `obsidian-rules.md`: general research notes now live in `Research-Lab/Topics/<topic>/`, which placement and organizing skills may file into and organize. The rest of `Research-Lab/` (`Engagements/`, `Experiments/`, the index) stays research-lab's alone. `Research/` keeps only `Model-Routing/`. `organize`'s example follows.
