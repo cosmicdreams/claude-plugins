@@ -62,7 +62,9 @@ args: {
 
 Only `major` and `fatal` refutations count against the claim. `minor` ones are fixes to make: report them, but they neither fail the claim nor trigger another round.
 
-The script returns `{ verdict, rounds, roundCount, ceilingHit, roundCapHit }` where `verdict` is one of `survived`, `rejected`, or `contested`. A valid fatal refutation is sufficient for rejection even if another lens fails to respond correctly. `rounds` retains the valid votes and their grounds; logs identify incomplete coverage by round, assigned lens, and failure reason. Report those diagnostics alongside a fatal rejection; do not claim all four lenses responded.
+**A refutation counts only after it is verified.** Each `major` or `fatal` refutation must carry a `locator`: the passage quoted from the submission, a source path or URL with the quoted passage, or a command with its output. After each round, one fresh verifier agent sees only the submission and those refutations, and checks each locator. A refutation with no locator, or one the verifier cannot confirm, is dropped and listed in `dropped` with its reason; it never counts toward the verdict. A missing or malformed verifier check is an execution error. This filters false refutations (precision). It cannot find errors the panel missed; the second look below covers that.
+
+The script returns `{ verdict, rounds, roundCount, ceilingHit, roundCapHit, dropped }` where `verdict` is one of `survived`, `rejected`, or `contested`. A valid, verified fatal refutation is sufficient for rejection even if another lens fails to respond correctly. `rounds` retains the valid votes and their grounds; logs identify incomplete coverage by round, assigned lens, and failure reason. Report those diagnostics alongside a fatal rejection; do not claim all four lenses responded.
 
 Without a valid fatal refutation, any missing, malformed, or misattributed response stops execution with an explicit error naming the round, assigned lens, and reason. Such responses cannot establish clean rounds or survival. No budget to run even one round is also an execution error, not a substantive verdict. Thrown agent/parallel errors propagate rather than becoming votes. Local shim tests exercise this script's logic, not the actual Workflow host contracts.
 
@@ -84,7 +86,7 @@ The panel's agents all come from one model family, and they can share its blind 
 
 ## Write the record
 
-Write `05-interrogate.md` (verdict, per-lens grounds, round count, any second-look verdict, and any incomplete-coverage diagnostics) to the engagement directory when a verdict is returned. Read the file back and confirm the verdict is in it before reporting the step as done.
+Write `05-interrogate.md` (verdict, per-lens grounds, round count, dropped refutations per lens with their reasons, any second-look verdict, and any incomplete-coverage diagnostics) to the engagement directory when a verdict is returned. Read the file back and confirm the verdict is in it before reporting the step as done.
 
 ---
 

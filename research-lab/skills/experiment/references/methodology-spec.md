@@ -29,6 +29,8 @@ Judged methodologies use headings of the form `## <n>. <Title>`; `judged.py` par
 | `Bound:` | no | A measured floor or ceiling; a target beyond it is refused. |
 | `Tiebreak:` + `Readability:` | no | Simplicity measure (lower is simpler) and a readability check; together they let a within-margin, simpler candidate keep. |
 | `Held-out:` | no | A check never used for decisions, run once in the report. |
+| `Sensitivity:` | no | Command that measures a known-worse variant (a planted defect or a degraded copy) and prints the metric like `Measure:`; it must leave the tree clean. `baseline` runs it `Runs:` times and refuses to freeze unless its median is worse than the baseline by more than the margin: a harness that cannot see a known regression cannot see an improvement. |
+| `Errors:` / `Work:` | no | Commands that each print one count. `baseline` and every trial refuse when errors are above 0 or work is 0, so a run that errored or did nothing (rate-limit replies, empty output) is never measured as a result. Both counts are recorded. |
 | `Variants:` | compare | `given`, `generated` or `grid`; with `Variant <name>:` lines, `Count:` and `Idea:`, or `Grid <param>:` lines and an `Apply:` command (its `{param}` placeholders are replaced shell-quoted; do not quote them). `Include incumbent: yes` measures the unchanged base too. `Budget:` counts measurements (variants × runs plus a confirmation), or judge requests under `scorer=council`. Council compare needs only the `judging-protocol` block, not the nine judged sections. |
 | `Question:`, `Count:`, `Rounds:` | explore | The open question; candidates per round (2–6, default 4); rounds (1–3, default 2). Scorer fields as compare. |
 | `Score:` / `Score target:` | remediate, no | The tool's overall score as a guardrail; a target below which the report offers a follow-up climb. |
@@ -93,7 +95,7 @@ Judged methodologies use headings of the form `## <n>. <Title>`; `judged.py` par
 
 Before starting the experiment loop, the experimentalist should verify:
 1. `experiment.py check` reports `ready` (it covers the 8 required sections, target, direction and budget for `climb`); judged also needs section 9
-2. The measurement harness runs successfully and produces a number
+2. The measurement harness runs successfully and produces a number; when it can fail silently, set `Errors:`/`Work:`, and set `Sensitivity:` whenever a known-worse variant can be built
 3. The working directory is accessible and has a clean git state
 4. The correctness checks can be executed
 5. Judged: `judged.py validate --host t3` passes (it replaces 2)

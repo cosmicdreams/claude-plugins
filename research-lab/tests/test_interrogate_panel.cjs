@@ -12,7 +12,9 @@ const panel = new AsyncFunction('args', 'parallel', 'agent', 'budget', 'log',
 const lenses = ['evidence-quality', 'alternative-explanation', 'reproducibility', 'internal-consistency']
 const clean = () => lenses.map(lens => ({ lens, refuted: false, grounds: 'No factual refutation.', severity: 'none' }))
 
-async function run(responses, { thorough = false, balances = [100000], mutate, agentError, parallelError } = {}) {
+const confirmAll = refutations => ({ checks: refutations.map(r => ({ lens: r.lens, confirmed: true, reason: 'Located text matches.' })) })
+
+async function run(responses, { thorough = false, balances = [100000], mutate, agentError, parallelError, verify = confirmAll } = {}) {
   const args = { claim: 'Original claim', evidence: 'Original evidence', question: 'Original question', thorough }
   const calls = []
   const logs = []
@@ -26,6 +28,9 @@ async function run(responses, { thorough = false, balances = [100000], mutate, a
   }, async (prompt, options) => {
     calls.push({ prompt, options })
     if (agentError) throw agentError
+    if (options.label.startsWith('verify:')) {
+      return verify(JSON.parse(prompt.split('REFUTATIONS:\n')[1]), prompt)
+    }
     if (mutate) mutate(args)
     return responses[round][lenses.indexOf(options.label.replace('review:', ''))]
   }, { remaining: () => balances[Math.min(checks++, balances.length - 1)] }, message => logs.push(message))
@@ -78,14 +83,14 @@ test('thorough survival requires two complete clean rounds', async () => {
 
 test('complete fatal refutation rejects and keeps grounds', async () => {
   const votes = clean()
-  votes[0] = { ...votes[0], refuted: true, severity: 'fatal', grounds: 'Source contradicts claim.' }
+  votes[0] = { ...votes[0], refuted: true, severity: 'fatal', locator: 'Original evidence', grounds: 'Source contradicts claim.' }
   const { result } = await run([votes])
   assert.equal(result.verdict, 'rejected')
   assert.equal(result.rounds[0][0].grounds, votes[0].grounds)
 })
 
 test('valid fatal evidence rejects despite missing peers with diagnostics and retained grounds', async () => {
-  const fatal = { ...clean()[0], refuted: true, severity: 'fatal', grounds: 'Contradiction.' }
+  const fatal = { ...clean()[0], refuted: true, severity: 'fatal', locator: 'Original evidence', grounds: 'Contradiction.' }
   const { result, logs } = await run([[fatal, null, null, null]])
   assert.equal(result.verdict, 'rejected')
   assert.deepEqual(result.rounds[0], [fatal])
@@ -108,7 +113,7 @@ test('ceiling after one thorough clean round cannot establish survival', async (
 
 test('complete majority and minority results retain their verdicts at ceiling', async () => {
   for (const [count, verdict] of [[3, 'rejected'], [1, 'contested']]) {
-    const votes = clean().map((v, i) => i < count ? { ...v, refuted: true, severity: 'major' } : v)
+    const votes = clean().map((v, i) => i < count ? { ...v, refuted: true, severity: 'major', locator: 'Original evidence' } : v)
     const { result } = await run([votes], { balances: [100000, 40000] })
     assert.equal(result.verdict, verdict)
   }
@@ -116,10 +121,10 @@ test('complete majority and minority results retain their verdicts at ceiling', 
 
 test('successful results retain exactly the original public keys and vocabulary', async () => {
   for (const [count, verdict] of [[0, 'survived'], [3, 'rejected'], [1, 'contested']]) {
-    const votes = clean().map((v, i) => i < count ? { ...v, refuted: true, severity: 'major' } : v)
+    const votes = clean().map((v, i) => i < count ? { ...v, refuted: true, severity: 'major', locator: 'Original evidence' } : v)
     const { result } = await run([votes], { balances: [100000, 40000] })
     assert.equal(result.verdict, verdict)
-    assert.deepEqual(Object.keys(result).sort(), ['ceilingHit', 'roundCapHit', 'roundCount', 'rounds', 'verdict'])
+    assert.deepEqual(Object.keys(result).sort(), ['ceilingHit', 'dropped', 'roundCapHit', 'roundCount', 'rounds', 'verdict'])
   }
 })
 
@@ -142,7 +147,7 @@ test('agent and parallel exceptions propagate without serializing circular error
 
 test('a major refutation resets consecutive clean rounds in thorough mode', async () => {
   const disputed = clean()
-  disputed[0] = { ...disputed[0], refuted: true, severity: 'major', grounds: 'Factual gap.' }
+  disputed[0] = { ...disputed[0], refuted: true, severity: 'major', locator: 'Original evidence', grounds: 'Factual gap.' }
   const { result } = await run([clean(), disputed, clean(), clean()], { thorough: true })
   assert.equal(result.verdict, 'survived')
   assert.equal(result.roundCount, 4)
@@ -152,10 +157,10 @@ test('a major refutation resets consecutive clean rounds in thorough mode', asyn
 test('a single pass runs exactly one round even when a lens refutes', async () => {
   // Regression: single pass used to rerun the unchanged claim until a round came back clean.
   const disputed = clean()
-  disputed[1] = { ...disputed[1], refuted: true, severity: 'major', grounds: 'Version boundary is wrong.' }
+  disputed[1] = { ...disputed[1], refuted: true, severity: 'major', locator: 'Original evidence', grounds: 'Version boundary is wrong.' }
   const { result, calls } = await run([disputed])
   assert.equal(result.roundCount, 1)
-  assert.equal(calls.length, 4)
+  assert.equal(calls.length, 5)
   assert.equal(result.verdict, 'contested')
   assert.equal(result.roundCapHit, true)
 })
@@ -170,9 +175,59 @@ test('minor refutations are fixes to make, not grounds to fail or retry', async 
 
 test('thorough mode stops at four rounds and reports the cap', async () => {
   const disputed = clean()
-  disputed[0] = { ...disputed[0], refuted: true, severity: 'major', grounds: 'Gap.' }
+  disputed[0] = { ...disputed[0], refuted: true, severity: 'major', locator: 'Original evidence', grounds: 'Gap.' }
   const { result } = await run([disputed, disputed, disputed, disputed], { thorough: true })
   assert.equal(result.roundCount, 4)
   assert.equal(result.verdict, 'contested')
   assert.equal(result.roundCapHit, true)
+})
+
+test('an unverified major refutation is dropped and does not count', async () => {
+  const disputed = clean()
+  disputed[0] = { ...disputed[0], refuted: true, severity: 'major', locator: 'Not in the evidence', grounds: 'Miscited.' }
+  const verify = refutations => ({ checks: refutations.map(r => ({ lens: r.lens, confirmed: false, reason: 'Quoted text not found.' })) })
+  const { result } = await run([disputed], { verify })
+  assert.equal(result.verdict, 'survived')
+  assert.deepEqual(result.dropped, [{ round: 1, lens: 'evidence-quality', reason: 'unverified: Quoted text not found.' }])
+  assert.deepEqual(result.rounds[0], disputed)
+})
+
+test('an unverified fatal refutation cannot reject', async () => {
+  const votes = clean()
+  votes[0] = { ...votes[0], refuted: true, severity: 'fatal', locator: 'Invented quote', grounds: 'Contradiction.' }
+  const verify = refutations => ({ checks: refutations.map(r => ({ lens: r.lens, confirmed: false, reason: 'No such passage.' })) })
+  const { result } = await run([votes], { verify })
+  assert.equal(result.verdict, 'survived')
+  assert.equal(result.dropped.length, 1)
+})
+
+test('a major refutation without a locator is dropped without a verifier call', async () => {
+  const disputed = clean()
+  disputed[2] = { ...disputed[2], refuted: true, severity: 'major', grounds: 'Unstated choice.' }
+  const { result, calls } = await run([disputed])
+  assert.equal(result.verdict, 'survived')
+  assert.equal(calls.length, 4)
+  assert.deepEqual(result.dropped, [{ round: 1, lens: 'reproducibility', reason: 'no-locator' }])
+})
+
+test('the verifier sees only the submission and the refutations with their locators', async () => {
+  const disputed = clean()
+  disputed[1] = { ...disputed[1], refuted: true, severity: 'major', locator: 'Original evidence', grounds: 'Rival cause.' }
+  let seen
+  const verify = (refutations, prompt) => { seen = { refutations, prompt }; return confirmAll(refutations) }
+  const { result, calls } = await run([disputed], { verify })
+  assert.equal(result.verdict, 'contested')
+  assert.deepEqual(seen.refutations, [{ lens: 'alternative-explanation', severity: 'major', grounds: 'Rival cause.', locator: 'Original evidence' }])
+  assert.deepEqual(JSON.parse(seen.prompt.split('SUBMISSION:\n')[1].split('\n\nREFUTATIONS:')[0]), {
+    claim: 'Original claim', evidence: 'Original evidence', question: 'Original question',
+  })
+  assert.equal(calls.find(call => call.options.label === 'verify:round-1').options.model, 'opus')
+})
+
+test('a missing or malformed verifier check raises an execution error', async () => {
+  const disputed = clean()
+  disputed[0] = { ...disputed[0], refuted: true, severity: 'fatal', locator: 'Original evidence', grounds: 'Gap.' }
+  for (const verify of [() => null, () => ({ checks: [] }), () => ({ checks: [{ lens: 'evidence-quality', confirmed: 'yes', reason: 'x' }] })]) {
+    await assert.rejects(run([disputed], { verify }), /verification failed.*round 1.*evidence-quality: invalid-check/i)
+  }
 })

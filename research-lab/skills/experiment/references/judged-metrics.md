@@ -102,7 +102,7 @@ Call `JUDGED next --worktree W --panel P` only when no judge request is in fligh
 | `run_checks` | With the worktree at `tree`, run the guardrails and the methodology's correctness checks. Then `JUDGED checks --eval E --worktree W --passed` (or `--failed`) `--details "<summary>"`. |
 | `discard_trial` | `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/discard-trial.py --worktree … --branch … --base … --trial …` with the fields given. A refusal or Git failure leaves the trial unresolved: report and pause. |
 | `log` | `${CLAUDE_PLUGIN_ROOT}/scripts/log-iteration.sh` with `args` exactly as given (results path first; 10th is the extras JSON). Never build log arguments by hand. |
-| `capture` | `JUDGED capture --worktree W --role <role>`. A result of `invalid` is recorded by the script; call `next`. |
+| `capture` | `JUDGED capture --worktree W --role <role>`. A result of `invalid` is recorded by the script; call `next`. A capture whose files are all empty, or a short file that is a usage-limit or rate-limit reply, is `invalid`: the task did not happen, so it is never scored. |
 | `open` | Rebuild the panel (above), then `JUDGED open --purpose <purpose> --panel P --seed N` with a new integer seed. Then dispatch every request it lists. |
 | `propose` | SKILL.md Steps 2a–2c with the returned `iteration` and `diagnostics`: `trial begin --change`, edit, commit, `trial commit`. `trial commit` refuses an unchanged tree (`trial changes nothing`). A cheap-gate rejection is logged as a `skip` with that iteration via `log-iteration.sh`, with no `trial begin`. |
 | `stop` | `reason` is `target`, `budget`, `iterations` or `futility`. Go to SKILL.md Step 3. |

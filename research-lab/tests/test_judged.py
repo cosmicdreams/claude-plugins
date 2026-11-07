@@ -812,6 +812,20 @@ for mode in ('nonzero', 'no-manifest', 'malformed', 'missing-file', 'hash-mismat
     setattr(JudgedTests, 'test_capture_failure_' + mode.replace('-', '_'), capture_failure(mode))
 
 
+def capture_not_a_result(text):
+    def test(self):
+        # scope: a capture that is empty or a bare limit reply is invalid, never scored.
+        self.f.commit(text)
+        r = self.f.ok('capture', '--worktree', self.f.work, '--role', 'incumbent')
+        self.assertEqual(r['status'], 'invalid')
+        self.assertRegex(r['reason'], 'empty capture|limit or error reply')
+        self.assertFalse(any(p.is_dir() for p in (self.f.engagement / 'captures').iterdir()))
+    return test
+for name, text in (('empty', '  \n'), ('limit_reply', "You've hit your limit · resets 5pm\n"),
+                   ('rate_limit', 'Error: rate limit exceeded, retry later\n')):
+    setattr(JudgedTests, 'test_capture_not_a_result_' + name, capture_not_a_result(text))
+
+
 def trial_refusal(case):
     def test(self):
         # scope: begin/commit ownership refusal, no state mutation.

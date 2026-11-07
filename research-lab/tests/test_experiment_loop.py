@@ -546,5 +546,39 @@ class LoopTests(unittest.TestCase):
         self.files(metric=7)
         self.command('trial', 'begin', '--change', 'x', '--tradeoff', 'y', ok=False)
 
+    def test_insensitive_harness_refuses_to_freeze_baseline(self):
+        # Lower is better; a known-worse variant that measures the same as baseline proves nothing.
+        self.init('Sensitivity: echo 10\n')
+        reason = self.baseline(ok=False)['reason']
+        self.assertIn('harness is not sensitive', reason)
+        self.assertIsNone(self.state()['baseline'])
+
+    def test_sensitive_harness_freezes_baseline_and_records_it(self):
+        self.init('Sensitivity: echo 20\n')
+        self.baseline()
+        self.assertEqual(self.state()['baseline']['median'], 10)
+        self.assertEqual(self.records()[0]['sensitivity'], {'median': 20, 'runs': [20]})
+
+    def test_harness_errors_or_no_work_refuse_the_baseline(self):
+        for extra, phrase in [('Errors: echo 2\n', 'harness reported 2 errors'),
+                              ('Work: echo 0\n', 'no work done')]:
+            with self.subTest(extra=extra):
+                self.init(extra)
+                self.assertIn(phrase, self.baseline(ok=False)['reason'])
+                self.assertIsNone(self.state()['baseline'])
+                (self.e / 'state.json').unlink()
+
+    def test_harness_counts_are_recorded_and_a_trial_with_errors_is_refused(self):
+        self.init('Errors: cat errors 2>/dev/null || echo 0\nWork: echo 7\n')
+        self.baseline()
+        self.assertEqual(self.records()[0]['harness'], {'errors': 0, 'work': 7})
+        self.assertEqual(self.trial(8)['decision'], 'keep')
+        self.assertEqual(self.records()[-1]['harness'], {'errors': 0, 'work': 7})
+        self.begin()
+        self.files(metric=6, errors=1)
+        self.commit()
+        self.assertIn('harness reported 1 errors', self.command('trial', 'score', ok=False)['reason'])
+
+
 if __name__ == '__main__':
     unittest.main()
