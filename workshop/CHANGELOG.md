@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.8.0 — 2026-11-09
+
+- `workshop:harden` works on a repository's own checks too. New `scripts/mine_evidence.py` collects a repository's fix and revert commits, failed CI runs, inline review comments and saved review-loop ledgers as JSON for the skill to group into mistake classes.
+- `rule_table.py check --table` finds the rule table anywhere in a file, so a repository can keep its rules and enforcers in `AGENTS.md`.
+
 ## 2.7.0 — 2026-11-06
 
 - New `workshop:harden`: turns a mistake agents keep repeating into a check, trying architecture, then a hook, schema, lint or test, with prose last, and proves each check fails on a real past mistake. Adapted from pstack's `correct` (Lauren Tan, MIT).

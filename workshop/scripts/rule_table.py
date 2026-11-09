@@ -19,10 +19,20 @@ def cells(line):
 
 
 def parse(text):
-    """Rows of the first table whose header matches COLUMNS; errors for anything malformed."""
-    lines = [x for x in text.splitlines() if x.strip().startswith('|')]
-    if len(lines) < 2 or [c.lower() for c in cells(lines[0])] != COLUMNS:
+    """Rows of the first table whose header matches COLUMNS; errors for anything malformed.
+
+    The table may sit among other tables and prose, such as in a repository's AGENTS.md.
+    """
+    all_lines = text.splitlines()
+    start = next((i for i, x in enumerate(all_lines) if x.strip().startswith('|')
+                  and [c.lower() for c in cells(x)] == COLUMNS), None)
+    if start is None:
         return [], ['table header must be: ' + ' | '.join(COLUMNS)]
+    lines = []
+    for x in all_lines[start:]:
+        if not x.strip().startswith('|'):
+            break
+        lines.append(x)
     rows, errors = [], []
     for n, line in enumerate(lines[2:], start=1):
         values = cells(line)

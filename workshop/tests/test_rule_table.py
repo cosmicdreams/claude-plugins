@@ -41,6 +41,14 @@ class RuleTableTests(unittest.TestCase):
                 self.assertEqual(code, 1)
                 self.assertRegex(' '.join(result['errors']), 'is required for level')
 
+    def test_table_inside_a_repository_agents_file(self):
+        body = ('# Repo\n\n| Other | Table |\n| --- | --- |\n| a | b |\n\n## Rules\n\n' + HEADER
+                + '| Enabled modules ship | PPS-345 | lint | scripts/ci/x.php | replayed 6ab60c79e4^ | 0 |\n'
+                + '\nTrailing prose | with a pipe.\n')
+        code, result = self.run_check(body)
+        self.assertEqual(code, 0, result)
+        self.assertEqual(result['rows'], 1)
+
     def test_malformed_tables_fail(self):
         for body, phrase in ((HEADER + '| Rule | src | vibes | | | 0 |\n', 'level must be one of'),
                              (HEADER + '| Rule | src | prose | | | many |\n', 'repeats must be'),
