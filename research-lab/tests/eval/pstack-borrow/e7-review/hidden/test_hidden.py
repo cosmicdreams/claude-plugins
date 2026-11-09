@@ -23,7 +23,7 @@ class Hidden(unittest.TestCase):
         self.assertEqual(ledger.discount_cents(1, 99), 0)
 
     def test_D3_parse_amount_never_raises(self):
-        for bad in ['', 'abc', '1.2.3', None]:
+        for bad in ['', 'abc', '1.2.3', None, '-1.50', '1.-5', '12.345', '12.', '1_0', '9' * 5000]:
             self.assertIsNone(ledger.parse_amount(bad))
         self.assertEqual(ledger.parse_amount(' 7.5 '), 750)
 

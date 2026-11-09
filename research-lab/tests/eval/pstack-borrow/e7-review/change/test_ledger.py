@@ -18,6 +18,8 @@ class LedgerTests(unittest.TestCase):
     def test_parse_amount(self):
         self.assertEqual(ledger.parse_amount('12.50'), 1250)
         self.assertIsNone(ledger.parse_amount('twelve'))
+        self.assertIsNone(ledger.parse_amount('-1.50'))
+        self.assertIsNone(ledger.parse_amount(None))
 
     def test_add_line(self):
         self.assertEqual(ledger.add_line('a')['lines'], ['a'])

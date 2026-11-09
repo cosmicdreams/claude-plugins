@@ -22,11 +22,14 @@ def last_unpaid(invoices):
 def parse_amount(text):
     """Parse a user-typed amount like '12.50' into cents.
 
-    Contract: returns None for anything that is not a valid amount; callers
-    show 'invalid amount' for None. It must never raise on user input.
+    Contract: returns None for anything that is not a valid non-negative
+    amount with at most two decimal places, including None for a blank form
+    field; callers show 'invalid amount' for None. It must never raise.
     """
     try:
-        whole, _, frac = text.strip().partition('.')
+        whole, dot, frac = text.strip().partition('.')
+        if not whole.isdigit() or (dot and not (frac.isdigit() and len(frac) <= 2)):
+            return None
         return int(whole) * 100 + int((frac + '00')[:2])
     except Exception:
         return None
