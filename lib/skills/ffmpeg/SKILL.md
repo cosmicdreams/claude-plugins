@@ -3,7 +3,8 @@ name: ffmpeg
 description: >
   Audio and video processing with ffmpeg and ffprobe: compress, transcode, trim, extract
   audio or frames, animated AVIF, and inspect codec, bitrate, and duration. For still
-  images use lib:image-optimize.
+  images use lib:image-optimize. Not for making a proof or demo video of a change
+  (lib:record-demo).
 ---
 
 # lib:ffmpeg
@@ -12,7 +13,7 @@ description: >
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> Audio and video processing using ffmpeg and ffprobe. Use when the user needs to compress audio, convert audio/video formats, trim or clip media, extract audio from video, or inspect media file properties (codec, bitrate, duration). Trigger phrases: "compress audio", "compress video", "convert mp3", "convert to opus", "convert to aac", "make audio smaller", "trim audio", "clip video", "extract audio", "get media info", "what codec", "what bitrate", "ffmpeg", "reduce audio size", "reduce video size", "make video smaller", "transcode", "convert to avif", "animated avif", "video to avif", "avif conversion", "extract frames", "scene detection", "keyframes". Do NOT trigger for static image optimization (use lib:image-optimize for that). Do NOT trigger for streaming/live capture.
+> Audio and video processing using ffmpeg and ffprobe. Use when the user needs to compress audio, convert audio/video formats, trim or clip media, extract audio from video, or inspect media file properties (codec, bitrate, duration). Trigger phrases: "compress audio", "compress video", "convert mp3", "convert to opus", "convert to aac", "make audio smaller", "trim audio", "clip video", "extract audio", "get media info", "what codec", "what bitrate", "ffmpeg", "reduce audio size", "reduce video size", "make video smaller", "transcode", "convert to avif", "animated avif", "video to avif", "avif conversion", "extract frames", "scene detection", "keyframes". Do NOT trigger for static image optimization (use lib:image-optimize for that). Do NOT trigger for streaming/live capture. Do NOT trigger for making, cutting or tightening a proof or demo video of a change (use lib:record-demo for that).
 
 Thin wrapper around `ffmpeg` and `ffprobe`. Always report before/after file sizes.
 
@@ -214,8 +215,7 @@ ffmpeg -i input.mp4 -ss 00:00:02 -t 5 -an -c:v libsvtav1 -crf 35 -preset 6 outpu
 
 ### Browser support note
 
-AVIF is supported in Chrome 85+, Firefox 93+, Safari 16.1+. For older browser fallback,
-generate a WebM or MP4 alongside. Use `<picture>` or `<video>` source sets.
+AVIF is supported in Chrome 85+, Firefox 93+, Safari 16.1+. For older browser fallback, generate a WebM or MP4 alongside. Use `<picture>` or `<video>` source sets.
 
 ---
 
