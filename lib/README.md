@@ -17,6 +17,7 @@ CLI wrappers and tool integrations. Each skill teaches Claude how to correctly u
 | `lib:log-analyzer` | python | Analyze Acquia/Cloudflare web server logs |
 | `lib:image-optimize` | `imagemagick`/`ffmpeg` | Optimize, compress, and convert images |
 | `lib:ffmpeg` | `ffmpeg` | Audio/video compression, conversion, trimming, inspection |
+| `lib:record-demo` | `ffmpeg` + `imagemagick` | Turn a browser recording into a short proof video: intro slide, dead air cut, result frames held |
 | `lib:transcript` | `yt-dlp` + `mlx_whisper` | Timed transcript from a video, podcast or local recording; captions first, speech recognition with approval |
 | `lib:lighthouse` | `lighthouse` | Performance and accessibility scores in structured JSON |
 | `lib:pa11y` | `pa11y` | WCAG accessibility audit in structured JSON |
