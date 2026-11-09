@@ -1,0 +1,6 @@
+{
+ "question": "Determine the service retention period.",
+ "claim": "The service uses port 8080 by default.",
+ "evidence": "Configuration reference: The service listens on port 8080 by default.\n\nSOURCE TEXT:\nConfiguration reference: The service listens on port 8080 by default.\n",
+ "thorough": false
+}

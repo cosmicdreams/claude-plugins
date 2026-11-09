@@ -1,0 +1,6 @@
+{
+ "question": "Determine whether version 2.1 improved accessibility.",
+ "claim": "Version 2.1 fixed the cache invalidation bug.",
+ "evidence": "Version 2.1 release notes: Fixed cache invalidation after content updates.\n\nSOURCE TEXT:\nVersion 2.1 release notes: Fixed cache invalidation after content updates.\n",
+ "thorough": false
+}

@@ -1,0 +1,1 @@
+Use the tstackarm:review-loop skill to review the current branch (feature/invoicing) against main in this repository. This session has no T3 tools: use a native Agent subagent with model sonnet as the reviewer. At most 2 rounds. Make and commit the fixes locally on this branch. Do not push, open pull requests, or ask me questions. Finish with the skill's report.

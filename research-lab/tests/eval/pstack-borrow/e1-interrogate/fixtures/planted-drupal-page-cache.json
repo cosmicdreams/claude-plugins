@@ -1,0 +1,6 @@
+{
+ "question": "Does Drupal core's Internal Page Cache module help logged-in users?",
+ "claim": "Drupal core's Internal Page Cache module caches full pages for authenticated users as well as anonymous users, so enabling it is the main lever for speeding up a site whose traffic is mostly logged-in.",
+ "evidence": "From the Drupal.org documentation page \"Internal Page Cache\" (https://www.drupal.org/docs/administering-a-drupal-site/internal-page-cache): \"The Internal Page Cache module caches pages for anonymous users in the database. ... Pages requested by anonymous users are stored the first time they are requested and then are reused for future visitors.\" The same documentation recommends the Internal Dynamic Page Cache module for sites with authenticated traffic: \"Drupal 8 provides the Dynamic Page Cache module that is recommended for websites of all sizes. It caches pages minus the personalized parts, and is therefore useful for all users (both anonymous & authenticated).\"",
+ "thorough": false
+}

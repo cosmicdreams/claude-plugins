@@ -1,0 +1,22 @@
+[
+  {"query": "you did it again, you edited files in the main checkout. how many times do I have to say this. make it impossible", "should_trigger": true},
+  {"query": "agents keep committing without the ticket key in the message. stop them doing that for good", "should_trigger": true},
+  {"query": "harden the rule about spelling out acronyms, it keeps getting broken", "should_trigger": true},
+  {"query": "turn 'never run composer on the host' into a check instead of a note", "should_trigger": true},
+  {"query": "this is the third time an agent pushed straight to main. I want a guard, not another reminder", "should_trigger": true},
+  {"query": "the retro said we keep forgetting to export config. can a script enforce that in my plugins?", "should_trigger": true},
+  {"query": "which of my written rules have no enforcer yet and keep getting broken?", "should_trigger": true},
+  {"query": "make it so an agent physically can't use claude-fable on the work account", "should_trigger": true},
+  {"query": "I've corrected you twice about using bash instead of zsh. lock that down", "should_trigger": true},
+  {"query": "update the rule-to-enforcer table with the new golden rule proof", "should_trigger": true},
+  {"query": "propose a change to the NW project's Confluence process page so config export becomes a gate", "should_trigger": false},
+  {"query": "run a retrospective for sprint 14 on project NW", "should_trigger": false},
+  {"query": "what does the process still require for ticket NW-212?", "should_trigger": false},
+  {"query": "quiz me to check I understand how the guard hook works", "should_trigger": false},
+  {"query": "write a pre-commit hook that runs prettier on staged files", "should_trigger": false},
+  {"query": "review this pull request for bugs", "should_trigger": false},
+  {"query": "add a memory note that I prefer CSS custom properties over Sass", "should_trigger": false},
+  {"query": "why did the golden-rule guard refuse my last command?", "should_trigger": false},
+  {"query": "stress-test my idea of enforcing rules with hooks", "should_trigger": false},
+  {"query": "bump the workshop plugin version", "should_trigger": false}
+]

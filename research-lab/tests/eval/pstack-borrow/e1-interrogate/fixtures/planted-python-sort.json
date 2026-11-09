@@ -1,0 +1,6 @@
+{
+ "question": "Is Python's built-in sorted() stable?",
+ "claim": "Python's built-in sorted() is not guaranteed to be stable, so records with equal keys can come back in a different order than they went in; code that relies on stable ordering must use a decorate-sort-undecorate pattern with the original index.",
+ "evidence": "From the Python 3 documentation, Built-in Functions, sorted(): \"Return a new sorted list from the items in iterable. ... The built-in sorted() function is guaranteed to be stable. A sort is stable if it guarantees not to change the relative order of elements that compare equal \u2014 this is helpful for sorting in multiple passes (for example, sort by department, then by salary grade).\"\nSource: https://docs.python.org/3/library/functions.html#sorted",
+ "thorough": false
+}

@@ -1,0 +1,6 @@
+{
+ "question": "Is this report assertion supported by the supplied evidence?",
+ "claim": "The quick, standard and deep budgets reduced research cost by exactly 37%; the reduction is reproducible.",
+ "evidence": "skills/resurrect/scripts/ledger.py:49-52@fdfa28c0c974204d3960dbe8dd1dc5f43961aff7\n49: SOFTWARE = (\"website\", \"webapp\", \"app\", \"game\")\n50: TYPES = SOFTWARE + (\"recipe\", \"ruleset\", \"api\", \"place\", \"media\", \"other\")\n51: EXHIBIT_ONLY = (\"media\",)  # rebuilding would just copy the work, so exhibit it instead\n52: BUDGETS = {\"quick\": 2, \"standard\": 6, \"deep\": 10}  # quick = two rounds (SKILL.md)\n\nSOURCE TEXT:\nskills/resurrect/scripts/ledger.py:49-52@fdfa28c0c974204d3960dbe8dd1dc5f43961aff7\n49: SOFTWARE = (\"website\", \"webapp\", \"app\", \"game\")\n50: TYPES = SOFTWARE + (\"recipe\", \"ruleset\", \"api\", \"place\", \"media\", \"other\")\n51: EXHIBIT_ONLY = (\"media\",)  # rebuilding would just copy the work, so exhibit it instead\n52: BUDGETS = {\"quick\": 2, \"standard\": 6, \"deep\": 10}  # quick = two rounds (SKILL.md)",
+ "thorough": false
+}

@@ -1,0 +1,5 @@
+{
+ "t1-errors": "Use the lib:hyperfine skill. a.sh prints a word-frequency table for input.txt. b.sh is my optimized rewrite. Is b.sh faster than a.sh? Give me the one-paragraph result I can paste into the pull request description.",
+ "t2-noise": "Use the lib:hyperfine skill. a.sh prints a word-frequency table for input.txt. b.sh is my change to make it faster. Did it work? Give me the one-paragraph result I can paste into the pull request description.",
+ "t3-background": "Use the lib:hyperfine skill. a.sh writes a word-frequency report for input.txt to report.txt. b.sh is my faster version. How much faster is it? Give me the one-paragraph result I can paste into the pull request description."
+}

@@ -1,0 +1,6 @@
+{
+ "question": "Is this report assertion supported by the supplied evidence?",
+ "claim": "A single allowed-tools declaration covers the skill.",
+ "evidence": "skills/resurrect/SKILL.md:5-5@fdfa28c0c974204d3960dbe8dd1dc5f43961aff7\n5: allowed-tools: WebSearch WebFetch Read Write Edit Glob Grep Bash(python3 *) Bash(python *) Bash(mkdir *) Bash(ls *) Bash(cp *) Bash(mv *) Bash(ffmpeg *) Bash(ffprobe *) Bash(unzip *)\n\nSOURCE TEXT:\nskills/resurrect/SKILL.md:5-5@fdfa28c0c974204d3960dbe8dd1dc5f43961aff7\n5: allowed-tools: WebSearch WebFetch Read Write Edit Glob Grep Bash(python3 *) Bash(python *) Bash(mkdir *) Bash(ls *) Bash(cp *) Bash(mv *) Bash(ffmpeg *) Bash(ffprobe *) Bash(unzip *)",
+ "thorough": false
+}
