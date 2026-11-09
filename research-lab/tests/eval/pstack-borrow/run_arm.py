@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run one headless Claude Code session against one arm's plugin copies.
 
-run_arm.py --plugins DIR [DIR...] --disable NAME [NAME...] --task DIR --prompt TEXT --out DIR
+run_arm.py --skip-permissions-in-throwaway-sandbox --plugins DIR [DIR...] --disable NAME [NAME...] --task DIR --prompt TEXT --out DIR
            [--model sonnet] [--setup CMD] [--timeout 1200]
 Copies the task folder to OUT/sandbox, runs `claude -p` there with only the arm's
 plugin copies for the named plugins (the installed ones are disabled), and saves the
@@ -19,6 +19,9 @@ p.add_argument('--out', required=True)
 p.add_argument('--model', default='sonnet')
 p.add_argument('--setup')
 p.add_argument('--timeout', type=int, default=1200)
+# The tasks run benchmarks, git and scripts, so the session needs a shell without
+# prompts. Require the caller to say so, and only ever point it at a throwaway copy.
+p.add_argument('--skip-permissions-in-throwaway-sandbox', action='store_true', required=True)
 a = p.parse_args()
 out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
 box = out / 'sandbox'
@@ -27,10 +30,10 @@ shutil.copytree(a.task, box)
 if a.setup: subprocess.run([a.setup, str(box)], check=True)
 settings = json.dumps({'enabledPlugins': {f'{n}@local': False for n in a.disable}})
 cmd = ['claude', '-p', '--model', a.model, '--no-session-persistence', '--output-format', 'stream-json',
-       '--verbose', '--dangerously-skip-permissions', '--settings', settings]
+       '--verbose', '--dangerously-skip-permissions', '--settings', settings]  # gated by the required flag above
 for d in a.plugins: cmd += ['--plugin-dir', d]
 cmd += ['--', a.prompt]
-env = {k: v for k, v in os.environ.items() if k != 'CLAUDECODE'}
+env = {k: os.environ[k] for k in ('HOME', 'USER', 'LOGNAME', 'PATH', 'LANG', 'TMPDIR', 'SHELL') if k in os.environ}
 t = time.time()
 try:
     r = subprocess.run(cmd, cwd=box, env=env, capture_output=True, text=True, timeout=a.timeout)
