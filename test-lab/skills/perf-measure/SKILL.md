@@ -3,8 +3,7 @@ name: perf-measure
 description: >
   Measure frontend web performance, CLI benchmarks, and token cost into a JSON score tuple
   for the experiment ratchet — Lighthouse scores, Core Web Vitals, hyperfine timings,
-  token spend. Pass --a11y to delegate to test-lab:accessibility-scan. Not for PHP/DDEV
-  profiling (drupal-lab:perf-measure).
+  token spend. Not for PHP/DDEV profiling (drupal-lab:perf-measure).
 ---
 
 # perf-measure
@@ -13,7 +12,7 @@ description: >
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> Measure web frontend performance, CLI benchmark targets, and token costs. Outputs a machine-readable JSON score tuple consumable by research-lab:experiment. Use when you need a Lighthouse performance score, Core Web Vitals, hyperfine CLI benchmarks, or token-spend metrics. Use --a11y to delegate to test-lab:accessibility-scan. Do NOT use for PHP/DDEV profiling -- use drupal-lab:perf-measure.
+> Measure web frontend performance, CLI benchmark targets, and token costs. Outputs a machine-readable JSON score tuple consumable by research-lab:experiment. Use when you need a Lighthouse performance score, Core Web Vitals, hyperfine CLI benchmarks, or token-spend metrics. Do NOT use for PHP/DDEV profiling -- use drupal-lab:perf-measure.
 
 Measure performance and output a JSON score tuple consumable by `research-lab:experiment`.
 
@@ -24,7 +23,6 @@ Measure performance and output a JSON score tuple consumable by `research-lab:ex
 | `--frontend` | yes | Lighthouse CLI | `--only-categories=performance --output=json` |
 | `--cli` | no | hyperfine | requires `--command "..."` arg |
 | `--tokens` | no | rtk + headroom | sources `rtk gain --history` and `headroom perf` when available |
-| `--a11y` | no | delegates to `test-lab:accessibility-scan` | — |
 
 ## Setup
 
@@ -102,10 +100,6 @@ Emit a `token_cost` block in the scores object when either binary is present:
 ```
 
 If neither binary is present, omit the `token_cost` block silently — other scores remain usable.
-
-### Accessibility delegation
-
-Pass through to `test-lab:accessibility-scan` with the same URL.
 
 ## Before you report a number
 

@@ -166,17 +166,6 @@ No external tool installs needed beyond git and Python.
 
 ---
 
-## test-lab:accessibility-scan
-
-| Dependency | macOS | Linux sandbox |
-|---|---|---|
-| Node.js | Pre-installed or `brew install node` | Pre-installed |
-| npm packages (Pa11y, axe-core, Lighthouse) | Auto-installed via `npm install` in scripts dir on first run | Same |
-
-Note: self-installs on first run — no upfront install needed.
-
----
-
 ## test-lab:perf-measure
 
 | Dependency | macOS | Linux sandbox |

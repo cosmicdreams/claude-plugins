@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0 — 2026-11-11
+
+- Removed the `accessibility-scan` skill and the `perf-measure --a11y` flag that passed through to it. No session used the skill, and its replacement will build reporting into the run. The skill remains in git history.
+
 ## 0.5.1 — 2026-11-09
 
 - `perf-measure` carries the hyperfine guidance that lived in the removed `lib:hyperfine`: when to add `--warmup` or change `--min-runs`, how to compare two commands, and the one-standard-deviation noise rule.
