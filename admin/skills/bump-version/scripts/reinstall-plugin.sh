@@ -5,7 +5,7 @@
 #   reinstall-plugin.sh <plugin|all>
 #
 # Arguments:
-#   plugin — any name in PLUGINS below, or all
+#   plugin — any top-level folder with .claude-plugin/plugin.json, or all
 #
 # What it does:
 #   For each specified plugin:
@@ -26,10 +26,11 @@ set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 CACHE_BASE="$HOME/.claude/plugins/cache/local"
-PLUGINS=(ideate admin drupal-lab ideas-funnel lib workshop drover research-lab process-lab design-lab test-lab)
-
-# Validate PLUGINS array matches the filesystem before doing any work.
-"$REPO_ROOT/admin/scripts/validate-plugin-list.sh" "$REPO_ROOT" "${PLUGINS[@]}"
+# Every top-level folder with a Claude manifest is a plugin; nothing to keep in step by hand.
+PLUGINS=()
+for manifest in "$REPO_ROOT"/*/.claude-plugin/plugin.json; do
+    [[ -f "$manifest" ]] && PLUGINS+=("$(basename "$(dirname "$(dirname "$manifest")")")")
+done
 
 # --- Helpers ---
 

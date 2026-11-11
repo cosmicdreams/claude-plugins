@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.2 — 2026-11-10
+
+- `bump-version.sh`, `reinstall-plugin.sh` and `update-plugins.sh` no longer carry a hand-kept plugin list. The first two read every top-level folder with `.claude-plugin/plugin.json`; `update-plugins.sh` reads the plugins installed in the local cache. The lists had fallen behind when `golden-rule` was added, so `bump-version.sh` refused every bump.
+- `admin/scripts/validate-plugin-list.sh` is removed: with no list there is nothing to validate.
+- `sync-codex-manifests.sh` skips Claude-only plugins (`golden-rule`, a mod that hooks Claude Code), which have no Codex manifest.
+
 ## 5.0.1 — 2026-11-09
 
 - `install` no longer maps dependencies for `lib:csv-analysis`, which lib 2.0.0 removes.
