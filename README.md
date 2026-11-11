@@ -86,9 +86,9 @@ Build and maintain a Figma component library from a codebase. Pluggable componen
 Skills: `capture`, `detect`, `figma-component`, `figma-foundation`, `figma-index`, `inventory`, `plan`, `tokens`, `usage`, `verify`
 
 ### `test-lab`
-Convert a manual test corpus into an automated Playwright suite and measure accessibility and performance. The source is a plug point — TestRail today, another tool later — held separately from the authoring methodology, which is derived from a head of Quality Assurance review of a real suite.
+Convert a manual test corpus into an automated Playwright suite and measure performance. The source is a plug point — TestRail today, another tool later — held separately from the authoring methodology, which is derived from a head of Quality Assurance review of a real suite.
 
-Skills: `accessibility-scan`, `automate`, `ingest`, `perf-measure`
+Skills: `automate`, `ingest`, `perf-measure`
 
 ## Changelog
 

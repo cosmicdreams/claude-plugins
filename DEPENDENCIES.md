@@ -18,7 +18,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | process-lab | [python3](#python3) | [headroom and rtk](#headroom-and-rtk) |
 | lib | Per skill: [gh](#gh-github-command-line-tool), [twg](#twg), [Slack connector](#connectors) (`slack`), [ddev](#ddev), [acli](#acli-acquia-command-line-tool), [python3](#python3), [ffmpeg](#ffmpeg), [jq](#jq), [Bun](#bun-and-image-tools), [TestRail credentials](#testrail-credentials), [Obsidian](#obsidian) | [op](#op-1password-command-line-tool), [Cloudflare credentials](#cloudflare-credentials), [image tools](#bun-and-image-tools), [logstream](#acli-acquia-command-line-tool) |
 | research-lab | [nlm](#nlm-notebooklm-command-line-tool), [python3](#python3) | [Obsidian](#obsidian), [headroom](#headroom-and-rtk) |
-| test-lab | [python3](#python3), [node / npm](#node--npm), [Playwright](#playwright) | [lighthouse](#lighthouse), [pa11y](#pa11y), [hyperfine](#hyperfine), [jq](#jq), [Chrome or Chromium](#chrome-or-chromium), [TestRail credentials](#testrail-credentials) (when TestRail is the source), [TypeSafe](#typesafe-api-key) |
+| test-lab | [python3](#python3), [node / npm](#node--npm), [Playwright](#playwright) | [lighthouse](#lighthouse), [hyperfine](#hyperfine), [jq](#jq), [Chrome or Chromium](#chrome-or-chromium), [TestRail credentials](#testrail-credentials) (when TestRail is the source), [TypeSafe](#typesafe-api-key) |
 | workshop | [python3](#python3); per integration: [twg](#twg), [gh](#gh-github-command-line-tool), and the host's Slack, Gmail and Google Calendar [connectors](#connectors) | [Obsidian](#obsidian), [TypeSafe](#typesafe-api-key) |
 
 ## Quick install
@@ -43,7 +43,6 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | [nlm (NotebookLM)](#nlm-notebooklm-command-line-tool) | `uv tool install notebooklm-mcp-cli` |
 | [ffmpeg](#ffmpeg) | `brew install ffmpeg` |
 | [lighthouse](#lighthouse) | `npm i -g lighthouse` |
-| [pa11y](#pa11y) | `npm i -g pa11y` |
 | [hyperfine](#hyperfine) | `brew install hyperfine` |
 | [Bun and image tools](#bun-and-image-tools) | `brew install oven-sh/bun/bun` |
 | [TestRail credentials](#testrail-credentials) | no package; see below |
@@ -105,7 +104,7 @@ brew install jq
 
 ## node / npm
 
-Node.js runtime and package manager. Also needed to install `lighthouse`, `pa11y`, and Playwright.
+Node.js runtime and package manager. Also needed to install `lighthouse` and Playwright.
 
 ```bash
 brew install node
@@ -113,7 +112,7 @@ brew install node
 
 Or use [nvm](https://github.com/nvm-sh/nvm) to manage Node versions. Drover's web-page renderer needs Node 20 or later.
 
-**Used by:** design-lab (`capture`), drover (web-page and Portable Document Format reports), ideate (`brainstorm` canvas, `diagram` through the Excalidraw CLI), test-lab (`accessibility-scan`, running generated suites); indirectly lib and workshop through the tools above
+**Used by:** design-lab (`capture`), drover (web-page and Portable Document Format reports), ideate (`brainstorm` canvas, `diagram` through the Excalidraw CLI), test-lab (running generated suites); indirectly lib and workshop through the tools above
 
 ---
 
@@ -263,9 +262,9 @@ npx playwright install chromium
 
 ## Chrome or Chromium
 
-Drover renders Portable Document Format reports with a local Chrome or Chromium. Point `DROVER_PDF_BROWSER` at the browser binary if it is not found automatically. `test-lab:accessibility-scan` drives Chrome through Puppeteer, which can download its own Chromium.
+Drover renders Portable Document Format reports with a local Chrome or Chromium. Point `DROVER_PDF_BROWSER` at the browser binary if it is not found automatically.
 
-**Used by:** optionally drover (`report`), test-lab (`accessibility-scan`)
+**Used by:** optionally drover (`report`)
 
 ---
 
@@ -303,19 +302,7 @@ Web performance and accessibility auditing tool. Produces structured scores that
 npm i -g lighthouse
 ```
 
-**Used by:** test-lab (`accessibility-scan`, `perf-measure`)
-
----
-
-## pa11y
-
-Web Content Accessibility Guidelines audit tool.
-
-```bash
-npm i -g pa11y
-```
-
-**Used by:** test-lab (`accessibility-scan`)
+**Used by:** test-lab (`perf-measure`)
 
 ---
 

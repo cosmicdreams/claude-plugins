@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.4 — 2026-11-11
+
+- `install` drops the dependency map entry for the removed `test-lab:accessibility-scan`.
+
 ## 5.0.3 — 2026-11-10
 
 - `install` no longer installs or asks for sign-in to `agent-slack` or `gws`. Slack, Gmail and Google Calendar skills now use the host's connectors, which `install` reports as "needs connector" when missing. The dependency map and the unavailable-tools list say the same, and the stale `agent-slack` row under `workshop:scout` is gone.
