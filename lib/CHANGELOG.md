@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.1 — 2026-11-11
+
+- `ffmpeg`: send requests to make, cut or tighten a proof or demo video of a change to `lib:record-demo` (description "Not for" clause and a "Do NOT trigger" routing line).
+
 ## 1.6.0 — 2026-11-09
 
 - Add `lib:record-demo`: turn a browser recording into a short proof video. The skill covers planning shots, staging before recording, tightening and reviewing the cut. `scripts/tighten_video.py` keeps moving stretches, caps each freeze at `--cap` (default 0.8 s), holds result frames with `--hold-at T[:SECS]` or `--auto-holds`, prepends a slide held for reading time, writes an optional contact sheet, re-checks the output for freezes and prints a JSON summary. Exit 1 means dead air remains; exit 2 means bad input or a missing tool. A closing hold longer than its freeze repeats the last frame. Synthetic-clip tests run in CI with ffmpeg and ImageMagick installed.
