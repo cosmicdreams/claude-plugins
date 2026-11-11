@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.2 — 2026-11-11
+
+- `upload-to-pr`: proof and demo videos are made with `lib:record-demo` first; this skill only attaches the finished file. Drops the `screencapture -v` then trim guidance. Prose is unwrapped to one line per paragraph for the Markdown wrap check.
+
 ## 1.6.1 — 2026-11-11
 
 - `ffmpeg`: send requests to make, cut or tighten a proof or demo video of a change to `lib:record-demo` (description "Not for" clause and a "Do NOT trigger" routing line).
