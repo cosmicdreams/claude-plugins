@@ -40,8 +40,6 @@ brew install hyperfine          # macOS
 cargo install hyperfine         # Linux
 ```
 
-For detailed setup see `lib:lighthouse` and `lib:hyperfine`.
-
 ## Measure
 
 ### Frontend (default)
@@ -74,6 +72,8 @@ jq '{scores: {
   hyperfine_max_ms: (.results[0].max * 1000 | round)
 }, ts: now | todate, target: .results[0].command}' /tmp/hyperfine-result.json
 ```
+
+Add `--warmup 3` when the command benefits from warm caches, `--min-runs 5` when one run takes over ten seconds, and `--min-runs 50` when the command is fast and the difference is small. To compare, pass both commands in one call; each gets its own entry in `results[]`, with `median` beside `mean`. An improvement smaller than one standard deviation of the baseline is noise.
 
 ### Token cost (--tokens)
 

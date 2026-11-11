@@ -82,7 +82,7 @@ Common Linux sandbox cases:
 
 ```
 Environment: Linux sandbox (Ubuntu 22.04)
-Skills ready:     csv-analysis, github, slack, deploy-post, ...
+Skills ready:     github, slack, deploy-post, ...
 Need auth:        agent-slack, gh, gws, jira
 Unavailable:      image-optimize, testrail (keychain)
 ```

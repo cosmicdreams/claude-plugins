@@ -10,21 +10,6 @@ Legend:
 
 ---
 
-## lib:csv-analysis
-
-| Dependency | macOS | Linux sandbox | Auth |
-|---|---|---|---|
-| Python ≥ 3.8 | Pre-installed or `brew install python` | Pre-installed | — |
-| pandas ≥ 2.0 | `pip install pandas` | `pip install pandas --break-system-packages` | — |
-| matplotlib ≥ 3.7 | `pip install matplotlib` | `pip install matplotlib --break-system-packages` | — |
-| seaborn ≥ 0.12 | `pip install seaborn` | `pip install seaborn --break-system-packages` | — |
-
-**Batch install:**
-- macOS: `pip install pandas matplotlib seaborn`
-- Linux: `pip install pandas matplotlib seaborn --break-system-packages`
-
----
-
 ## workshop:deploy-post
 
 | Dependency | macOS | Linux sandbox | Auth |
@@ -257,15 +242,6 @@ Check: `command -v headroom`.
 ### npm global packages (both environments)
 ```bash
 npm i -g agent-slack @googleworkspace/cli lighthouse
-```
-
-### pip packages
-```bash
-# macOS
-pip install pandas matplotlib seaborn
-
-# Linux sandbox
-pip install pandas matplotlib seaborn --break-system-packages
 ```
 
 ### Homebrew (macOS only)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1 — 2026-11-09
+
+- `perf-measure` carries the hyperfine guidance that lived in the removed `lib:hyperfine`: when to add `--warmup` or change `--min-runs`, how to compare two commands, and the one-standard-deviation noise rule.
+- `perf-measure` and `accessibility-scan` no longer point to `lib:lighthouse`, `lib:hyperfine` and `lib:pa11y`, which lib 2.0.0 removes.
+
 ## 0.5.0 — 2026-11-06
 
 - New `references/benchmark-checklist.md`, adapted from pstack (Lauren Tan, MIT): vet a performance number for limiter, tuning, limits, errors, reproducibility, relevance and whether the work happened, and lead the report with a verdict. `perf-measure` links it and now takes the median of at least 5 runs.
