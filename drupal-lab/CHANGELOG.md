@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.1.0 — 2026-11-09
+
+- `issue-summary` runs the worth-it gate before drafting and writes a short comment (at most 150 words, no headings): the fix and its cause, the failing-then-passing test with its literal result, verification steps only when needed, and what was not checked. Without proof of the root cause it stops and asks for a stack trace. For projects whose maintainers asked for human-written posts it hands Chris the facts instead.
+
 ## 5.0.1 — 2026-11-06
 
 - `perf-measure`: vet numbers with test-lab's benchmark checklist before reporting; lead with a verdict and give median, range, run count, limiter, error count and the work check.

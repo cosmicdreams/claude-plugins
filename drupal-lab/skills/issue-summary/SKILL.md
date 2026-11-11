@@ -1,9 +1,9 @@
 ---
 name: issue-summary
 description: >
-  Write the Drupal.org contribution comment describing what was fixed and how to verify
-  it, from the analysis report and the git diff. Run only after drupal-lab:validate-patch
-  passes.
+  Write a short Drupal.org contribution comment (what was fixed, the proof, what was not
+  checked) once the fix passes the worth-it gate, from the analysis report and the git
+  diff. Run only after drupal-lab:validate-patch passes.
 ---
 
 # Issue Summary
@@ -28,85 +28,32 @@ Issue number. The worktree path is inferred as `./worktrees/{issue_number}/`.
 - Git diff: `git diff main` from inside the worktree — what actually changed
 - Test files added or modified in the diff
 
-### 2. Summarize the Problem
+### 2. Run the worth-it gate
 
-Pull from the analysis report:
-- One sentence: what the bug/issue was
-- Root cause if identified
+Answer each in writing in the analysis report before drafting anything. Any "no" stops the comment; tell Chris what is missing instead.
 
-### 3. Describe the Approach
+1. **One problem.** The diff fixes the issue's problem and nothing else. Side findings go to Chris as possible new issues, not into the comment.
+2. **Proven.** The root cause is shown by a test that fails on the base branch, a stack trace, or a reproduction. A guard or null check without that proof fails here: ask the reporter for a stack trace instead.
+3. **Smallest.** The diff is the smallest fix for the cause and follows the approach the maintainer or earlier contributors agreed on.
+4. **Asked for.** The comment answers the issue's open question or reports a result the maintainer needs. A status update with nothing new is not.
+5. **Worth the reviewer's time.** A maintainer would clearly want to read it.
 
-From the diff, explain:
-- What was changed and why
-- Any alternative approaches considered (from the `drupal-lab:analyze-issue` report if available)
-- Why this approach was chosen
+If the project is in `~/.claude/upstream-maintainers.json`, Chris posts in his own words: hand him the facts below and stop.
 
-### 4. List Changed Files
+### 3. Write the comment
 
-From the diff, list files changed with a brief note on what each change does:
-```
-- `core/modules/settings_tray/js/settings_tray.js` — converted jQuery `.on()` to native addEventListener
-- `core/modules/settings_tray/tests/src/FunctionalJavascript/SettingsTrayTest.php` — updated test assertions
-```
+At most five sentences or 150 words, conclusion first, no headings:
 
-### 5. How to Test
+- What the fix does, in one sentence, naming the cause.
+- The proof, with its literal result: which test fails on the base branch and the failure message, then that it passes with the fix.
+- How to verify by hand, only when a reviewer could not tell from the test: at most three steps.
+- What was not checked.
 
-Write step-by-step manual testing instructions:
-1. Apply the patch / check out the MR branch
-2. Clear caches: `drush cr`
-3. Navigate to... [specific URL or admin page]
-4. Perform... [specific action]
-5. Verify... [expected result]
+Leave out a file list (the merge request shows it), alternative approaches, process narration ("I rebased, then I ran..."), and design essays. If the merge request needs a decision from the maintainer, ask it as one question.
 
-### 6. Test Coverage
+## Output
 
-Note what automated tests cover the fix:
-- Test class and method names
-- Test type (Unit / Kernel / Functional / FunctionalJavaScript)
-- How to run: `ddev phpunit core/modules/{module}/tests/src/.../SpecificTest.php`
-
-## Output Format
-
-```markdown
-## Summary
-
-[One sentence problem statement.]
-
-## Root Cause
-
-[Technical explanation of why it was broken.]
-
-## Approach
-
-[What was changed and why this approach was chosen.]
-
-## Files Changed
-
-- `path/to/file.php` — [what changed]
-- `path/to/test.php` — [what changed]
-
-## How to Test
-
-1. Apply this patch / check out MR branch
-2. `drush cr`
-3. Navigate to [URL]
-4. [Action]
-5. Verify [expected outcome]
-
-## Automated Tests
-
-Added/updated tests in `path/to/TestClass.php`:
-- `testMethodName()` — [what it tests]
-
-Run with: `ddev phpunit path/to/tests/`
-```
-
-## Key Points
-
-- Keep the problem statement non-technical enough for issue maintainers to understand
-- How-to-test steps should be reproducible by someone unfamiliar with the codebase
-- If the patch is on an MR, note the MR URL at the top
-- Do not paste the full diff — link to it or reference files by name
+The comment text, followed by the gate answers for Chris. Read the comment back and cut anything a maintainer would skip.
 
 ## Obsidian Storage
 

@@ -1,5 +1,5 @@
 {
-    "description": "Blocks twg writes that would credit an agent instead of the user.",
+    "description": "Blocks twg writes that credit an agent, and git.drupalcode.org posts that skip the worth-it gate.",
     "hooks": {
         "PreToolUse": [
             {
@@ -8,6 +8,11 @@
                     {
                         "type": "command",
                         "command": "${CLAUDE_PLUGIN_ROOT}/hooks/twg-attribution-guard.sh",
+                        "timeout": 10
+                    },
+                    {
+                        "type": "command",
+                        "command": "python3 -I \"${CLAUDE_PLUGIN_ROOT}/hooks/upstream-post-guard.py\"",
                         "timeout": 10
                     }
                 ]
