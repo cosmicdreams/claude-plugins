@@ -1,6 +1,6 @@
 {
     "name": "drupal-lab",
-    "version": "5.0.1",
+    "version": "5.1.0",
     "description": "Drupal-specific development skills and agents (DDEV, Analysis, Validation, Scaffolding).",
     "author": {
         "name": "Chris Weber"

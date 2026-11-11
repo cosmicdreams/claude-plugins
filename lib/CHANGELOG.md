@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.0 — 2026-11-11
+
+- Add `upstream-post-guard`, a PreToolUse hook that blocks git.drupalcode.org posts (merge request and issue notes, `/do:` commands, merge request descriptions) unless the body comes from a file with a `<body>.gate.json` worth-it record whose sha256 matches, the body is at most 150 words with no headings, filler, side findings or agent attribution, and, for projects listed in `~/.claude/upstream-maintainers.json`, the user approved the exact text. All five merge request notes our agents posted on drupal/group on 2026-11-05 are refused by it.
+- Add `references/worth-it.md`: the five-check gate (one problem, proven, smallest, asked for, worth the reviewer's time), its record format, and rules for writing to people outside the team.
+- `babysit-pr` and `leave-pr-comment` run the gate before every commit and comment and record the answers; anything that fails becomes a follow-up for Chris.
+
 ## 1.6.2 — 2026-11-11
 
 - `upload-to-pr`: proof and demo videos are made with `lib:record-demo` first; this skill only attaches the finished file. Drops the `screencapture -v` then trim guidance. Prose is unwrapped to one line per paragraph for the Markdown wrap check.

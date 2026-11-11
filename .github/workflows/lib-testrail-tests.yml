@@ -9,6 +9,8 @@ on:
       - 'lib/tests/test_transcript.py'
       - 'lib/skills/record-demo/**'
       - 'lib/tests/test_record_demo.py'
+      - 'lib/hooks/upstream-post-guard.py'
+      - 'lib/tests/test_upstream_post_guard.py'
       - '.github/workflows/lib-testrail-tests.yml'
   push:
     branches: [main]
@@ -19,6 +21,8 @@ on:
       - 'lib/tests/test_transcript.py'
       - 'lib/skills/record-demo/**'
       - 'lib/tests/test_record_demo.py'
+      - 'lib/hooks/upstream-post-guard.py'
+      - 'lib/tests/test_upstream_post_guard.py'
       - '.github/workflows/lib-testrail-tests.yml'
 
 jobs:
