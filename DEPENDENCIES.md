@@ -16,7 +16,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | ideas-funnel | [python3](#python3), [Obsidian](#obsidian) | [Beads](#bd-beads), [TypeSafe](#typesafe-api-key), [headroom](#headroom-and-rtk) |
 | ideate | [node / npm](#node--npm) (`brainstorm`; `diagram` needs Node 22+ for the [Excalidraw CLI](#excalidraw-cli)) | [Obsidian](#obsidian) (archiving) |
 | process-lab | [python3](#python3) | [headroom and rtk](#headroom-and-rtk) |
-| lib | Per skill: [gh](#gh-github-command-line-tool), [twg](#twg), [agent-slack](#agent-slack), [ddev](#ddev), [acli](#acli-acquia-command-line-tool), [python3](#python3), [ffmpeg](#ffmpeg), [lighthouse](#lighthouse), [pa11y](#pa11y), [hyperfine](#hyperfine), [jq](#jq), [Bun](#bun-and-image-tools), [TestRail credentials](#testrail-credentials), [Obsidian](#obsidian), [data analysis packages](#data-analysis-python-packages) | [op](#op-1password-command-line-tool), [Cloudflare credentials](#cloudflare-credentials), [image tools](#bun-and-image-tools), [logstream](#acli-acquia-command-line-tool) |
+| lib | Per skill: [gh](#gh-github-command-line-tool), [twg](#twg), [agent-slack](#agent-slack), [ddev](#ddev), [acli](#acli-acquia-command-line-tool), [python3](#python3), [ffmpeg](#ffmpeg), [jq](#jq), [Bun](#bun-and-image-tools), [TestRail credentials](#testrail-credentials), [Obsidian](#obsidian) | [op](#op-1password-command-line-tool), [Cloudflare credentials](#cloudflare-credentials), [image tools](#bun-and-image-tools), [logstream](#acli-acquia-command-line-tool) |
 | research-lab | [nlm](#nlm-notebooklm-command-line-tool), [python3](#python3) | [Obsidian](#obsidian), [headroom](#headroom-and-rtk) |
 | test-lab | [python3](#python3), [node / npm](#node--npm), [Playwright](#playwright) | [lighthouse](#lighthouse), [pa11y](#pa11y), [hyperfine](#hyperfine), [jq](#jq), [Chrome or Chromium](#chrome-or-chromium), [TestRail credentials](#testrail-credentials) (when TestRail is the source), [TypeSafe](#typesafe-api-key) |
 | workshop | [python3](#python3); per integration: [gws](#gws-google-workspace-command-line-tool), [twg](#twg), [agent-slack](#agent-slack), [gh](#gh-github-command-line-tool) | [Obsidian](#obsidian), [TypeSafe](#typesafe-api-key) |
@@ -47,7 +47,6 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | [pa11y](#pa11y) | `npm i -g pa11y` |
 | [hyperfine](#hyperfine) | `brew install hyperfine` |
 | [Bun and image tools](#bun-and-image-tools) | `brew install oven-sh/bun/bun` |
-| [Data analysis packages](#data-analysis-python-packages) | `pip install pandas matplotlib seaborn` |
 | [TestRail credentials](#testrail-credentials) | no package; see below |
 | [Cloudflare credentials](#cloudflare-credentials) | no package; see below |
 | [TypeSafe](#typesafe-api-key) | no package; `export TYPESAFE_API_KEY=...` |
@@ -89,7 +88,7 @@ If missing or outdated:
 brew install python3
 ```
 
-**Used by:** admin (`bump-version`), design-lab (all skills), golden-rule (the shell sandbox bootstrap), drover (all skills), drupal-lab (`browse-drupal-issues`, `module-dev-starter`), ideas-funnel (`ingest`), lib (`log-analyzer`, `csv-analysis`), process-lab (runtime), research-lab (notebook scripts), test-lab (`ingest`), workshop (`sync`, `scout`, `prioritize`)
+**Used by:** admin (`bump-version`), design-lab (all skills), golden-rule (the shell sandbox bootstrap), drover (all skills), drupal-lab (`browse-drupal-issues`, `module-dev-starter`), ideas-funnel (`ingest`), lib (`log-analyzer`), process-lab (runtime), research-lab (notebook scripts), test-lab (`ingest`), workshop (`sync`, `scout`, `prioritize`)
 
 ---
 
@@ -325,7 +324,7 @@ Web performance and accessibility auditing tool. Produces structured scores that
 npm i -g lighthouse
 ```
 
-**Used by:** lib (`lighthouse`), test-lab (`accessibility-scan`, `perf-measure`)
+**Used by:** test-lab (`accessibility-scan`, `perf-measure`)
 
 ---
 
@@ -337,7 +336,7 @@ Web Content Accessibility Guidelines audit tool.
 npm i -g pa11y
 ```
 
-**Used by:** lib (`pa11y`), test-lab (`accessibility-scan`)
+**Used by:** test-lab (`accessibility-scan`)
 
 ---
 
@@ -349,7 +348,7 @@ Command-line benchmarking tool. Produces structured timing results for `test-lab
 brew install hyperfine
 ```
 
-**Used by:** lib (`hyperfine`), test-lab (`perf-measure`)
+**Used by:** test-lab (`perf-measure`)
 
 ---
 
@@ -371,16 +370,6 @@ Install the other tools only when a task needs what Bun cannot do:
 | Lossless JPEG optimization | `brew install mozjpeg` |
 
 **Used by:** lib (`image-optimize`)
-
----
-
-## Data analysis Python packages
-
-```bash
-pip install pandas matplotlib seaborn
-```
-
-**Used by:** lib (`csv-analysis`)
 
 ---
 

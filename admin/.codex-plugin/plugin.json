@@ -1,6 +1,6 @@
 {
   "name": "admin",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "Plugin, agent, and skill management tooling.",
   "author": {
     "name": "Chris Weber"

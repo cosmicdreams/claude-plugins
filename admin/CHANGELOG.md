@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.1 — 2026-11-09
+
+- `install` no longer maps dependencies for `lib:csv-analysis`, which lib 2.0.0 removes.
+
 ## 5.0.0 — 2026-11-02
 
 **Breaking: `new-skill` removed.** It wrapped Anthropic's skill-creator to carry local authoring preferences, but it had not been invoked in 90 days, and a lift study found its only measurable gain was naming the right sibling skill in the description's "Not for" clause; it never got the verb-naming convention across. Use skill-creator directly. The two authoring preferences now live in the workspace instructions. Its trigger-eval scripts (`run-trigger-evals.sh`, `run_eval.py`, `run_loop.py`) go with it.

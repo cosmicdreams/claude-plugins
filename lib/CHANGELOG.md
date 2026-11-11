@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.0 — 2026-11-11
+
+**Breaking: `csv-analysis`, `hyperfine`, `lighthouse` and `pa11y` removed.** None was invoked in either account's sessions between August 3 and November 9, 2026, and each description loads into every session.
+
+- `hyperfine`, `lighthouse` and `pa11y` repeated commands that `test-lab:perf-measure` and `test-lab:accessibility-scan` already carry, including the self-signed certificate flags for DDEV sites. Use those skills instead.
+- `csv-analysis` was a generic pandas walkthrough with nothing specific to this toolset. Ask for the analysis directly.
+- `DEPENDENCIES.md`, the plugin README and `admin:install`'s dependency map no longer list the removed skills or the pandas, matplotlib and seaborn packages only `csv-analysis` needed.
+
 ## 1.7.0 — 2026-11-11
 
 - Add `upstream-post-guard`, a PreToolUse hook that blocks git.drupalcode.org posts (merge request and issue notes, `/do:` commands, merge request descriptions) unless the body comes from a file with a `<body>.gate.json` worth-it record whose sha256 matches, the body is at most 150 words with no headings, filler, side findings or agent attribution, and, for projects listed in `~/.claude/upstream-maintainers.json`, the user approved the exact text. All five merge request notes our agents posted on drupal/group on 2026-11-05 are refused by it.
