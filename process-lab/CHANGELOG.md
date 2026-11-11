@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 — 2026-11-10
+
+- `retro` step 5 no longer invents a check for a judgment call. A lesson becomes an enforced action item only when a check could decide it from what the team already records, such as a branch name or a file in the change. When only a person can decide it, it stays a prose lesson or a team agreement with an owner, and the step says not to propose a new field or marker to make it checkable. On a saved retro fixture the 0.1.1 text gave the judgment lesson an invented enforcer in 2 of 3 runs; this text did in 0 of 3, and both enforceable lessons still became checks handed to `workshop:harden` in 3 of 3.
+
 ## 0.1.1 — 2026-11-06
 
 - `retro` step 5 asks of every action item and lesson whether a hook, lint, script, schema or test could enforce it; if so it becomes a tracked card naming the check, handed to `workshop:harden` for the user's own tooling. Prose lessons are kept for judgment calls.
