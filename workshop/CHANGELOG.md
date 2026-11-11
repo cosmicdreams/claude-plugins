@@ -11,8 +11,6 @@
 - `scripts/check-integration.sh` supports `jira` and `gh` only.
 - New `references/connectors.md`: the tools each connector provides, what to do when one is missing, and which account a connector acts as.
 
-## 2.8.0 — 2026-11-10
-
 ## 2.9.0 — 2026-11-10
 
 - `prioritize` remembers what you say is handled. An item you call done, out of date or not yours is recorded in the state file and left out of later runs until its Jira `updated` moves past the mark; a "Hidden, marked handled" line lists what was left out. One ticket had been raised in six runs, two of them after it was called resolved. `output.py state` writes the marks and the end-of-run state together, so neither overwrites the other.
