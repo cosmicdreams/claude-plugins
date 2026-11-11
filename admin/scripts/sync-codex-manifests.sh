@@ -4,7 +4,8 @@
 # Usage:
 #   sync-codex-manifests.sh [--check] [repo-root]
 #
-# For every top-level plugin (a directory with .claude-plugin/plugin.json):
+# For every top-level plugin (a directory with .claude-plugin/plugin.json), except the
+# Claude-only ones in CLAUDE_ONLY below (a mod that hooks Claude Code has nothing for Codex):
 #   - .codex-plugin/plugin.json must exist, and its "version" is set to the Claude version
 #   - .agents/plugins/marketplace.json must list the plugin
 # --check writes nothing and exits 1 on any drift, for use before a pull request or release.
@@ -24,9 +25,14 @@ root, check = Path(sys.argv[1]), sys.argv[2] == "1"
 market_path = root / ".agents/plugins/marketplace.json"
 listed = {p["name"] for p in json.loads(market_path.read_text())["plugins"]} if market_path.exists() else set()
 
+# Plugins with nothing for Codex to load. They carry no Codex manifest or marketplace entry.
+CLAUDE_ONLY = {"golden-rule"}
+
 problems, updated = [], []
 for claude in sorted(root.glob("*/.claude-plugin/plugin.json")):
     plugin = claude.parent.parent.name
+    if plugin in CLAUDE_ONLY:
+        continue
     version = json.loads(claude.read_text())["version"]
     codex = claude.parent.parent / ".codex-plugin/plugin.json"
     if not codex.exists():

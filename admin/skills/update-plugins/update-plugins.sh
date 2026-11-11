@@ -19,7 +19,8 @@ set -uo pipefail
 
 CLAUDE_MD="${1:-$PWD/CLAUDE.md}"
 CACHE_BASE="$HOME/.claude/plugins/cache/local"
-PLUGINS=(ideate admin drupal-lab ideas-funnel lib workshop drover research-lab process-lab design-lab test-lab)
+# Every plugin installed from the local marketplace, read from the cache.
+PLUGINS=("$CACHE_BASE"/*(N/:t))
 
 declare -A BEFORE
 declare -A AFTER
