@@ -1,55 +1,28 @@
 ---
 name: slack
 description: >
-  Read-only Slack access via agent-slack: read channels and threads, search, list
-  conversations. Returns raw data and never sends or posts. For a ranked view of what
-  matters use workshop:prioritize.
-allowed-tools: Bash, Read
+  Read-only Slack access through the host's Slack connector: read channels and threads,
+  search, find channels. Returns raw data and never sends or posts. For a ranked view of
+  what matters use workshop:prioritize.
 ---
 
-# lib:slack — Slack CLI Wrapper
+# lib:slack — Read Slack
 
 ## When to use
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> Slack CLI wrapper — read channels, fetch messages, search, and list conversations via agent-slack. Returns raw data only; no summarization or prioritization. Use when the user asks to READ or FETCH from Slack: "what's in #channel", "what's happening in #engineering", "search slack for X", "list my slack channels", "show messages from #general", "check slack", "fetch slack messages", "catch up on slack", "any updates in #X", "show me slack". Also use when workshop:prioritize needs raw Slack data. Do NOT use for: sending, posting, or writing to Slack (this skill is read-only); summarized priority views or "what should I work on" (use workshop:prioritize).
+> Read Slack through the host's Slack connector: read channels, fetch messages, search, and find channels. Returns raw data only; no summarization or prioritization. Use when the user asks to READ or FETCH from Slack: "what's in #channel", "what's happening in #engineering", "search slack for X", "list my slack channels", "show messages from #general", "check slack", "fetch slack messages", "catch up on slack", "any updates in #X", "show me slack". Also use when workshop:prioritize needs raw Slack data. Do NOT use for: sending, posting, or writing to Slack (this skill is read-only); summarized priority views or "what should I work on" (use workshop:prioritize).
 
-Thin wrapper around `agent-slack`. Read-only — this skill does NOT send, post, react, or modify Slack in any way. No summarization, no prioritization — return raw data for the calling skill to process.
+Read-only: this skill does NOT send, post, react, or modify Slack in any way, even though the connector can. No summarization, no prioritization: return what the connector returned for the calling skill to process.
 
-## Authentication
+## Connector
 
-Check that `agent-slack` is installed and authenticated before any operation:
+Slack is read with the host's Slack connector tools: `slack_search_channels`, `slack_read_channel`, `slack_read_thread`, `slack_search_public_and_private` and `slack_search_users`. Tool names carry a host prefix and may be deferred; find them with tool search first.
 
-```bash
-agent-slack auth whoami
-```
+If the session has no Slack connector, say so and that it is set up in the host's connector settings, then stop. Do not fall back to a command-line tool, a token or a browser session.
 
-The output includes `user_id` (or `id`) — save this if @mention filtering is needed.
-
-**If `agent-slack: command not found`**, tell the user:
-
-`agent-slack` is not installed. Install it with:
-
-```bash
-npm i -g agent-slack
-```
-
-Then authenticate:
-
-```bash
-agent-slack auth import-desktop
-```
-
-**If auth fails** (non-zero exit, "not authenticated", or similar error):
-
-Authentication required. Run:
-
-```bash
-agent-slack auth import-desktop   # reads from Slack Desktop app on macOS (recommended)
-```
-
-If Slack Desktop is not installed, see: https://github.com/stablyai/agent-slack
+The connector acts as the account signed in to the host and reaches that account's one workspace. If the channels returned are not the ones the user means, they are probably signed in to a different workspace: say so.
 
 ## Load config
 
@@ -62,62 +35,40 @@ If the file does not exist, proceed without defaults — the caller must supply 
 
 ## Operations
 
-### List joined channels
+### Find a channel
 
-```bash
-agent-slack channel list --limit 200
-```
+`slack_search_channels` with the channel name as a keyword. Pass `channel_types: "public_channel,private_channel"` to include private channels. It returns the channel ID every other call needs. When invoked directly, present results as a Markdown table:
 
-Returns JSON array of channels. Present as a Markdown table when invoked directly:
-
-| Channel | ID | Members |
+| Channel | ID | Topic |
 |---|---|---|
 
 ### Read recent messages from a channel
 
-```bash
-agent-slack message list <channel-name-or-id> --workspace <workspace-url> --limit <N>
-```
+`slack_read_channel` with `channel_id` and `limit` (1 to 100; default from config `message_limit`, else 50). Messages come newest first. To read a direct-message history, pass the other person's user ID as `channel_id`; find it with `slack_search_users`.
 
-- `<channel-name-or-id>`: channel name WITHOUT the `#` prefix (e.g. `general`, not `#general`), or channel ID (e.g. `C01234567`)
-- Default limit: value from config `message_limit`, or `50` if not set
-- Returns JSON array of messages with `ts`, `user`, `text`, `thread_ts` fields
-- Omit `--workspace` only if you have a single workspace configured
-- To find the workspace URL: run `agent-slack auth whoami` and look for the `url` or `team_url` field
+To read several channels, make the calls in parallel.
 
-To read multiple channels, run in parallel with one command per channel.
+### Read since a timestamp
+
+Pass `oldest` (a Slack timestamp, Unix seconds with a decimal such as `1709900000.123456`) to `slack_read_channel`. Follow `cursor` until the window is covered; if you stop early, report partial coverage.
 
 ### Read a thread
 
-```bash
-agent-slack message list <channel> --workspace <workspace-url> --thread-ts <ts>
-```
-
-Use the `thread_ts` from a parent message to fetch all replies.
+`slack_read_thread` with `channel_id` and the parent message's `message_ts`.
 
 ### Search messages
 
-```bash
-agent-slack search messages "<query>" [--channel <channel>]
-```
-
-- Omit `--channel` to search across all channels
-- Returns JSON array of matching messages with channel, user, ts, text
-
-### Fetch since a timestamp
-
-`agent-slack message list` returns the most recent N messages. To get messages since a specific time, fetch with `--limit` set high enough and filter client-side by `ts` field. Slack timestamps are Unix epoch with decimal (e.g. `1709900000.123456`).
+`slack_search_public_and_private` with subject words in `keywords` and people, channels and dates in `filters` (`in:<#C123>`, `from:<@U123>`, `after:YYYY-MM-DD`). It returns at most 20 results per page; follow `cursor` for more.
 
 ## Passing data to calling skills
 
-Return the raw JSON output from `agent-slack`. Do not summarize or interpret. The calling skill (e.g. `workshop:prioritize`) is responsible for all ranking, filtering, and presentation.
+Return what the connector returned. Do not summarize or interpret. The calling skill (e.g. `workshop:prioritize`) is responsible for all ranking, filtering, and presentation.
 
 ## Error handling
 
 | Error | Action |
 |---|---|
-| `command not found` | Prompt user to install: `npm i -g agent-slack` |
-| Auth error / not authenticated | Prompt: `agent-slack auth import-desktop` |
-| Channel not found | Tell user the channel name may be wrong; suggest `channel list` |
-| Rate limit (429) | Wait 10 seconds and retry once; if it fails again, report the error |
-| Any other non-zero exit | Show stderr and stop — do not retry |
+| No Slack connector in the session | Say so and stop; it is set up in the host's connector settings |
+| `channel_not_found` | Look the name up with `slack_search_channels`; the name may be wrong or the channel may be in another workspace |
+| Rate limit | Wait 10 seconds and retry once; if it fails again, report the error |
+| Any other error | Show it and stop — do not retry |

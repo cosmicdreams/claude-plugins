@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.0 — 2026-11-10
+
+**Breaking: `slack` reads through the host's Slack connector.** It no longer uses or installs the `agent-slack` command-line tool and does not fall back to it. Operations map to `slack_search_channels`, `slack_read_channel`, `slack_read_thread` and `slack_search_public_and_private`. The connector reaches the one workspace of the account signed in to the host. The skill stays read-only.
+
 ## 2.0.1 — 2026-11-10
 
 - `jira`: the documented shape of `twg jira workitem get` was wrong for more than one key. Several keys return `.data.items[].data`, not `.data[]`, fields have no `.fields` wrapper, and descriptions and comment bodies are Atlassian Document Format objects. Four sessions each spent three to five calls finding that out. The skill now states both shapes and gives one `jq` recipe that reads either.

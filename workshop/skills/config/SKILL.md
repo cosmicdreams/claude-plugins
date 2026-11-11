@@ -34,7 +34,7 @@ See `references/schema.md` for the full JSON schema.
 Probe silently. Do not ask the user anything yet.
 
 ```bash
-for tool in agent-slack twg gh gws rg obsidian trcli; do
+for tool in twg gh rg obsidian trcli; do
   command -v $tool &>/dev/null && echo "$tool: $(command -v $tool)" || echo "$tool: not found"
 done
 gh auth status 2>&1 | head -3 || echo "gh: not authenticated"
@@ -47,7 +47,7 @@ twg whoami 2>&1 | grep -E "Email|error" || echo "twg: not authenticated — run:
 
 For each tool found, gather the details. Skip tools not present.
 
-**Slack** (if `agent-slack` is available): Ask which workspaces the user uses; which is the default. Parse into `integrations.slack.workspaces[]`.
+**Slack** (if the session has the host's Slack connector; look for `slack_read_channel` with tool search): Ask which workspace the connector is signed in to and which channels to watch. Parse into `integrations.slack.workspaces[]`. The connector reaches one workspace per sign-in; record others only if the user wants the gap reported.
 
 **Jira** (if `twg` is available): twg signs in once with the user's Atlassian account (OAuth) and reaches every site in that account's Atlassian organization. A site owned by a different organization — a client's own Atlassian — is refused with "Site ... is not in the Atlassian organization associated with your OAuth token" and needs API-token auth instead.
 
@@ -74,7 +74,7 @@ If an OAuth check fails with the organization error, switch that site to `"api-t
 
 **GitHub** (if `gh` is authenticated): No further questions — `gh` uses the authenticated account automatically. Set `integrations.github.available: true`.
 
-**Google Workspace** (if `gws` is available): Ask if the user uses Google for email and calendar. Set `integrations.email` and `integrations.calendar` with `provider: "google"`.
+**Google Workspace** (if the session has the host's Gmail or Google Calendar connector; look for `search_threads` and `list_events` with tool search): Ask if the user uses Google for email and calendar. Set `integrations.email` and `integrations.calendar` with `provider: "google"`.
 
 **TestRail** (if `trcli` is available): Ask for the server URL. Set `integrations.testrail.url`.
 
@@ -120,4 +120,4 @@ If `~/.claude/office-pulse.json` exists, offer to migrate: extract channel/jira 
 
 ## After completing
 
-Tell the user which integrations were configured and which were skipped (not installed).
+Tell the user which integrations were configured and which were skipped (tool not installed, or connector not signed in). See `${CLAUDE_PLUGIN_ROOT}/references/connectors.md`.

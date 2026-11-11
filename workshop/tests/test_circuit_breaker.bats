@@ -101,15 +101,15 @@ EOF
 }
 
 @test "cache hit failed: stderr message includes original reason" {
-  _write_failed_cache "gws" "token expired"
+  _write_failed_cache "gh" "token expired"
 
-  cat > "${STUB_BIN}/gws" <<'EOF'
+  cat > "${STUB_BIN}/gh" <<'EOF'
 #!/usr/bin/env zsh
 exit 99
 EOF
-  chmod +x "${STUB_BIN}/gws"
+  chmod +x "${STUB_BIN}/gh"
 
-  run "$SCRIPT" gws
+  run "$SCRIPT" gh
   [ "$status" -eq 1 ]
   [[ "$output" == *"token expired"* ]]
 }
@@ -144,14 +144,12 @@ EOF
 }
 
 @test "cache miss: runs preflight and exits 1 when CLI missing from PATH" {
-  # Override PATH to a directory that has the script but no 'gws' binary.
-  # We create a minimal PATH that includes system utils the script needs
-  # (python3, etc.) but explicitly excludes any real gws installation.
-  local safe_path="${STUB_BIN}:/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"
-  # gws is not placed in STUB_BIN, so it won't be found
-  run env PATH="$safe_path" "$SCRIPT" gws
+  # A PATH with the system utils the script needs (python3, etc.) but no Jira tool:
+  # it is not placed in STUB_BIN and is not a system tool, so it won't be found.
+  local safe_path="${STUB_BIN}:/usr/bin:/bin"
+  run env PATH="$safe_path" "$SCRIPT" jira
   [ "$status" -eq 1 ]
-  [[ "$output" == *"integration gws unavailable"* ]]
+  [[ "$output" == *"integration jira unavailable"* ]]
 }
 
 @test "cache miss: successful preflight writes healthy entry to cache" {

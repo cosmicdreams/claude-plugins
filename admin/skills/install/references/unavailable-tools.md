@@ -16,10 +16,10 @@ Tools that cannot work in certain environments, why, and what to do instead.
 - **Why unavailable:** Requires 1Password desktop app integration and biometric unlock, which isn't practical in a headless sandbox
 - **Workaround:** Same as Keychain — use `TESTRAIL_API_KEY` env var
 
-### `agent-slack auth import-desktop`
-- **Used by:** lib:slack, workshop:deploy-post, workshop:prioritize
-- **Why unavailable:** Imports session cookies from the Slack desktop app on macOS. No Slack desktop app in a sandbox.
-- **Workaround:** If the `agent-slack` CLI supports token-based auth, use `SLACK_TOKEN` or `SLACK_BOT_TOKEN` env var. Otherwise, this is a blocker — the user needs to run auth on their macOS host and copy the resulting config file (`~/.agent-slack/`) into the sandbox.
+### Slack, Gmail and Google Calendar connectors
+- **Used by:** lib:slack, workshop:deploy-post, workshop:prioritize, workshop:personal-email, workshop:personal-calendar
+- **Why unavailable:** These skills use the host's connectors. A sandbox whose host has no such connector signed in cannot reach the service.
+- **Workaround:** Sign in to the connector in the host's connector settings. There is no command-line fallback.
 
 ### DDEV (`ddev`)
 - **Used by:** drupal-lab skills, research-lab:experiment (Drupal measurements)
@@ -30,11 +30,6 @@ Tools that cannot work in certain environments, why, and what to do instead.
 - **Used by:** lib:archive, workshop:obsidian-lint, workshop:organize, lib:vault-store
 - **Why unavailable:** The vault directory (`~/Vaults/Neurons`) lives on the macOS host filesystem and isn't automatically mounted in the sandbox.
 - **Workaround:** Mount the vault directory into the sandbox if the environment supports it (Cowork: use `request_cowork_directory`), or pass the vault path explicitly.
-
-### `gws auth setup` (interactive OAuth)
-- **Used by:** workshop:personal-calendar, workshop:personal-email
-- **Why unavailable:** The OAuth flow opens a browser for Google account authorization. Headless sandbox has no browser.
-- **Workaround:** Run `gws auth setup` and `gws auth login` on macOS host first. Copy `~/.gws/` config into the sandbox. Alternatively, if the CLI supports it, use a service account JSON key.
 
 ### avifenc / avifdec
 - **Used by:** lib:image-optimize

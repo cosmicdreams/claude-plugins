@@ -4,45 +4,24 @@
 
 ## Goal
 
-Know how much usable time you actually have today, so ranking is against real capacity rather than
-an infinite day. "3 things need you, but you have one 90-minute gap before back-to-back meetings"
-changes what `NEXT:` should be.
+Know how much usable time you actually have today, so ranking is against real capacity rather than an infinite day. "3 things need you, but you have one 90-minute gap before back-to-back meetings" changes what `NEXT:` should be.
 
 ## Which calendars
 
 Read `integrations.calendar` from `workshop.json`. There may be more than one provider:
 
-- **`provider: google`** (connected via the `gws` CLI) — fetch it.
-- **`provider: microsoft`** (work Outlook / Exchange) — **currently an unconnected slot** (Graph
-  auth unsolved). Do not attempt a fetch; record `work_calendar: not_connected` so step 5 can surface
-  the gap.
+- **`provider: google`** (read through the host's Google Calendar connector) — fetch it.
+- **`provider: microsoft`** (work Outlook / Exchange) — **currently an unconnected slot** (Graph auth unsolved). Do not attempt a fetch; record `work_calendar: not_connected` so step 5 can surface the gap.
 
-If no calendar integration is configured at all, set `availability: unknown` and continue — the
-skill still works, it just can't weight by capacity.
+If no calendar integration is configured at all, set `availability: unknown` and continue — the skill still works, it just can't weight by capacity.
 
-## Fetch (Google / gws)
+## Fetch (Google Calendar connector)
 
-Circuit-breaker first (same pattern as the other integrations):
+The calendar is available when the session has the Google Calendar connector's `list_events` tool; load it through tool search if it is deferred. With no connector, record unknown availability and the reason, and skip the fetch. Do not fall back to a command-line tool.
 
-```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/check-integration.sh" gws || { echo "calendar unavailable"; }
-```
+Call `list_events` with `startTime` = now, `endTime` = end of today and `orderBy: "startTime"`. Pass both as local ISO 8601 times with no UTC offset and no trailing `Z`; the connector resolves the user's time zone. Follow `nextPageToken` until the day is covered.
 
-Only if preflight succeeds, pull today's events and free/busy; otherwise record unknown
-availability and the error, and skip both commands. Substitute START_ISO = now and END_ISO =
-end of today, each with an explicit local UTC offset (never a bare timestamp).
-
-```bash
-gws calendar events list --params '{"calendarId":"primary","timeMin":"START_ISO","timeMax":"END_ISO","singleEvents":true,"orderBy":"startTime","fields":"items(summary,start,end,transparency),nextPageToken"}' --format json
-gws calendar freebusy query --json '{"timeMin":"START_ISO","timeMax":"END_ISO","items":[{"id":"primary"}]}' --format json
-```
-
-Follow event pagination using `nextPageToken`. Freebusy uses a request body (`--json`),
-not query params. Use the returned busy intervals as authoritative; transparent all-day
-events do not consume working time. Check per-calendar freebusy errors as well as command
-exit status; failed retrieval means unknown capacity, not a fully free day.
-Invert the busy blocks to get free
-windows. Compute:
+Build the busy blocks from the returned events. An all-day event, an event marked free, and an event the user declined do not consume working time. A failed call means unknown capacity, not a fully free day. Invert the busy blocks to get free windows. Compute:
 
 - `free_hours_today` — total free time remaining today
 - `next_meeting` — title + start of the next event (or none)

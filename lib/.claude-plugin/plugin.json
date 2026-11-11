@@ -1,6 +1,6 @@
 {
     "name": "lib",
-    "version": "2.0.1",
+    "version": "3.0.0",
     "description": "CLI wrapper skills for office tooling: Slack, Jira, GitHub, TestRail, vault, logs, and file utilities.",
     "author": {
         "name": "Chris Weber"

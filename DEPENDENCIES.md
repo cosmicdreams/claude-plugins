@@ -16,10 +16,10 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | ideas-funnel | [python3](#python3), [Obsidian](#obsidian) | [Beads](#bd-beads), [TypeSafe](#typesafe-api-key), [headroom](#headroom-and-rtk) |
 | ideate | [node / npm](#node--npm) (`brainstorm`; `diagram` needs Node 22+ for the [Excalidraw CLI](#excalidraw-cli)) | [Obsidian](#obsidian) (archiving) |
 | process-lab | [python3](#python3) | [headroom and rtk](#headroom-and-rtk) |
-| lib | Per skill: [gh](#gh-github-command-line-tool), [twg](#twg), [agent-slack](#agent-slack), [ddev](#ddev), [acli](#acli-acquia-command-line-tool), [python3](#python3), [ffmpeg](#ffmpeg), [jq](#jq), [Bun](#bun-and-image-tools), [TestRail credentials](#testrail-credentials), [Obsidian](#obsidian) | [op](#op-1password-command-line-tool), [Cloudflare credentials](#cloudflare-credentials), [image tools](#bun-and-image-tools), [logstream](#acli-acquia-command-line-tool) |
+| lib | Per skill: [gh](#gh-github-command-line-tool), [twg](#twg), [Slack connector](#connectors) (`slack`), [ddev](#ddev), [acli](#acli-acquia-command-line-tool), [python3](#python3), [ffmpeg](#ffmpeg), [jq](#jq), [Bun](#bun-and-image-tools), [TestRail credentials](#testrail-credentials), [Obsidian](#obsidian) | [op](#op-1password-command-line-tool), [Cloudflare credentials](#cloudflare-credentials), [image tools](#bun-and-image-tools), [logstream](#acli-acquia-command-line-tool) |
 | research-lab | [nlm](#nlm-notebooklm-command-line-tool), [python3](#python3) | [Obsidian](#obsidian), [headroom](#headroom-and-rtk) |
 | test-lab | [python3](#python3), [node / npm](#node--npm), [Playwright](#playwright) | [lighthouse](#lighthouse), [pa11y](#pa11y), [hyperfine](#hyperfine), [jq](#jq), [Chrome or Chromium](#chrome-or-chromium), [TestRail credentials](#testrail-credentials) (when TestRail is the source), [TypeSafe](#typesafe-api-key) |
-| workshop | [python3](#python3); per integration: [gws](#gws-google-workspace-command-line-tool), [twg](#twg), [agent-slack](#agent-slack), [gh](#gh-github-command-line-tool) | [Obsidian](#obsidian), [TypeSafe](#typesafe-api-key) |
+| workshop | [python3](#python3); per integration: [twg](#twg), [gh](#gh-github-command-line-tool), and the host's Slack, Gmail and Google Calendar [connectors](#connectors) | [Obsidian](#obsidian), [TypeSafe](#typesafe-api-key) |
 
 ## Quick install
 
@@ -33,8 +33,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | [acli (Acquia)](#acli-acquia-command-line-tool) | see below |
 | [gh (GitHub)](#gh-github-command-line-tool) | `brew install gh` |
 | [twg](#twg) | `curl -fsSL --retry 2 https://teamwork-graph.atlassian.com/cli/install \| bash` |
-| [agent-slack](#agent-slack) | `npm i -g agent-slack` |
-| [gws (Google Workspace)](#gws-google-workspace-command-line-tool) | `npm i -g @googleworkspace/cli` |
+| [Connectors](#connectors) (Slack, Gmail, Google Calendar) | signed in through the host's connector settings; nothing to install |
 | [op (1Password)](#op-1password-command-line-tool) | see below |
 | [Obsidian](#obsidian) | see below |
 | [Figma](#figma) | `claude plugin install figma@claude-plugins-official` |
@@ -106,7 +105,7 @@ brew install jq
 
 ## node / npm
 
-Node.js runtime and package manager. Also needed to install `gws`, `agent-slack`, `lighthouse`, `pa11y`, and Playwright.
+Node.js runtime and package manager. Also needed to install `lighthouse`, `pa11y`, and Playwright.
 
 ```bash
 brew install node
@@ -177,33 +176,13 @@ twg login
 
 ---
 
-## agent-slack
+## Connectors
 
-Slack command-line tool for reading channels and searching messages. Read-only; it does not send or post.
+Slack, Gmail and Google Calendar are reached through the connectors of the assistant's host: integrations the user signs in to once in the host's connector settings, which the assistant then sees as tools. There is nothing to install and no token to store. No plugin here uses a third-party command-line tool for these services.
 
-```bash
-npm i -g agent-slack
-agent-slack auth import-desktop   # imports the token from the Slack desktop app
-```
+A connector acts as the account signed in to the host, so work data is reached from the host signed in with the work account. The Slack connector reaches one workspace per sign-in and does not expose unread state.
 
-Or run `agent-slack auth whoami` to verify an existing session.
-
-**Used by:** lib (`slack`), workshop (`prioritize`, `deploy-post`)
-
----
-
-## gws (Google Workspace command-line tool)
-
-Gmail and Google Calendar access.
-
-```bash
-npm i -g @googleworkspace/cli
-gws auth setup
-```
-
-Follow the setup prompts to connect a Google account. Requires a Google Cloud project with the Gmail and Calendar interfaces enabled.
-
-**Used by:** workshop (`personal-email`, `personal-calendar`, `prioritize`)
+**Used by:** lib (`slack`), workshop (`prioritize`, `deploy-post`, `personal-email`, `personal-calendar`)
 
 ---
 

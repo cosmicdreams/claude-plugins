@@ -1,12 +1,11 @@
 #!/usr/bin/env zsh
 # check-integration.sh <tool>
 #
-# Shared preflight circuit-breaker for workflow integrations.
+# Shared preflight circuit-breaker for the command-line integrations (Jira, GitHub).
+# Slack, Gmail and Google Calendar are read through the host's connectors and have no preflight here.
 #
 # Usage:
-#   check-integration.sh gws
 #   check-integration.sh jira
-#   check-integration.sh slack
 #   check-integration.sh gh
 #
 # Exit 0  — integration healthy (or cache says healthy within TTL)
@@ -73,19 +72,6 @@ PYEOF
 # Auth checks per tool
 # ---------------------------------------------------------------------------
 
-_check_gws() {
-  if ! command -v gws &>/dev/null; then
-    echo "gws CLI not found on \$PATH — install with: brew install gws"
-    return 1
-  fi
-  local out
-  if ! out=$(gws calendar list-calendars --max-results 1 2>&1); then
-    echo "gws auth failed: ${out}"
-    return 1
-  fi
-  return 0
-}
-
 _check_jira() {
   if ! command -v twg &>/dev/null; then
     echo "twg CLI not found on \$PATH — install from https://developer.atlassian.com/cloud/twg-cli/"
@@ -94,19 +80,6 @@ _check_jira() {
   local out
   if ! out=$(twg whoami 2>&1) || [[ "$out" != *"Account ID"* ]]; then
     echo "twg auth failed (run: twg login): ${out}"
-    return 1
-  fi
-  return 0
-}
-
-_check_slack() {
-  if ! command -v agent-slack &>/dev/null; then
-    echo "agent-slack CLI not found on \$PATH — install with: npm install -g agent-slack"
-    return 1
-  fi
-  local out
-  if ! out=$(agent-slack auth whoami 2>&1); then
-    echo "agent-slack auth failed: ${out}"
     return 1
   fi
   return 0
@@ -148,12 +121,10 @@ fi
 # 2. Cache miss or expired — run preflight
 reason=""
 case "$TOOL" in
-  gws)   reason=$(_check_gws)   && rc=0 || rc=1 ;;
   jira)  reason=$(_check_jira)  && rc=0 || rc=1 ;;
-  slack) reason=$(_check_slack) && rc=0 || rc=1 ;;
   gh)    reason=$(_check_gh)    && rc=0 || rc=1 ;;
   *)
-    print -u2 "Unknown tool: ${TOOL}. Supported: gws jira slack gh"
+    print -u2 "Unknown tool: ${TOOL}. Supported: jira gh"
     exit 1
     ;;
 esac

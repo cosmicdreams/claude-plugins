@@ -48,8 +48,8 @@ Group installs by package manager:
 Capture exit codes. Print a summary table after the batch completes:
 
 ```
-✓ agent-slack     npm i -g agent-slack        installed
-⚠ gws             npm i -g @googleworkspace/cli  installed — needs auth
+✓ lighthouse      npm i -g lighthouse         installed
+⚠ gh              brew install gh             installed — needs auth
 ✗ twg             (see notes)                 failed — installer download blocked
 ⊘ pngquant        not available on Linux      unavailable
 ```
@@ -61,11 +61,11 @@ Status markers: `✓` ready · `⚠` installed but needs auth · `✗` failed ·
 Some tools need post-install authentication. Never attempt auth automatically — tell the user:
 
 ```
-agent-slack    →  agent-slack auth import-desktop
 gh             →  gh auth login
-gws            →  gws auth setup  (first time) or  gws auth login
 twg            →  twg login  (browser sign-in)
 ```
+
+Slack, Gmail and Google Calendar skills use the host's connectors, which the user signs in to in the host's connector settings. There is nothing to install for them: report a missing connector as "needs connector", never as a tool to install.
 
 For secret-based tools: `export TESTRAIL_API_KEY="..."` and `export CF_API_TOKEN="..."`.
 
@@ -83,7 +83,8 @@ Common Linux sandbox cases:
 ```
 Environment: Linux sandbox (Ubuntu 22.04)
 Skills ready:     github, slack, deploy-post, ...
-Need auth:        agent-slack, gh, gws, jira
+Need auth:        gh, jira
+Need connector:   slack, personal-email, personal-calendar
 Unavailable:      image-optimize, testrail (keychain)
 ```
 

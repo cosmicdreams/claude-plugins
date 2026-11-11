@@ -12,12 +12,7 @@ Legend:
 
 ## workshop:deploy-post
 
-| Dependency | macOS | Linux sandbox | Auth |
-|---|---|---|---|
-| Node.js | Pre-installed or `brew install node` | Pre-installed | — |
-| agent-slack | `npm i -g agent-slack` | `npm i -g agent-slack` | `agent-slack auth import-desktop` (macOS) or `SLACK_TOKEN` env var (Linux) |
-
-**Auth notes:** `agent-slack auth import-desktop` pulls the session from the Slack desktop app, which only works on macOS. In a Linux sandbox, the user would need to set a `SLACK_TOKEN` env var or use `agent-slack auth` with a token directly.
+No install. Uses the host's Slack connector, signed in through the host's connector settings.
 
 ---
 
@@ -86,52 +81,39 @@ Installs to `~/.local/bin/twg`. `twg update` applies required updates.
 
 ## workshop:prioritize (formerly morning-brief)
 
-Same dependencies as `lib:slack` (agent-slack). Also uses Python 3 for timestamp math (pre-installed in both environments).
+Slack and Google Calendar come from the host's connectors (no install). Jira uses `twg` (see lib:jira).
 
 | Dependency | macOS | Linux sandbox | Auth |
 |---|---|---|---|
-| agent-slack | `npm i -g agent-slack` | `npm i -g agent-slack` | See deploy-post |
 | python3 | Pre-installed | Pre-installed | — |
 
 ---
 
 ## workshop:personal-calendar
 
-| Dependency | macOS | Linux sandbox | Auth |
-|---|---|---|---|
-| gws CLI | `npm install -g @googleworkspace/cli` | `npm install -g @googleworkspace/cli` | `gws auth setup` (first time), `gws auth login` (subsequent) |
-
-**Auth notes:** `gws auth setup` creates a Google Cloud project and enables the Calendar API. This is an interactive OAuth flow that requires a browser. In a headless Linux sandbox, the user may need to run auth on their host machine first.
+No install. Uses the host's Google Calendar connector, signed in through the host's connector settings.
 
 ---
 
 ## workshop:personal-email
 
-| Dependency | macOS | Linux sandbox | Auth |
-|---|---|---|---|
-| gws CLI | `npm install -g @googleworkspace/cli` | `npm install -g @googleworkspace/cli` | `gws auth setup` (first time), `gws auth login` (subsequent) |
-
-Same as personal-calendar — the gws CLI handles both Gmail and Calendar APIs.
+No install. Uses the host's Gmail connector, signed in through the host's connector settings.
 
 ---
 
 ## workshop:scout (formerly pulse)
 
-Combines dependencies from jira + slack:
 
 | Dependency | macOS | Linux sandbox | Auth |
 |---|---|---|---|
 | twg | See lib:jira | See lib:jira | `twg login` |
-| agent-slack | `npm i -g agent-slack` | `npm i -g agent-slack` | See deploy-post |
 | python3 | Pre-installed | Pre-installed | — |
 
 ---
 
 ## lib:slack
 
-| Dependency | macOS | Linux sandbox | Auth |
-|---|---|---|---|
-| agent-slack | `npm i -g agent-slack` | `npm i -g agent-slack` | `agent-slack auth import-desktop` (macOS) or token-based (Linux) |
+No install. Uses the host's Slack connector, signed in through the host's connector settings.
 
 ---
 
@@ -241,7 +223,7 @@ Check: `command -v headroom`.
 
 ### npm global packages (both environments)
 ```bash
-npm i -g agent-slack @googleworkspace/cli lighthouse
+npm i -g lighthouse
 ```
 
 ### Homebrew (macOS only)

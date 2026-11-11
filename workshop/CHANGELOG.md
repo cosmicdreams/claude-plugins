@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.0.0 — 2026-11-10
+
+**Breaking: Slack, Gmail and Google Calendar are reached only through the host's connectors.** The `agent-slack` and `gws` command-line tools are no longer used anywhere, and there is no fallback to them.
+
+- `prioritize`: Slack is read in the main thread with the Slack connector (`slack_search_channels`, `slack_read_channel`, `slack_read_thread`, `slack_search_public_and_private`) in place of per-channel subagents. The connector reaches one workspace, so other configured workspaces are reported as a coverage gap. It has no unread state, so the unread sweep is now a search for mentions and direct messages since the last run, and the brief says so. The calendar comes from the Google Calendar connector's `list_events`.
+- `personal-email` and `personal-calendar` use the Gmail and Google Calendar connectors. Their `references/auth.md` files and `references/gws-auth.md` are removed.
+- `deploy-post` finds the channel and posts with the Slack connector.
+- `config` probes for connectors instead of the two tools.
+- `scripts/check-integration.sh` supports `jira` and `gh` only.
+- New `references/connectors.md`: the tools each connector provides, what to do when one is missing, and which account a connector acts as.
+
 ## 2.9.0 — 2026-11-10
 
 - `prioritize` remembers what you say is handled. An item you call done, out of date or not yours is recorded in the state file and left out of later runs until its Jira `updated` moves past the mark; a "Hidden, marked handled" line lists what was left out. One ticket had been raised in six runs, two of them after it was called resolved. `output.py state` writes the marks and the end-of-run state together, so neither overwrites the other.
