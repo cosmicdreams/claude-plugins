@@ -46,7 +46,17 @@ import subprocess
 import tempfile
 
 
-LIMIT_REPLY = re.compile(r"hit your (usage )?limit|usage limit|rate.?limit|quota exceeded|overloaded_error|resets? (at|in) \d", re.I)
+# A limit or error reply is recognised by its shape, not its topic: the whole capture is a line or
+# two that states the failure. Text that merely discusses limits (a rate limiter's README) passes.
+LIMIT_REPLY = re.compile(
+    r"^(api )?error:|limit reached|(hit|reached) your (usage )?limit|rate_limit_error|overloaded_error"
+    r"|quota exceeded|exceeded your current quota|resource_exhausted|^prompt is too long"
+    r"|^credit balance is too low|\bresets (at |in )?(\d|mon|tue|wed|thu|fri|sat|sun)", re.I)
+
+
+def is_limit_reply(text):
+    text = text.strip()
+    return len(text) < 300 and len(text.splitlines()) <= 3 and bool(LIMIT_REPLY.search(text))
 
 
 def read_json(path, default=None):
@@ -616,7 +626,7 @@ def run(a):
             # The task must have happened: an empty capture or a bare limit/error reply is not a result.
             if not any(t.strip() for t in texts): raise ValueError('empty capture: the run produced no output')
             for t in texts:
-                if len(t.strip()) < 300 and LIMIT_REPLY.search(t): raise ValueError('capture is a limit or error reply, not a result: ' + t.strip()[:80])
+                if is_limit_reply(t): raise ValueError('capture is a limit or error reply, not a result: ' + t.strip()[:80])
             existing = captures(eng, tree, cfp)
             number = max([int(x.name.rsplit('-', 1)[1]) for x in existing], default=0) + 1
             dest = eng / 'captures' / f'{tree}-{cfp[:12]}-{number}'

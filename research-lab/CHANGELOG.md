@@ -1,5 +1,9 @@
 # research-lab Changelog
 
+## 5.9.1 — 2026-11-10
+
+- **Judged captures: the limit-reply check reads shape, not topic.** A capture is refused when the whole of it is a line or two stating a limit or error, including "limit reached · resets Mon 9am", `RESOURCE_EXHAUSTED`, "Prompt is too long", "Credit balance is too low" and "Error: Request timed out". Short text that only discusses limits, such as a rate limiter's README or a "Usage limits" section, is accepted. On 17 saved cases the old pattern refused 6 of 12 bad replies and 2 of 5 good texts; the new one refuses 12 of 12 and 0 of 5 (`tests/test_limit_reply.py`).
+
 ## 5.9.0 — 2026-11-06
 
 Two checks borrowed from pstack (Lauren Tan, MIT): findings and measurements count only when they can be shown to be real.
