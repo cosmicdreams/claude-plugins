@@ -60,7 +60,7 @@ Work through these in order. Read each step file as you reach it.
 
 1. **Setup** — load config + state, resolve user IDs, detect mode, circuit-breaker preflight → Read `steps/01-setup.md`
 
-2. **Fetch Slack** — per-channel subagents: overnight pass + unanswered/standing pass → Read `steps/02-fetch-slack.md`
+2. **Fetch Slack** — through the host's Slack connector: overnight pass + unanswered/standing pass → Read `steps/02-fetch-slack.md`
 
 3. **Fetch Jira** — per-server subagents: delta pass + attention/obligation pass → Read `steps/03-fetch-jira.md`
 

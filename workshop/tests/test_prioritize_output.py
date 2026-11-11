@@ -1,4 +1,4 @@
-"""Offline deterministic checks; no Jira, Slack or gws calls."""
+"""Offline deterministic checks; no Jira, Slack or calendar calls."""
 import importlib.util
 import json
 from pathlib import Path
@@ -204,12 +204,13 @@ class OutputTest(unittest.TestCase):
         self.assertIn("step 3 coordinator's merged counts", rank)
         self.assertIn("refetching or inference from attention-only candidates", rank)
         slack = (ROOT / "skills/prioritize/steps/02-fetch-slack.md").read_text()
-        self.assertIn("agent-slack unreads", slack)
-        self.assertIn("bot_id", slack)
+        self.assertIn("slack_read_channel", slack)
+        self.assertIn("messages from bots", slack)
+        self.assertNotIn("agent-slack", slack)
         calendar = (ROOT / "skills/prioritize/steps/04-fetch-availability.md").read_text()
-        self.assertNotIn("gws +agenda", calendar)
+        self.assertNotIn("gws", calendar)
         self.assertIn("nextPageToken", calendar)
-        self.assertIn("explicit local UTC offset", calendar)
+        self.assertIn("no UTC offset", calendar)
 
     def test_handled_item_stays_hidden_until_it_changes(self):
         data = fixture([item("A", updated="2026-08-20T10:00:00.000-0400"), item("B"),
