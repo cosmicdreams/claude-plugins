@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.0 — 2026-11-10
+
+- `prioritize` remembers what you say is handled. An item you call done, out of date or not yours is recorded in the state file and left out of later runs until its Jira `updated` moves past the mark; a "Hidden, marked handled" line lists what was left out. One ticket had been raised in six runs, two of them after it was called resolved. `output.py state` writes the marks and the end-of-run state together, so neither overwrites the other.
+- `prioritize` uses the Slack connector when `agent-slack` is not installed, in place of skipping Slack. Every run since 2026-10-26 had skipped it.
+- `prioritize`: the Jira step states the real shape of `twg jira workitem get` output (see lib 2.0.1).
+- `prioritize` shows the brief in the host's own page preview when there is one, and opens the system browser only otherwise.
+- `prioritize`: the preflight snippet no longer reads standard input after a failed check.
+
 ## 2.8.0 — 2026-11-09
 
 - `workshop:harden` works on a repository's own checks too. New `scripts/mine_evidence.py` collects a repository's fix and revert commits, failed CI runs, inline review comments and saved review-loop ledgers as JSON for the skill to group into mistake classes.

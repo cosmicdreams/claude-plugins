@@ -211,6 +211,40 @@ class OutputTest(unittest.TestCase):
         self.assertIn("nextPageToken", calendar)
         self.assertIn("explicit local UTC offset", calendar)
 
+    def test_handled_item_stays_hidden_until_it_changes(self):
+        data = fixture([item("A", updated="2026-08-20T10:00:00.000-0400"), item("B"),
+                        item("C", updated="2026-08-23")])
+        data["handled"] = {"A": {"on": "2026-08-21", "note": "Brad is unblocked"},
+                           "B": {"on": "2026-08-21"}, "C": {"on": "2026-08-21"}}
+        result = output.canonical(data)
+        self.assertEqual([i["id"] for i in result["items"]], ["C"])
+        self.assertEqual([h["id"] for h in result["handled_hidden"]], ["A", "B"])
+        self.assertIn("Hidden, marked handled: A (2026-08-21: Brad is unblocked); B (2026-08-21)",
+                      output.terminal(result))
+        self.assertNotIn("Hidden, marked handled", output.terminal(output.canonical(fixture([item("A")]))))
+        data["handled"]["A"]["on"] = "soon"
+        with self.assertRaises(ValueError):
+            output.canonical(data)
+
+    def test_state_command_keeps_handled_marks_across_runs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run = lambda *args: output.main(["state", "--data-path", directory, *args])
+            with patch("builtins.print"):
+                run("--handled", "server:A", "--note", "done last week")
+                run("--top", "server:B")
+            state = json.loads((Path(directory) / output.STATE).read_text())
+            self.assertEqual(state["top"], "server:B")
+            self.assertRegex(state["last_run"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+            self.assertEqual(state["handled"]["server:A"]["note"], "done last week")
+            source = Path(directory) / "input.json"
+            source.write_text(json.dumps(fixture([item("server:A"), item("B")])))
+            with patch("builtins.print") as printed:
+                output.main([str(source), "--data-path", directory])
+            self.assertIn("Hidden, marked handled: server:A", printed.call_args[0][0])
+            with patch("builtins.print"):
+                run("--restore", "server:A")
+            self.assertEqual(json.loads((Path(directory) / output.STATE).read_text())["handled"], {})
+
 
 if __name__ == "__main__":
     unittest.main()

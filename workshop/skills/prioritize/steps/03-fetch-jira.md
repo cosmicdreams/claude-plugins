@@ -2,26 +2,17 @@
 
 If no Jira servers are configured, skip to `steps/04-fetch-availability.md`.
 
-Spawn one subagent per Jira server, all simultaneously. Wait for all to return
-before proceeding to scoring.
+Spawn one subagent per Jira server, all simultaneously. Wait for all to return before proceeding to scoring.
 
 ## Goal
 
-Surface Jira items that need your attention today, **scoped to committed work first**.
-Three passes:
+Surface Jira items that need your attention today, **scoped to committed work first**. Three passes:
 
-0. **Scope pass**: which issues are in an open sprint or an unreleased fix version.
-   This is the committed work — what the team has actually agreed to deliver.
-1. **Delta pass**: what changed overnight — new comments, status transitions, new
-   assignments since LAST_RUN_DATE
-2. **Attention pass**: standing obligations regardless of recency — blocked issues
-   you own, due-today/overdue issues, high-priority items assigned to you with no recent activity, anything
-   in progress for an unusually long time
+0. **Scope pass**: which issues are in an open sprint or an unreleased fix version. This is the committed work — what the team has actually agreed to deliver.
+1. **Delta pass**: what changed overnight — new comments, status transitions, new assignments since LAST_RUN_DATE
+2. **Attention pass**: standing obligations regardless of recency — blocked issues you own, due-today/overdue issues, high-priority items assigned to you with no recent activity, anything in progress for an unusually long time
 
-**Why the scope pass matters.** A long-lived assignee queue accumulates tickets that
-were assigned years ago and never planned into anything. Those must not outrank work
-in the current sprint or release. The scope pass tags every item so scoring can
-demote unplanned backlog rather than treating all assigned issues as equal.
+**Why the scope pass matters.** A long-lived assignee queue accumulates tickets that were assigned years ago and never planned into anything. Those must not outrank work in the current sprint or release. The scope pass tags every item so scoring can demote unplanned backlog rather than treating all assigned issues as equal.
 
 ## Per-server subagent prompt
 
@@ -40,7 +31,10 @@ PROJECTS: {server.projects}
 LAST_RUN_DATE: {last_run_date}
 
 All Jira access is through the twg CLI, read-only verbs only (query, get).
-Query results are in `.data.issues[]`; `get` results are in `.data[]`.
+Query results are in `.data.issues[]`. `get` with several keys returns `.data.items[].data`
+(with one key, `.data[0]`). Issue fields sit at the top level with no `.fields` wrapper,
+comments are `.comments[]`, and `.description` and comment `.body` are Atlassian Document
+Format objects: read their text with `[.. | objects | select(.type == "text") | .text] | join(" ")`.
 
 If AUTH is "api-token", run every twg command inside one subshell that first exports:
   export TWG_CONFIG_DIR=~/.config/twg-{SERVER_NAME} TWG_USER={LOGIN} TWG_TOKEN="$JIRA_API_TOKEN" TWG_SITE={SITE}
@@ -138,6 +132,7 @@ changes.
   - source: "{server_name} {ISSUE_KEY}"
   - summary: one-line description
   - detail: key context (status, commenter, days stale, blocker reason)
+  - updated: the issue's Jira `updated` value, so an item the user marked handled returns when it changes
 
 **Rules:**
   - Do NOT dump all assigned issues. Only emit items that need attention.
@@ -173,24 +168,12 @@ Return ONLY valid JSON (no markdown):
 
 ## Failure handling
 
-If a server subagent fails entirely, treat it as:
-`{ "server_name": "...", "error": "subagent failed", "items": [], "quiet_projects": [] }`
+If a server subagent fails entirely, treat it as: `{ "server_name": "...", "error": "subagent failed", "items": [], "quiet_projects": [] }`
 
-If `twg` is not installed or auth fails, set `error` to the message and return
-empty items. Include a hint: `twg login` for an OAuth site, or `JIRA_API_TOKEN` and the
-`login` field for an api-token site (see `workshop:config`).
+If `twg` is not installed or auth fails, set `error` to the message and return empty items. Include a hint: `twg login` for an OAuth site, or `JIRA_API_TOKEN` and the `login` field for an api-token site (see `workshop:config`).
 
 ## Merge results
 
-Collect all items from all servers into a flat list. Keep quiet_projects
-server-qualified. Sum scope_counts.sprint, .release and .backlog into the step 5
-counts.committed_sprint, .committed_release and .unplanned_backlog respectively.
-Merge the returned unplanned_backlog_by_project maps unchanged into
-counts.unplanned_backlog_by_project; their values must sum to unplanned_backlog.
-These are full workload counts, not attention/display counts. Do not refetch or
-infer counts from attention-only candidates. A failed or unexamined project has
-no map entry, not a fabricated zero; propagate errors and partial/unavailable
-coverage so the aggregate describes only successfully counted workload.
+Collect all items from all servers into a flat list. Keep quiet_projects server-qualified. Sum scope_counts.sprint, .release and .backlog into the step 5 counts.committed_sprint, .committed_release and .unplanned_backlog respectively. Merge the returned unplanned_backlog_by_project maps unchanged into counts.unplanned_backlog_by_project; their values must sum to unplanned_backlog. These are full workload counts, not attention/display counts. Do not refetch or infer counts from attention-only candidates. A failed or unexamined project has no map entry, not a fabricated zero; propagate errors and partial/unavailable coverage so the aggregate describes only successfully counted workload.
 
-Proceed to `steps/04-fetch-availability.md` with: slack_items, jira_items, quiet_channels,
-quiet_projects, counts, errors.
+Proceed to `steps/04-fetch-availability.md` with: slack_items, jira_items, quiet_channels, quiet_projects, counts, errors.

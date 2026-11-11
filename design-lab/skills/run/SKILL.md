@@ -147,7 +147,7 @@ Every Figma write is a fixed template filled from the artifacts; the model relay
      --file-key <key> --site-url <local-site-url> --canonical-base-url <public-site-url>
    ```
 
-3. Relay until `next` reports `done`, exactly as `references/relay.md` describes. A long build can be relayed in batches by fresh agents; state lives on disk, so each batch resumes where the last stopped. Never hand-edit the file to fix a problem — fix the template or rule in `scripts/`, re-run `init` in a new file, and relay again.
+3. Relay until `next` reports `done`, exactly as `${CLAUDE_PLUGIN_ROOT}/references/relay.md` describes (it sits at the plugin root, not under this skill). A long build can be relayed in batches by fresh agents; state lives on disk, so each batch resumes where the last stopped. Never hand-edit the file to fix a problem — fix the template or rule in `scripts/`, re-run `init` in a new file, and relay again.
 
 4. Write and register the receipts the manifest needs (foundation, index, one build record per component):
 

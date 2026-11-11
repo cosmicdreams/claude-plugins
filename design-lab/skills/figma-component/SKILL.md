@@ -19,7 +19,7 @@ Every component is built by fixed code from its measurements, never drawn by han
 
 ## Build or rebuild one component
 
-The library must already exist (built by `design-lab:run`). Initialise a subset build in the same workspace and relay it exactly as `references/relay.md` describes:
+The library must already exist (built by `design-lab:run`). Initialise a subset build in the same workspace and relay it exactly as `${CLAUDE_PLUGIN_ROOT}/references/relay.md` describes (it sits at the plugin root, not under this skill):
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.ts init --project <W> --file-key <key> \

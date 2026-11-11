@@ -1,29 +1,17 @@
 # Step 2 — Fetch Slack: Spawn Per-Channel Subagents
 
-Spawn one subagent per Slack channel, all simultaneously. Wait for all to return
-before proceeding to Jira fetch.
+Spawn one subagent per Slack channel, all simultaneously. Wait for all to return before proceeding to Jira fetch.
 
 ## Sweep unread conversations before fan-out
 
-After Slack preflight succeeds, run `agent-slack unreads --workspace {workspace_url}`
-once per workspace. Include DMs, group DMs, and unconfigured channels. Exclude configured
-channels from this sweep (the fan-out owns them). Summarize channel name/type and human
-message count before opening bodies. Ignore messages with `bot_id` or no human `user_id`
-in both passes and the sweep; raw mention counts are not evidence of a human request.
-On-demand, classify unanswered human asks from the sweep as standing obligations.
-Ambient, only classify messages newer than `oldest_ts`; do not run a standing sweep.
-Resolve relative deadlines against the message timestamp in the user's local timezone,
-not the time it was read. An old unread is not automatically urgent; retain a genuinely
-unresolved obligation, but do not revive expired informational reminders.
+After Slack preflight succeeds, run `agent-slack unreads --workspace {workspace_url}` once per workspace. Include DMs, group DMs, and unconfigured channels. Exclude configured channels from this sweep (the fan-out owns them). Summarize channel name/type and human message count before opening bodies. Ignore messages with `bot_id` or no human `user_id` in both passes and the sweep; raw mention counts are not evidence of a human request. On-demand, classify unanswered human asks from the sweep as standing obligations. Ambient, only classify messages newer than `oldest_ts`; do not run a standing sweep. Resolve relative deadlines against the message timestamp in the user's local timezone, not the time it was read. An old unread is not automatically urgent; retain a genuinely unresolved obligation, but do not revive expired informational reminders.
 
 ## Goal
 
-Surface Slack items that need your attention today — not just what's new, but
-anything unresolved that you should act on. Two passes:
+Surface Slack items that need your attention today — not just what's new, but anything unresolved that you should act on. Two passes:
 
 1. **Overnight pass**: messages since last_run (new activity)
-2. **Unanswered pass**: recent messages (last 48h) where someone asked a question
-   or requested help and got no reply — these are standing obligations
+2. **Unanswered pass**: recent messages (last 48h) where someone asked a question or requested help and got no reply — these are standing obligations
 
 ## Per-channel subagent prompt
 
@@ -116,12 +104,20 @@ Return ONLY valid JSON (no markdown):
 }
 ```
 
+## Connector path (agent-slack unavailable)
+
+Use this when the preflight failed for `agent-slack` and the session has the Slack connector. Work in the main thread with no per-channel subagents: the connector is signed in to one workspace and its calls are cheap.
+
+1. Find the configured workspace the connector is signed in to by looking up one configured channel name with `slack_search_channels`. Every other configured workspace is a coverage gap: name it in `errors` and report `coverage.slack` as `partial`.
+2. For each configured channel in that workspace, read the messages since `OLDEST_TS` and the last 48 hours with `slack_read_channel`, and open a thread with `slack_read_thread` where a question may already have an answer.
+3. In place of the unread sweep, search with `slack_search_public_and_private` for messages since `OLDEST_TS` that mention the user or were sent to them directly. Say in `errors` that unread state was not available.
+4. Classify with the same rules as the subagent prompt above and build the same items, with ids made of workspace, channel ID and message ts.
+
 ## Failure handling
 
-If any channel subagent fails entirely, treat it as:
-`{ "error": "subagent failed", "total_messages": 0, "items": [] }`
+If any channel subagent fails entirely, treat it as: `{ "error": "subagent failed", "total_messages": 0, "items": [] }`
 
-If ALL subagents return `{ "error": "agent-slack unavailable" }`, output:
+If ALL subagents return `{ "error": "agent-slack unavailable" }` and there is no Slack connector, output:
 ```
 Prioritize failed: agent-slack unavailable
 Check agent-slack auth: agent-slack auth import-desktop
@@ -130,7 +126,6 @@ Then stop.
 
 ## Merge results
 
-Collect all items from all channels into a flat list. Track which channels had
-zero activity AND zero unanswered items (for the "Quiet" line).
+Collect all items from all channels into a flat list. Track which channels had zero activity AND zero unanswered items (for the "Quiet" line).
 
 Proceed to `steps/03-fetch-jira.md` with: slack_items list, quiet_channels list.

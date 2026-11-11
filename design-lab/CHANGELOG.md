@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.2 — 2026-11-10
+
+- `run` and `figma-component` give the relay reference as `${CLAUDE_PLUGIN_ROOT}/references/relay.md`. The bare `references/relay.md` was looked for under the skill's own folder, where it does not exist, in two runs.
+
 ## 0.24.1
 
 - The runner-token guard no longer refuses a command because one of its words is too long to be a file name (over 255 bytes in a name, or 1,024 in a path). It treated the system's "name too long" error as a possible token read, so long commands were refused at random, including `workflow.ts figma-build` with its required arguments.
