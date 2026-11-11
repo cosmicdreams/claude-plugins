@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.1 — 2026-11-10
+
+- `jira`: the documented shape of `twg jira workitem get` was wrong for more than one key. Several keys return `.data.items[].data`, not `.data[]`, fields have no `.fields` wrapper, and descriptions and comment bodies are Atlassian Document Format objects. Four sessions each spent three to five calls finding that out. The skill now states both shapes and gives one `jq` recipe that reads either.
+
 ## 2.0.0 — 2026-11-11
 
 **Breaking: `csv-analysis`, `hyperfine`, `lighthouse` and `pa11y` removed.** None was invoked in either account's sessions between August 3 and November 9, 2026, and each description loads into every session.

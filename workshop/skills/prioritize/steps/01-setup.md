@@ -76,15 +76,15 @@ SCRIPT="${CLAUDE_PLUGIN_ROOT}/scripts/check-integration.sh"
 slack_ok=true; jira_ok=true
 
 if [[ $(jq '.integrations.slack.workspaces | length' ~/.claude/workshop.json 2>/dev/null) -gt 0 ]]; then
-  "$SCRIPT" slack 2>&1 || { echo "Skipping Slack: $(cat)"; slack_ok=false; }
+  "$SCRIPT" slack 2>&1 || slack_ok=false
 fi
 if [[ $(jq '.integrations.jira.servers | length' ~/.claude/workshop.json 2>/dev/null) -gt 0 ]]; then
-  "$SCRIPT" jira 2>&1 || { echo "Skipping Jira: $(cat)"; jira_ok=false; }
+  "$SCRIPT" jira 2>&1 || jira_ok=false
 fi
 ```
 
-- If `slack_ok=false` — skip `steps/02-fetch-slack.md`; note "Slack unavailable" in the header.
+- If `slack_ok=false` — look for a Slack connector before giving up. When this session has the connector's `slack_read_channel` and `slack_search_public_and_private` tools (load them through tool search if they are deferred), Slack is still available: follow "Connector path" in `steps/02-fetch-slack.md`. Only with no connector either, skip `steps/02-fetch-slack.md` and note "Slack unavailable" in the header.
 - If `jira_ok=false` — skip `steps/03-fetch-jira.md`; note "Jira unavailable" in the header.
-- If **both** unavailable — output "All integrations unavailable — prioritize cannot run." and stop.
+- If **both** unavailable, with no Slack connector — output "All integrations unavailable — prioritize cannot run." and stop.
 
 Proceed to `steps/02-fetch-slack.md` with: mode, workspaces list, oldest_ts, user_id per workspace, jira servers list, last_run_date (skipping any source marked unavailable).

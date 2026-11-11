@@ -3,13 +3,14 @@
 
 import argparse
 from collections import Counter
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from html import escape
 import json
 import math
 import os
 from pathlib import Path
 import re
+import sys
 import tempfile
 from urllib.parse import urlsplit
 
@@ -72,6 +73,15 @@ def validate(data):
                 string(item[key], "item." + key)
         if item.get("due_date") is not None:
             day(item["due_date"], "item.due_date")
+        if item.get("updated") is not None:
+            string(item["updated"], "item.updated")
+            day(item["updated"][:10], "item.updated")
+    handled = data.get("handled", {})
+    mapping(handled, "handled")
+    for key, mark in handled.items():
+        mapping(mark, "handled." + key)
+        day(mark.get("on"), "handled.on")
+        string(mark.get("note", ""), "handled.note")
     for key in ("why", "next_id"):
         if key in data:
             string(data[key], key)
@@ -139,7 +149,14 @@ def canonical(data):
     scope = {**SCOPE, **weights.get("scope", {})}
     items = []
     seen = set()
+    handled = data.get("handled", {})
+    hidden = []
     for raw in data["items"]:
+        # The person said this was dealt with; it returns only when it changes afterwards.
+        mark = handled.get(raw["id"])
+        if mark and (raw.get("updated") or "")[:10] <= mark["on"]:
+            hidden.append({"id": raw["id"], "on": mark["on"], "note": mark.get("note", "")})
+            continue
         item = {key: raw[key] for key in ("id", "action", "source", "summary")}
         for key in ("scope", "project", "server_name", "due_date", "url"):
             item[key] = raw.get(key)
@@ -195,7 +212,7 @@ def canonical(data):
         "counts": data["counts"], "quiet_sources": data.get("quiet_sources", []),
         "no_attention_sources": data.get("no_attention_sources", []),
         "errors": data.get("errors", []), "coverage": data["coverage"],
-        "availability": availability,
+        "availability": availability, "handled_hidden": hidden,
     }
 
 
@@ -209,6 +226,9 @@ def notes(result):
         "(work email/calendar: not connected)",
         "Coverage: " + json.dumps(result["coverage"], sort_keys=True),
         f'{result["display"]["omitted_count"]} more items omitted from view (snapshot is uncapped)',
+        *["Hidden, marked handled: " + "; ".join(
+            f'{h["id"]} ({h["on"]}{": " + h["note"] if h["note"] else ""})'
+            for h in result["handled_hidden"])] * bool(result["handled_hidden"]),
         *["⚠ " + error for error in result["errors"]],
     ]
 
@@ -285,12 +305,53 @@ def publish(result, data_path):
     return rendered_terminal
 
 
-def main():
+STATE = "workshop-prioritize.state.json"
+
+
+def read_state(data_path):
+    try:
+        state = json.loads((Path(data_path) / STATE).read_text())
+    except (OSError, ValueError):
+        return {}
+    return state if isinstance(state, dict) else {}
+
+
+def update_state(data_path, top=None, handled=None, note="", restore=None, now=None):
+    """Write run state without losing what the person marked handled."""
+    now = now or datetime.now().astimezone()
+    state = read_state(data_path)
+    marks = state.get("handled") if isinstance(state.get("handled"), dict) else {}
+    if top is not None:
+        state["last_run"] = now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        state["top"] = top
+    if handled:
+        marks[handled] = {"on": now.date().isoformat(), "note": note}
+    if restore:
+        marks.pop(restore, None)
+    state["handled"] = marks
+    atomic_write(Path(data_path) / STATE, json.dumps(state, ensure_ascii=False, indent=2) + "\n")
+    return state
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["state"]:
+        parser = argparse.ArgumentParser(prog="output.py state", description=update_state.__doc__)
+        parser.add_argument("--data-path", required=True, type=Path)
+        parser.add_argument("--top", help="end of a run: record now as last_run and this top item id")
+        parser.add_argument("--handled", metavar="ID", help="hide this item until it changes")
+        parser.add_argument("--note", default="", help="the person's reason, in their words")
+        parser.add_argument("--restore", metavar="ID", help="show a handled item again")
+        args = parser.parse_args(argv[1:])
+        state = update_state(args.data_path.expanduser(), args.top, args.handled, args.note, args.restore)
+        print(json.dumps(state, ensure_ascii=False))
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path)
     parser.add_argument("--data-path", required=True, type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     data = json.loads(args.input.read_text())
+    data.setdefault("handled", read_state(args.data_path.expanduser()).get("handled", {}))
     result = canonical(data)
     # Ambient state comparison/notification remains step 6's responsibility.
     print(publish(result, args.data_path.expanduser()))
