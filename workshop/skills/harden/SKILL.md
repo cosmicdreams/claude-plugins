@@ -52,13 +52,13 @@ Record why each higher level did not work.
 
 ## 3. Prove it bites
 
-Replay the recorded past mistake against the new check and watch it fail. A check that has never been seen to fail on a real mistake is not an enforcer yet: tests that pass are not enough, because a guard can pass its tests and never fire in a real session. Where the check is a hook, prove it in a live session as well as in the test suite. Exceptions go on the offending line with a reason and an expiry date.
+Replay the recorded past mistake against the new check and watch it fail. Prove it against what ships, not a stand-in: a pre-commit check reads the index, not the working tree; a dependency check counts what the deploy installs; a config check covers every collection the import writes. A check that has never been seen to fail on a real mistake is not an enforcer yet: tests that pass are not enough, because a guard can pass its tests and never fire in a real session. Where the check is a hook, prove it in a live session as well as in the test suite. Exceptions go on the offending line with a reason and an expiry date.
 
 Ship each class as its own pull request in a dedicated worktree, under the repository's normal review.
 
 ## 4. Keep the table
 
-Update [rule-enforcers.md](../../references/rule-enforcers.md), or the repository's `AGENTS.md` table in repository mode: one row per rule with its source, level, enforcer and the past mistake it was proven on. Bump `Repeats` when a prose rule is broken again. Drop a row once its mistake cannot happen. Run the check again; it fails on a malformed row or a non-prose row without an enforcer or proof.
+Update [rule-enforcers.md](../../references/rule-enforcers.md), or the repository's `AGENTS.md` table in repository mode: one row per rule with its source, level, enforcer, where it runs and the past mistake it was proven on. Bump `Repeats` when a prose rule is broken again. Drop a row once its mistake cannot happen. Record where each enforcer runs. In repository mode, treat a `local` enforcer as prose until CI backs it: a git hook or a command someone has to remember does not run for every contributor, and a global `core.hooksPath` silently skips the repository's hooks. The check lists these rows under `local_only`. Run the check again; it fails on a malformed row or a non-prose row without an enforcer, where it runs, or proof.
 
 ## Reply
 

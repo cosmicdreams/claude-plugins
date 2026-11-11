@@ -4,6 +4,7 @@
 
 - `workshop:harden` works on a repository's own checks too. New `scripts/mine_evidence.py` collects a repository's fix and revert commits, failed CI runs, inline review comments and saved review-loop ledgers as JSON for the skill to group into mistake classes.
 - `rule_table.py check --table` finds the rule table anywhere in a file, so a repository can keep its rules and enforcers in `AGENTS.md`.
+- The rule table gains a `Runs in` column (`ci`, `local` or `both`), required for enforced rows. `check` lists local-only enforcers under `local_only`, and in repository mode `harden` treats them as prose until CI backs them. `harden` also proves a check against what ships: the index for a pre-commit check, deployed packages for a dependency check, every config collection.
 
 ## 2.7.0 — 2026-11-06
 

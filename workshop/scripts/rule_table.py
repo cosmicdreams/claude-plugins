@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Validate the rule-to-enforcer table used by workshop:harden. Stdlib only.
 
-check [--table PATH]: print one JSON object with the rows that need hardening.
-Exit 0 = table valid, 1 = malformed table or a non-prose row without enforcer or proof.
+check [--table PATH]: print one JSON object with the rows that need hardening and the
+enforcers that run only on a contributor's machine.
+Exit 0 = table valid, 1 = malformed table or a non-prose row without enforcer, runs-in or proof.
 """
 import argparse
 import json
@@ -10,7 +11,8 @@ import sys
 from pathlib import Path
 
 LEVELS = ('architecture', 'hook', 'schema', 'lint', 'test', 'prose')
-COLUMNS = ['rule', 'source', 'level', 'enforcer', 'proven on', 'repeats']
+RUNS_IN = ('ci', 'local', 'both')
+COLUMNS = ['rule', 'source', 'level', 'enforcer', 'runs in', 'proven on', 'repeats']
 DEFAULT = Path(__file__).resolve().parent.parent / 'references' / 'rule-enforcers.md'
 
 
@@ -46,9 +48,12 @@ def parse(text):
         if level not in LEVELS:
             errors.append(f"row {n}: level must be one of {', '.join(LEVELS)}")
         if level != 'prose':
-            for name in ('enforcer', 'proven on'):
+            for name in ('enforcer', 'runs in', 'proven on'):
                 if not row[name]:
                     errors.append(f'row {n} ({row["rule"]}): {name} is required for level {level}')
+        row['runs in'] = row['runs in'].lower()
+        if row['runs in'] and row['runs in'] not in RUNS_IN:
+            errors.append(f"row {n}: runs in must be one of {', '.join(RUNS_IN)}")
         try:
             row['repeats'] = int(row['repeats'] or 0)
             if row['repeats'] < 0:
@@ -65,7 +70,8 @@ def check(path):
     rows, errors = parse(Path(path).read_text(encoding='utf-8'))
     candidates = [dict(rule=r['rule'], source=r['source'], repeats=r['repeats'])
                   for r in rows if r['level'] == 'prose' and r['repeats'] >= 2]
-    return dict(ok=not errors, errors=errors, rows=len(rows), harden=candidates)
+    local_only = [r['rule'] for r in rows if r['level'] != 'prose' and r['runs in'] == 'local']
+    return dict(ok=not errors, errors=errors, rows=len(rows), harden=candidates, local_only=local_only)
 
 
 def main(argv=None):
