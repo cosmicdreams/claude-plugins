@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{meta.project}} — traffic trends, {{meta.month_label}}</title>
+  {{> head-theme-init}}
+  <style>
+    {{{css}}}
+    .data-table { width: 100%; border-collapse: collapse; margin: var(--space-md) 0 var(--space-xl); font-size: var(--font-body-sm-size); }
+    .data-table th, .data-table td { text-align: left; padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--color-border); vertical-align: top; }
+    .data-table th { color: var(--color-text-muted); font-weight: 500; text-transform: uppercase; font-size: var(--font-label-size); letter-spacing: var(--font-label-tracking); }
+    .data-table td.num, .data-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .data-table code { font-family: var(--font-mono-family); font-size: 0.85em; word-break: break-all; }
+    .legend { display: flex; flex-wrap: wrap; gap: var(--space-md); margin: 0 0 var(--space-xl); padding: 0; list-style: none; font-size: var(--font-body-sm-size); }
+    .legend__swatch { display: inline-block; width: 12px; height: 3px; margin-right: var(--space-xs); vertical-align: middle; }
+    .notes { background: var(--color-tint-yellow); border-radius: var(--rounded-md); padding: var(--space-md) var(--space-lg); margin: var(--space-md) 0 var(--space-xl); font-size: var(--font-body-sm-size); }
+    .notes ul { margin: var(--space-xs) 0 0; padding-left: var(--space-lg); }
+    .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-lg); }
+    .chart-group--wide .chart { grid-template-columns: 16em 1fr 9em; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  {{> report-header
+      title=(concat meta.project " traffic trends")
+      meta=(concat meta.month_label " · " meta.env)}}
+
+  <main class="page-body">
+
+    <h1 class="display">Traffic trends, {{meta.month_label}}</h1>
+    <p class="subtitle">How traffic to {{meta.project}} changed month by month, from its web server access logs: volume, response time, who is visiting, which pages they hit and what probes for weaknesses. Comparisons use per-day rates, so months with missing days compare fairly.</p>
+
+    {{#if notes.length}}
+    <div class="notes" role="note">
+      <strong>Coverage</strong>
+      <ul>{{#each notes}}<li>{{this}}</li>{{/each}}</ul>
+    </div>
+    {{/if}}
+
+    <h2 class="section">{{meta.latest_label}} at a glance</h2>
+    <div class="metric-row">
+      {{> metric-card label="Requests a day" value=(fmt latest.requests_per_day)
+          hint=(concat change_labels.requests_per_day_pct " vs " meta.prior_label)}}
+      {{> metric-card label="Unique visitors a day" value=(fmt latest.daily_unique_ips)
+          hint=(concat change_labels.daily_unique_ips_pct " · distinct client IP addresses")}}
+      {{> metric-card label="Slowest 5% of responses" value=(concat (fmt latest.p95_ms) " ms")
+          hint=(concat change_labels.p95_ms_pct " · 95th percentile response time")}}
+      {{> metric-card label="Server errors" value=(fmt latest.s5xx)
+          hint=(concat latest.share_5xx "% of requests returned 5xx")}}
+    </div>
+
+    <h2 class="section">Volume and speed over time</h2>
+    <div class="chart-grid">
+      {{#if series.requests_per_day.length}}
+      {{> chart-line line=(lineChart series.requests_per_day) title="Requests per day, monthly average"}}
+      {{/if}}
+      {{#if series.p95_ms.length}}
+      {{> chart-line line=(lineChart series.p95_ms) title="95th percentile response time (ms)"}}
+      {{/if}}
+    </div>
+    {{#if series.daily_requests.length}}
+    {{> chart-line line=(lineChart series.daily_requests) title=(concat "Requests each day in " meta.latest_label)}}
+    {{/if}}
+
+    <table class="data-table">
+      <thead><tr>
+        <th>Month</th><th class="num">Days</th><th class="num">Requests/day</th><th class="num">Unique IPs/day</th>
+        <th class="num">p95 ms</th><th class="num">4xx %</th><th class="num">5xx %</th>
+      </tr></thead>
+      <tbody>
+      {{#each months}}
+      <tr>
+        <td>{{label}}</td>
+        {{#if has_data}}
+        <td class="num">{{present_days}}/{{expected_days}}</td><td class="num">{{fmt requests_per_day}}</td>
+        <td class="num">{{fmt daily_unique_ips}}</td><td class="num">{{fmt p95_ms}}</td>
+        <td class="num">{{share_4xx}}</td><td class="num">{{share_5xx}}</td>
+        {{else}}
+        <td class="num">0</td><td class="num" colspan="5">no logs</td>
+        {{/if}}
+      </tr>
+      {{/each}}
+      </tbody>
+    </table>
+
+    <h2 class="section">Who is visiting</h2>
+    <p>Share of requests by kind of visitor, classified from the user agent each client reports. Bots can claim to be browsers, so "Browsers" is an upper bound on human traffic.</p>
+    {{> chart-line line=(lineChart series.agent_share) title="Share of requests by visitor type (%)"}}
+    <ul class="legend">
+      {{#each series.agent_share}}
+      <li><span class="legend__swatch" style="background: var(--color-series-{{slot}})"></span>{{label}}</li>
+      {{/each}}
+    </ul>
+
+    <h3>Named crawlers and bots in {{meta.latest_label}}</h3>
+    <div class="chart-group--wide">
+      {{#each agents}}
+      {{> chart-bar label=(concat agent_name " · " class_label) value=(concat (fmt requests) " · " change_label) share=share_pct width=width_pct accent=@first}}
+      {{/each}}
+    </div>
+    <p style="color: var(--color-text-muted); font-size: var(--font-body-sm-size);">Each bar shows requests and the change in requests per day against {{meta.prior_label}}.</p>
+
+    <h2 class="section">Busiest pages</h2>
+    <table class="data-table">
+      <thead><tr><th>Route</th><th class="num">Requests</th><th class="num">Change/day</th><th class="num">p95 ms</th><th class="num">Non-human %</th></tr></thead>
+      <tbody>
+      {{#each routes_by_requests}}
+      <tr><td><code>{{route}}</code></td><td class="num">{{fmt requests}}</td><td class="num">{{change_label}}</td><td class="num">{{fmt p95_ms}}</td><td class="num">{{share_non_human}}</td></tr>
+      {{/each}}
+      </tbody>
+    </table>
+
+    <h3>Where server time goes</h3>
+    <table class="data-table">
+      <thead><tr><th>Route</th><th class="num">Server hours</th><th class="num">Requests</th><th class="num">p95 ms</th><th class="num">5xx</th></tr></thead>
+      <tbody>
+      {{#each routes_by_time}}
+      <tr><td><code>{{route}}</code></td><td class="num">{{server_hours}}</td><td class="num">{{fmt requests}}</td><td class="num">{{fmt p95_ms}}</td><td class="num">{{fmt s5xx}}</td></tr>
+      {{/each}}
+      </tbody>
+    </table>
+
+    {{#if route_risers.length}}
+    <h3>Rising pages</h3>
+    <table class="data-table">
+      <thead><tr><th>Route</th><th class="num">Requests</th><th class="num">Change/day</th></tr></thead>
+      <tbody>
+      {{#each route_risers}}<tr><td><code>{{route}}</code></td><td class="num">{{fmt requests}}</td><td class="num">{{change_label}}</td></tr>{{/each}}
+      </tbody>
+    </table>
+    {{/if}}
+    {{#if route_fallers.length}}
+    <h3>Falling pages</h3>
+    <table class="data-table">
+      <thead><tr><th>Route</th><th class="num">Requests</th><th class="num">Change/day</th></tr></thead>
+      <tbody>
+      {{#each route_fallers}}<tr><td><code>{{route}}</code></td><td class="num">{{fmt requests}}</td><td class="num">{{change_label}}</td></tr>{{/each}}
+      </tbody>
+    </table>
+    {{/if}}
+
+    <h2 class="section">Probes for weaknesses</h2>
+    <p>Requests for paths a Drupal site never serves, which usually come from automated vulnerability scanners. A probe that gets a 200 response deserves a closer look.</p>
+    <table class="data-table">
+      <thead><tr>
+        <th>Probe</th>
+        {{#each series.requests_per_day}}<th class="num">{{label}}</th>{{/each}}
+        <th class="num">Answered 200</th>
+      </tr></thead>
+      <tbody>
+      {{#each probes}}
+      <tr>
+        <td>{{label}}</td>
+        {{#each per_day_by_month}}<td class="num">{{fmt value}}</td>{{/each}}
+        <td class="num">{{fmt answered_200}}</td>
+      </tr>
+      {{/each}}
+      </tbody>
+    </table>
+    <p style="color: var(--color-text-muted); font-size: var(--font-body-sm-size);">Month columns are probe requests per day. "Answered 200" counts {{meta.latest_label}}.</p>
+
+    {{#if hosts.length}}
+    <h2 class="section">Hostnames</h2>
+    <div class="chart-group--wide">
+      {{#each hosts}}
+      {{> chart-bar label=host value=(fmt requests) share=share_pct width=width_pct accent=@first}}
+      {{/each}}
+    </div>
+    {{/if}}
+
+  </main>
+
+  {{> report-footer
+      preparedBy="Prepared by Velir · drover access-log trends"
+      generatedAt=generatedAt}}
+</div>
+{{> theme-toggle-script}}
+</body>
+</html>

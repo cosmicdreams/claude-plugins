@@ -1,8 +1,8 @@
-# drover 5.0
+# drover 5.2
 
-> Drupal/Acquia application-error log analysis. Pulls historical logs by date, fingerprints + diagnoses errors, renders monthly reports stakeholders can read, and emits diagnosed evidence for process-lab ticket recommendations.
+> Drupal/Acquia log analysis. Pulls historical logs by date, fingerprints + diagnoses errors, renders monthly reports stakeholders can read, emits diagnosed evidence for process-lab ticket recommendations, and charts access-log traffic trends across months.
 
-## What 5.0 is
+## What 5.2 is
 
 A small pipeline of three skills that runs in Claude Code:
 
@@ -12,9 +12,9 @@ A small pipeline of three skills that runs in Claude Code:
 /drover:report          Render monthly HTML/Markdown reports and final PDFs
 ```
 
-CLI-first. Pure stdlib Python. No dashboard, no daemon, no kanban board. Run it when you want, get a report.
+CLI-first. Pure stdlib Python, plus an optional `clickhouse` binary for access-log trends. No dashboard, no daemon, no kanban board. Run it when you want, get a report.
 
-## What 5.0 is not
+## What 5.2 is not
 
 - Not a monitoring tool (no live tail, no SSE, no alerts)
 - Not auto-fixing anything (no implementer agent)
@@ -89,6 +89,14 @@ Deterministic — same logs in, same report out. No LLM in the rendering path. T
 
 HTML is the default editable report artifact and PDF is the final delivery artifact. The HTML renderer includes the same five application-log templates plus `cloudflare-summary`. It discovers additional project templates from `.drover/templates`, exposes reusable report partials documented in `render-html/COMPONENTS.md`, and automatically uses a project design at `.drover/design/DESIGN.md` before falling back to the bundled Velir design.
 
+### Access-log traffic trends
+
+`scripts/trends.py` answers "how is this site's traffic changing?" from `apache-access` logs: requests and unique visitors per day, response times, error rates, the share of browsers, search engines, AI crawlers and other bots, the busiest and slowest routes with their risers and fallers, probes for weaknesses (`/_fragment`, WordPress paths, secret files, admin tools), and hostnames. It compares the last N months (default 6) using per-day rates, so months with missing days compare fairly, and renders Markdown, JSON, or HTML through the `traffic-trends` template.
+
+Each month is summarised once by `clickhouse local` into `.drover/rollups/<env>/apache-access/<YYYY-MM>.json` (tens of kilobytes; aggregate counts, top routes and named user agents, no raw lines). A rollup is rebuilt only when that month's log files change, so a six-month report costs one scan per new month and reruns in under a second. On a busy site a month takes about 7 seconds and 1.6 GB of memory to summarise. ClickHouse is optional and about 1 GB on disk; only building a rollup needs it, and error reports never do. See [ClickHouse in DEPENDENCIES.md](../DEPENDENCIES.md#clickhouse).
+
+Access logs are not collected by default. `drover:init` asks whether to add `apache-access` to an environment's types; they are the largest log type, so they cost the most disk.
+
 Final PDF conversion is supported through installed Chrome, Chromium, or Edge with `render-html/render-pdf.mjs`. Safari and Firefox printing are manual fallbacks. See `render-html/PDF.md` for the browser support matrix and delivery checks.
 
 ## How it gets logs
@@ -144,6 +152,8 @@ Each pattern entry yields a one-line headline, 1–3 sentence explanation, sugge
 | Charts | `scripts/charts.py` | Unicode bar charts (markdown-renderer-portable) |
 | Branding | `scripts/branding.py` | Velir 2025 palette + base64-embedded logo |
 | Report render | `scripts/report.py` | Five deterministic templates → markdown |
+| Traffic trends | `scripts/trends.py`, `scripts/sql/access_rollup.sql` | Monthly access-log rollups via `clickhouse local`; trend JSON and Markdown |
+| ClickHouse discovery | `scripts/clickhouse.py` | Finds the binary (`DROVER_CLICKHOUSE`, then `PATH`), checks the version, runs queries |
 | HTML render | `render-html/render.mjs` | Discovered Handlebars templates + reusable components → self-contained HTML |
 | PDF delivery | `render-html/render-pdf.mjs` | Chrome/Chromium/Edge print pipeline → final PDF |
 | Synthesize (future) | `scripts/report_writer.py` + `agents/report-writer.md` | LLM prose on top of the deterministic report |
@@ -156,7 +166,7 @@ Each pattern entry yields a one-line headline, 1–3 sentence explanation, sugge
 python3 -m unittest discover -s drover/tests/python -p 'test_*.py'
 ```
 
-373 tests across 16 modules. The HTTP-touching suites (`test_acquia_log_download`, `test_init`) use stub HTTP servers; nothing in the suite contacts a real Acquia or Atlassian endpoint. `test_jev_client` has one live TypeSafe smoke test, skipped unless `TYPESAFE_API_KEY` is set. Live verification scripts under `/tmp/recon-*.py` are not part of CI.
+382 tests across 17 modules. The access-log rollup tests in `test_trends` need ClickHouse and are skipped without it; CI runs them against a pinned build. The HTTP-touching suites (`test_acquia_log_download`, `test_init`) use stub HTTP servers; nothing in the suite contacts a real Acquia or Atlassian endpoint. `test_jev_client` has one live TypeSafe smoke test, skipped unless `TYPESAFE_API_KEY` is set. Live verification scripts under `/tmp/recon-*.py` are not part of CI.
 
 ## Future work
 

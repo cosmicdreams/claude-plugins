@@ -16,6 +16,18 @@ No install. Uses the host's Slack connector, signed in through the host's connec
 
 ---
 
+## drover:report (access-log trends)
+
+| Dependency | macOS | Linux sandbox | Auth |
+|---|---|---|---|
+| clickhouse (optional, about 1 GB) | `brew install --cask clickhouse` | `curl https://clickhouse.com/ \| sh`, then move `./clickhouse` onto `PATH` | — |
+
+Optional and large: ask before installing, including during a bulk install. Only drover's access-log trend reports need it; error reports run without it.
+
+**Env vars (optional):** `DROVER_CLICKHOUSE` (path to the binary), `DROVER_CLICKHOUSE_MAX_MEMORY` (bytes per query).
+
+---
+
 ## lib:github
 
 | Dependency | macOS | Linux sandbox | Auth |
