@@ -901,6 +901,42 @@ RENDERERS = {
 
 # --- Orchestrator ---------------------------------------------------------
 
+def resolve_types(
+    manifest: dict, env: str, types: list[str] | None,
+) -> tuple[list[str], list[str]]:
+    """Return (types to report on, manifest types skipped for lack of a parser).
+
+    Without `types`, the env's manifest entry decides, and types drover has no
+    parser for (such as apache-access, which acquia-pull fetches) are skipped
+    rather than failing after every other file has been parsed. Explicitly
+    requested types must all be parseable.
+    """
+    known = set(_aggregate.parsers.PARSERS)
+    if types is not None:
+        unknown = [t for t in types if t not in known]
+        if unknown:
+            raise ValueError(
+                f"no parser for log type(s) {unknown}. Known: {sorted(known)}"
+            )
+        return types, []
+    env_entry = next(
+        (e for e in manifest["acquia"]["envs"] if e["name"] == env),
+        None,
+    )
+    if env_entry is None:
+        raise ValueError(
+            f"env '{env}' not in manifest. "
+            f"Available: {[e['name'] for e in manifest['acquia']['envs']]}"
+        )
+    # An explicit empty list means no logs; only an absent key defaults.
+    listed = (
+        (env_entry.get("types") or [])
+        if "types" in env_entry else ["drupal-watchdog"]
+    )
+    return ([t for t in listed if t in known],
+            [t for t in listed if t not in known])
+
+
 def generate_report(
     project_root: Path,
     *,
@@ -920,22 +956,7 @@ def generate_report(
     jev_stats: dict | None = {"jev": 0, "fallback": 0} if jev is not None else None
     manifest = load_manifest(project_root)
     project = manifest.get("project") or project_root.name
-
-    if types is None:
-        env_entry = next(
-            (e for e in manifest["acquia"]["envs"] if e["name"] == env),
-            None,
-        )
-        if env_entry is None:
-            raise ValueError(
-                f"env '{env}' not in manifest. "
-                f"Available: {[e['name'] for e in manifest['acquia']['envs']]}"
-            )
-        # An explicit empty list means no logs; only an absent key defaults.
-        types = (
-            (env_entry.get("types") or [])
-            if "types" in env_entry else ["drupal-watchdog"]
-        )
+    types, skipped_types = resolve_types(manifest, env, types)
 
     from_d, to_d = parse_month(month)
     # Jev only sees the report month; the prior month feeds count deltas.
@@ -1013,6 +1034,7 @@ def generate_report(
             if coverage["expected_days"] else 100.0
         ),
         "template": template,
+        "skipped_types": skipped_types,
     }
     if jev_stats is not None:
         summary["jev"] = jev_stats
@@ -1083,7 +1105,7 @@ def generate_data(
         drover_schema_version: 2,
         generated_at: ISO-8601,
         meta: {project, env, month, month_label, prior_month, from, to,
-               types},
+               types, skipped_types},
         coverage: {expected_days, present_days, coverage_pct,
                    missing_or_failed: [...]},
         totals: {events_total, groups_total, supplementary_groups_total,
@@ -1099,22 +1121,7 @@ def generate_data(
     jev_stats: dict | None = {"jev": 0, "fallback": 0} if jev is not None else None
     manifest = load_manifest(project_root)
     project = manifest.get("project") or project_root.name
-
-    if types is None:
-        env_entry = next(
-            (e for e in manifest["acquia"]["envs"] if e["name"] == env),
-            None,
-        )
-        if env_entry is None:
-            raise ValueError(
-                f"env '{env}' not in manifest. "
-                f"Available: {[e['name'] for e in manifest['acquia']['envs']]}"
-            )
-        # An explicit empty list means no logs; only an absent key defaults.
-        types = (
-            (env_entry.get("types") or [])
-            if "types" in env_entry else ["drupal-watchdog"]
-        )
+    types, skipped_types = resolve_types(manifest, env, types)
 
     from_d, to_d = parse_month(month)
     agg = _aggregate.aggregate_files(
@@ -1182,6 +1189,7 @@ def generate_data(
             "from": from_d.isoformat(),
             "to": to_d.isoformat(),
             "types": list(types),
+            "skipped_types": list(skipped_types),
             "has_prior": has_prior,
         },
         "coverage": {
@@ -1259,6 +1267,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
+def _warn_skipped(skipped: list[str]) -> None:
+    if skipped:
+        print(f"note: skipped log type(s) with no drover parser: "
+              f"{', '.join(skipped)}", file=sys.stderr)
+
+
 def cli_main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     project_root = find_drover_root(args.project.resolve())
@@ -1292,6 +1306,7 @@ def cli_main(argv: list[str] | None = None) -> int:
             print(f"ERROR: {e}", file=sys.stderr)
             return 2
 
+        _warn_skipped(data["meta"]["skipped_types"])
         out = args.out or (
             project_root / "reports" / f"{args.month}.json"
         )
@@ -1322,6 +1337,7 @@ def cli_main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
 
+    _warn_skipped(summary["skipped_types"])
     out = args.out or (
         project_root / "reports"
         / f"{args.month}-{args.template}.md"
