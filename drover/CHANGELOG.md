@@ -1,5 +1,11 @@
 # drover Changelog
 
+## 5.1.1 — 2026-11-11
+
+### Fixed
+
+- `report.py` no longer fails after parsing a whole month when the manifest lists a log type drover has no parser for. `acquia-pull` fetches `apache-access`, so projects with it in their manifest got `no parser for log_type='apache-access'` only after every other file was parsed. Those types are now skipped with a `note:` line on stderr and recorded as `meta.skipped_types` in the JSON and `skipped_types` in the summary. Naming an unparseable type in `--types` still fails, now before any parsing.
+
 ## 5.1.0 — 2026-10-29
 
 ### Added

@@ -102,6 +102,8 @@ python3 "$REPORT_PY" --month 2026-04 --types drupal-watchdog
 
 The CLI prints events, groups, and coverage, then writes the report and, for stakeholder templates, `reports/<month>-<template>.evidence.json`.
 
+Without `--types`, the report covers the manifest's types that drover can parse (apache-error, drupal-watchdog, php-error). Others the manifest lists, such as `apache-access`, are skipped with a `note:` line on stderr and recorded in the JSON as `meta.skipped_types`. Naming an unparseable type in `--types` is an error.
+
 ## Step 2b: HTML output (default report artifact)
 
 For a polished, self-contained HTML report (Velir-branded, all CSS inlined), use the two-stage Python→Node path: `report.py` emits a structured JSON aggregate, and the Node renderer turns that JSON + the design tokens into HTML.

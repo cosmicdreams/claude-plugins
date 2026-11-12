@@ -465,6 +465,72 @@ class CliTests(unittest.TestCase):
             self.assertEqual(rc, 2)
 
 
+# --- Log types without a parser ------------------------------------------
+
+def _add_access_log(root: pathlib.Path):
+    """List apache-access in the manifest (as drover:init does) and pull a
+    file for it, the way acquia-pull leaves real projects."""
+    manifest_path = root / ".drover" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["acquia"]["envs"][0]["types"] = ["drupal-watchdog", "apache-access"]
+    manifest_path.write_text(json.dumps(manifest))
+    (root / "2026" / "04" / "2026-04-15.prod.apache-access.log").write_text(
+        '1.2.3.4 - - [15/Apr/2026:00:00:00 +0000] "GET / HTTP/1.1" 200 5 "-" "ua"\n'
+    )
+
+
+class UnparsedTypeTests(unittest.TestCase):
+    def test_manifest_type_without_parser_is_skipped_in_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            _add_access_log(root)
+            data = report.generate_data(
+                root, env="prod", month="2026-04", prior_month_str=None,
+            )
+            self.assertEqual(data["meta"]["types"], ["drupal-watchdog"])
+            self.assertEqual(data["meta"]["skipped_types"], ["apache-access"])
+            self.assertEqual(data["totals"]["events_total"], 3)
+
+    def test_manifest_type_without_parser_is_skipped_in_markdown(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            _add_access_log(root)
+            _, summary, _ = report.generate_report(
+                root, env="prod", month="2026-04", prior_month_str=None,
+            )
+            self.assertEqual(summary["skipped_types"], ["apache-access"])
+            self.assertEqual(summary["events_total"], 3)
+
+    def test_cli_names_skipped_types(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            _add_access_log(root)
+            with mock.patch("sys.stderr") as err:
+                rc = report.cli_main([
+                    "--project", str(root), "--env", "prod",
+                    "--month", "2026-04", "--no-prior", "--format", "json",
+                ])
+            self.assertEqual(rc, 0)
+            written = "".join(c.args[0] for c in err.write.call_args_list)
+            self.assertIn("apache-access", written)
+
+    def test_explicit_type_without_parser_fails_before_parsing(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            _add_access_log(root)
+            with mock.patch.object(report._aggregate, "aggregate_files") as agg:
+                rc = report.cli_main([
+                    "--project", str(root), "--env", "prod", "--month", "2026-04",
+                    "--no-prior", "--types", "drupal-watchdog,apache-access",
+                ])
+            self.assertEqual(rc, 2)
+            agg.assert_not_called()
+
+
 # --- generate_data: structured aggregate for the HTML renderer -----------
 
 class GenerateDataTests(unittest.TestCase):
