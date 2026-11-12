@@ -57,6 +57,22 @@ python3 "$INIT_PY" --force
 python3 "$INIT_PY" --app AHRI
 ```
 
+### Access logs for traffic trends
+
+Init keeps the application-error types (`apache-error`, `drupal-watchdog`, `php-error`). Before running it, ask the user whether to also collect `apache-access` for traffic-trend reports, and say what it costs: access logs are the largest log type, about 1.5 GB of text a month on a busy site (roughly ten times smaller gzipped as stored). If they say yes:
+
+```bash
+python3 "$INIT_PY" --types apache-error,drupal-watchdog,php-error,apache-access
+```
+
+Trend reports also need ClickHouse. Report whether this machine has it, and which version, with:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/clickhouse.py"
+```
+
+The engine is per machine, so nothing about ClickHouse is written to the manifest. Do not install it unasked; it is about 1 GB. See `drover:report` for the install commands.
+
 ## What it looks at
 
 In priority order — any one source is enough to resolve the app:

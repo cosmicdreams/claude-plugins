@@ -1,0 +1,49 @@
+name: Drover tests
+
+on:
+  pull_request:
+    paths:
+      - 'drover/**'
+      - '.github/workflows/drover-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'drover/**'
+      - '.github/workflows/drover-tests.yml'
+
+jobs:
+  test:
+    name: Python tests (no ClickHouse)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m unittest discover -s drover/tests/python -p 'test_*.py'
+
+  clickhouse:
+    name: Python tests with ClickHouse
+    runs-on: ubuntu-latest
+    env:
+      CH_VERSION: 26.10.2.103
+      CH_SHA512: e892b6d0b75d8420a48ab3d0f1ab7f4cd145bcfe364ef8d068354b5c3f8c9b6f168ce2ee7696dc5537509ba3406ba6bac6b7144a09e45213d612296d03b74da7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned clickhouse-local
+        run: |
+          tgz="clickhouse-common-static-${CH_VERSION}-amd64.tgz"
+          curl -fsSL -o "$tgz" "https://github.com/ClickHouse/ClickHouse/releases/download/v${CH_VERSION}-stable/${tgz}"
+          echo "${CH_SHA512}  ${tgz}" | sha512sum -c -
+          tar -xzf "$tgz"
+          bin="$(find . -path '*/usr/bin/clickhouse' -type f | head -1)"
+          echo "DROVER_CLICKHOUSE=$PWD/${bin#./}" >> "$GITHUB_ENV"
+      - run: '"$DROVER_CLICKHOUSE" local --version'
+      - name: Run tests, failing if the ClickHouse tests were skipped
+        run: |
+          python3 -m unittest -v drover.tests.python.test_trends 2>&1 | tee trends.log
+          if grep -q "skipped" trends.log; then echo "ClickHouse tests were skipped"; exit 1; fi
+          python3 -m unittest discover -s drover/tests/python -p 'test_*.py'

@@ -1,5 +1,19 @@
 # drover Changelog
 
+## 5.2.0 — 2026-11-12
+
+### Added
+
+- Access-log traffic trends. `scripts/trends.py` compares the last N months (default 6) of `apache-access` logs: requests and unique visitors per day, p50/p95 response time, 4xx and 5xx shares, the share of browsers, search engines, AI crawlers and other bots with named agents, busiest and slowest routes with risers and fallers, probes for weaknesses (`/_fragment`, WordPress paths, secret files, admin tools) and the share answered 200, and hostnames. Comparisons use per-day rates, so months with missing days and the month in progress compare fairly. Output is Markdown, or JSON for the new `traffic-trends` HTML template.
+- Monthly rollups. `clickhouse local` summarises each month once into `.drover/rollups/<env>/apache-access/<YYYY-MM>.json` (`scripts/sql/access_rollup.sql`); a rollup is rebuilt only when that month's log files change. On a busy site a month takes about 7 seconds and 1.6 GB of memory; rerunning a report with current rollups takes under a second and needs no ClickHouse.
+- `scripts/clickhouse.py` finds ClickHouse (`DROVER_CLICKHOUSE`, then `clickhouse` on `PATH`), requires version 26.10 or newer, caps query memory (`DROVER_CLICKHOUSE_MAX_MEMORY`, default 4 GB) and prints install steps when it is missing. ClickHouse is optional; error reports never use it.
+- `drover:init` asks whether to collect `apache-access` for trends and states the disk cost. `drover:report` documents the trend workflow and asks before installing ClickHouse (about 1 GB).
+- `.github/workflows/drover-tests.yml`: drover's Python tests in CI, plus a job that runs the rollup tests against a pinned, checksum-verified ClickHouse 26.10 build.
+
+### Changed
+
+- README, ONBOARDING (no longer titled "drover 2.0"), `DEPENDENCIES.md` and the `admin:install` dependency map cover ClickHouse.
+
 ## 5.1.1 — 2026-11-11
 
 ### Fixed

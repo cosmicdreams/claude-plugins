@@ -11,7 +11,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | admin | [python3](#python3) | [Beads](#bd-beads) (`scaffold`), [jq](#jq) (scaffold detection hook), [headroom](#headroom-and-rtk) |
 | design-lab | Node 24 / npm, [Figma](#figma) | Pinned Node dependencies and Chromium via `node scripts/lab_setup.ts install playwright` (shared cache); [ddev](#ddev) (Drupal usage counts) |
 | golden-rule | macOS (`/usr/bin/sandbox-exec`), [python3](#python3) (`/usr/bin/python3`), Claude Code 2.1.287 or later (mods) | none |
-| drover | [python3](#python3), [Acquia credentials](#acli-acquia-command-line-tool) | [node / npm](#node--npm) (web-page reports), [Chrome or Chromium](#chrome-or-chromium) (Portable Document Format reports), [TypeSafe](#typesafe-api-key) |
+| drover | [python3](#python3), [Acquia credentials](#acli-acquia-command-line-tool) | [node / npm](#node--npm) (web-page reports), [Chrome or Chromium](#chrome-or-chromium) (Portable Document Format reports), [TypeSafe](#typesafe-api-key), [clickhouse](#clickhouse) (access-log trends) |
 | drupal-lab | [python3](#python3), [ddev](#ddev), [jq](#jq) | [twg](#twg) (`sprint-start`, `release-cut`, `branch-audit`), [Beads](#bd-beads) (development-environment slot tracking), [Obsidian](#obsidian), [headroom and rtk](#headroom-and-rtk) |
 | ideas-funnel | [python3](#python3), [Obsidian](#obsidian) | [Beads](#bd-beads), [TypeSafe](#typesafe-api-key), [headroom](#headroom-and-rtk) |
 | ideate | [node / npm](#node--npm) (`brainstorm`; `diagram` needs Node 22+ for the [Excalidraw CLI](#excalidraw-cli)) | [Obsidian](#obsidian) (archiving) |
@@ -40,6 +40,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | [Excalidraw CLI](#excalidraw-cli) | `npm i -g @excalidraw/cli` (or run through `npx`) |
 | [Playwright](#playwright) | `npm i -D playwright && npx playwright install chromium` (per project) |
 | [Chrome or Chromium](#chrome-or-chromium) | any desktop install |
+| [clickhouse](#clickhouse) | `brew install --cask clickhouse` (about 1 GB; ask first) |
 | [nlm (NotebookLM)](#nlm-notebooklm-command-line-tool) | `uv tool install notebooklm-mcp-cli` |
 | [ffmpeg](#ffmpeg) | `brew install ffmpeg` |
 | [lighthouse](#lighthouse) | `npm i -g lighthouse` |
@@ -265,6 +266,19 @@ npx playwright install chromium
 Drover renders Portable Document Format reports with a local Chrome or Chromium. Point `DROVER_PDF_BROWSER` at the browser binary if it is not found automatically.
 
 **Used by:** optionally drover (`report`)
+
+---
+
+## clickhouse
+
+Optional and large: the single `clickhouse` binary is about 1 GB, so ask before installing it. Drover uses `clickhouse local` (no server, no account) to summarise each month of Acquia access logs for traffic-trend reports. Error reports do not need it.
+
+- macOS: `brew install --cask clickhouse`
+- Linux: `curl https://clickhouse.com/ | sh`, then move `./clickhouse` onto `PATH`
+
+Version 26.10 or newer. Drover looks for `DROVER_CLICKHOUSE` (a path to the binary) first, then `clickhouse` on `PATH`; `python3 drover/scripts/clickhouse.py` prints what it found. `DROVER_CLICKHOUSE_MAX_MEMORY` caps each query's memory in bytes (default 4 GB).
+
+**Used by:** optionally drover (`report`, access-log trends)
 
 ---
 

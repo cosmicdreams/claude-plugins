@@ -4,7 +4,8 @@ description: >
   Render a calendar-month log report from local logs and the coverage ledger:
   Velir-branded HTML by default, PDF for delivery, markdown as fallback. Stakeholder
   templates add charts and a diagnosed `.evidence.json` sidecar. `process-lab:recommend-tickets` turns it into ticket recommendations. Custom
-  Handlebars templates go in .drover/templates. Deterministic.
+  Handlebars templates go in .drover/templates. Also access-log traffic trends
+  across months (needs ClickHouse). Deterministic.
 allowed-tools: Bash, Read, AskUserQuestion
 ---
 
@@ -181,6 +182,44 @@ Use `--browser /path/to/browser` or `DROVER_PDF_BROWSER` when auto-detection can
 ## Step 3: Use the evidence
 
 The stakeholder report writes `reports/<month>-<template>.evidence.json` beside the report. It contains the reporting window, coverage, total events, and diagnosed groups after shared-cause collapse. Run `process-lab:recommend-tickets` on that file to apply the project's Jira strategy and review ticket suggestions.
+
+## Traffic trends from access logs
+
+Use this when the user asks how traffic is changing rather than what is erroring: volume, response times, bots and AI crawlers, busiest or slowest pages, risers and fallers, or probes for weaknesses. Trigger phrases: "traffic trends", "how is traffic changing", "bot traffic over time", "AI crawler share".
+
+**Prerequisites:**
+
+1. Access logs on disk. The environment's manifest `types` must include `apache-access` and `/drover:acquia-pull` must have fetched it. If not, say so and offer to add it (see `drover:init`, "Access logs for traffic trends"), stating the disk cost.
+2. ClickHouse, to summarise months that have no current rollup. Check which engine is available first:
+
+```bash
+python3 "${PLUGIN_ROOT}/scripts/clickhouse.py"   # prints "clickhouse <version> at <path>", or exits 3 with install steps
+```
+
+If it is missing, ask before installing: it is about 1 GB. Never install it unasked. macOS: `brew install --cask clickhouse`. Linux: `curl https://clickhouse.com/ | sh`, then move `./clickhouse` onto `PATH`. `DROVER_CLICKHOUSE` points drover at a binary elsewhere; version 26.10 or newer is required. `DROVER_CLICKHOUSE_MAX_MEMORY` caps each query's memory in bytes (default 4 GB).
+
+**Run:**
+
+```bash
+TRENDS_PY="${PLUGIN_ROOT}/scripts/trends.py"
+
+# Last 6 months up to the latest month with access logs, as Markdown
+python3 "$TRENDS_PY"
+
+# Twelve months through September, another env
+python3 "$TRENDS_PY" --months 12 --through 2026-09 --env test
+
+# HTML: JSON first, then the traffic-trends template
+python3 "$TRENDS_PY" --format json            # → reports/trends-<month>.json
+node "${PLUGIN_ROOT}/render-html/render.mjs" \
+  --data reports/trends-2026-10.json --template traffic-trends
+```
+
+`trends.py` exits 2 when there is no manifest or no access logs, and 3 when a month needs summarising and no usable ClickHouse is found; the message says which.
+
+**Rollups.** Each month is summarised once into `.drover/rollups/<env>/apache-access/<YYYY-MM>.json`: aggregate counts, the top 200 routes, named user agents and hosts, never raw lines. A rollup is rebuilt only when that month's log files change (name, size or modification time), or with `--rebuild`. Rollups are safe to delete; they rebuild from the logs. Once every month in the window has a current rollup, the report needs no ClickHouse and takes under a second.
+
+**Reading it.** All comparisons use per-day rates, so a month with missing days, or the month in progress, compares fairly; the coverage notes list missing days. Visitor classes come from the user agent each client reports, so "Browsers" is an upper bound on human traffic. Routes drop the query string and collapse numeric path segments to `{n}`. The day is the log file's day, as in error reports.
 
 ## How prior-month comparison works
 
