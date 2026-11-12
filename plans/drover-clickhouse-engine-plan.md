@@ -5,11 +5,10 @@ Date: 2026-11-11, revised 2026-11-12 (access-log trends first). Status: plan for
 ## Decisions (Chris, 2026-11-11 and 2026-11-12)
 
 - **Optional engine with automatic fallback.** drover uses `clickhouse-local` when it finds the binary and runs today's Python path when it does not. Python stays the reference implementation that parity is measured against. Nobody has to install anything new for drover to keep working.
-- **Access-log trends come first (revised 2026-11-12).** The team increasingly wants trends from access logs, not only errors. So the order is now:
+- **Access-log trends come first (revised 2026-11-12).** The team increasingly wants trends from access logs, not only errors. This replaces the earlier order (engine swap first, then traffic). The order is now:
   - Phase 1 (drover 5.2.0): access-log trend reports. This is a new capability. The engine plumbing, ClickHouse discovery and the documentation overhaul land here, because trends need them.
   - Phase 2 (drover 5.3.0): the engine swap behind today's error reports, with identical output. This is speed only for reports that already work.
   - Phase 3: spread of one error (`--widespread`), cross-project mode and the noise filter.
-  This replaces the earlier order (engine swap first, then traffic).
 - **Jev stays optional with either engine.** ClickHouse does not need Jev. When Jev is enabled, the ClickHouse path must give it the same inputs Python does.
 
 ## What the experiment established
