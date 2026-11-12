@@ -29,7 +29,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from clickhouse import ClickHouseUnavailable, find_clickhouse  # noqa: E402
-from pull import find_log_file  # noqa: E402
+from pull import find_drover_root, find_log_file  # noqa: E402
 
 LOG_TYPE = "apache-access"
 ROLLUP_SCHEMA = 1
@@ -345,6 +345,12 @@ def build_trends(project_name: str, env: str, keys: list[str], rollups: dict[str
 
 # --- markdown ----------------------------------------------------------------
 
+def _md(text: str) -> str:
+    """Show request-controlled text (routes, hosts) inertly in a Markdown table cell."""
+    clean = "".join(ch for ch in str(text) if ch.isprintable())
+    return "`" + clean.replace("`", "%60").replace("|", "%7C") + "`"
+
+
 def _n(v) -> str:
     return "–" if v is None else f"{v:,}" if isinstance(v, int) else f"{v:,.1f}" if isinstance(v, float) else str(v)
 
@@ -388,7 +394,7 @@ def render_markdown(t: dict) -> str:
         lines = ["", f"## {title}", "", "| Route | Requests | Change per day | Server hours | p95 ms | Non-human % |",
                  "|---|---|---|---|---|---|"]
         for r in rows:
-            lines.append(f"| `{r['route'][:90]}` | {_n(r['requests'])} | {_p(r['change_pct'])} | "
+            lines.append(f"| {_md(r['route'][:90])} | {_n(r['requests'])} | {_p(r['change_pct'])} | "
                          f"{_n(r['server_hours'])} | {_n(r['p95_ms'])} | {r['share_non_human']} |")
         return lines
 
@@ -406,7 +412,7 @@ def render_markdown(t: dict) -> str:
                    f" | {_n(p['answered_200'])} |")
     out += ["", "## Hosts", "", "| Host | Requests | Share |", "|---|---|---|"]
     for h in t["hosts"]:
-        out.append(f"| {h['host']} | {_n(h['requests'])} | {h['share_pct']}% |")
+        out.append(f"| {_md(h['host'])} | {_n(h['requests'])} | {h['share_pct']}% |")
     out += ["", f"_Generated {t['generated_at']} by drover trends from {LOG_TYPE} rollups._", ""]
     return "\n".join(out)
 
@@ -428,7 +434,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    project = args.project.resolve()
+    # From a git worktree, the logs and manifest live above worktrees/, as for report.py.
+    project = find_drover_root(args.project.resolve())
     manifest_path = project / ".drover" / "manifest.json"
     if not manifest_path.exists():
         print(f"No manifest at {manifest_path}. Run /drover:init first.", file=sys.stderr)

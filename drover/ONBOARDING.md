@@ -93,7 +93,6 @@ Error reports never read access logs. To see how traffic changes month by month 
 - **Auto-fix / triage agents** — also v1.
 - **Filing JIRA tickets** — reports recommend tickets; people file them. Ticket creation was removed in drover 4.0 and can come back if needed.
 - **Non-Drupal/Acquia platforms** — Sitecore, .NET, Azure MCP, New Relic come in 2.x.
-- **Traffic / access logs** — only application-error types (apache-error, drupal-watchdog, php-error). Adding traffic types is a config one-liner if a client demands it later.
 
 ## Troubleshooting
 

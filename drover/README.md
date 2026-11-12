@@ -166,7 +166,7 @@ Each pattern entry yields a one-line headline, 1–3 sentence explanation, sugge
 python3 -m unittest discover -s drover/tests/python -p 'test_*.py'
 ```
 
-381 tests across 17 modules. The access-log rollup tests in `test_trends` need ClickHouse and are skipped without it; CI runs them against a pinned build. The HTTP-touching suites (`test_acquia_log_download`, `test_init`) use stub HTTP servers; nothing in the suite contacts a real Acquia or Atlassian endpoint. `test_jev_client` has one live TypeSafe smoke test, skipped unless `TYPESAFE_API_KEY` is set. Live verification scripts under `/tmp/recon-*.py` are not part of CI.
+382 tests across 17 modules. The access-log rollup tests in `test_trends` need ClickHouse and are skipped without it; CI runs them against a pinned build. The HTTP-touching suites (`test_acquia_log_download`, `test_init`) use stub HTTP servers; nothing in the suite contacts a real Acquia or Atlassian endpoint. `test_jev_client` has one live TypeSafe smoke test, skipped unless `TYPESAFE_API_KEY` is set. Live verification scripts under `/tmp/recon-*.py` are not part of CI.
 
 ## Future work
 

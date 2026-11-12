@@ -54,6 +54,7 @@ DAY2 = [
     line("192.0.2.10", "02", "GET", "/", 200, 5000, BROWSER, ff="198.51.100.1"),
     line("192.0.2.10", "02", "GET", "/news", 200, 4000, GPT, ff="198.51.100.4", host="Example.ORG"),
     line("192.0.2.12", "02", "GET", "/.env", 404, 10, "python-requests/2.32", ff="203.0.113.10"),
+    line("192.0.2.13", "02", "GET", "/news|`x`", 200, 10, "facebookexternalhit/1.1", ff="203.0.113.11"),
 ]
 
 
@@ -174,6 +175,7 @@ class RollupTests(unittest.TestCase):
         self.assertEqual(agents[("ai", "GPTBot")], 1)
         self.assertEqual(agents[("other-bot", "curl")], 1)
         self.assertEqual(agents[("other-bot", "(no user agent)")], 1)
+        self.assertEqual(agents[("other-bot", "facebookexternalhit")], 1)
         probes = {p["probe"]: p for p in r["probes"]}
         self.assertEqual(probes["symfony-fragment"]["requests"], 1)
         self.assertEqual(probes["wordpress"]["answered_200"], 1)
@@ -205,6 +207,16 @@ class RollupTests(unittest.TestCase):
         self.assertIn("September 2026: no access logs on disk.", t["notes"])
         md = trends.render_markdown(t)
         self.assertIn("## Security probes (requests per day)", md)
+        self.assertIn("| `/news%7C%60x%60` |", md)  # request text cannot break the table
+
+    def test_runs_from_a_git_worktree(self):
+        worktree = self.root / "worktrees" / "topic"
+        worktree.mkdir(parents=True)
+        out = self.root / "w.json"
+        with mock.patch("sys.stderr"):
+            rc = trends.main(["--project", str(worktree), "--months", "1", "--format", "json", "--out", str(out)])
+        self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(out.read_text())["latest"]["requests"], len(DAY1 + DAY2))
 
 
 if __name__ == "__main__":

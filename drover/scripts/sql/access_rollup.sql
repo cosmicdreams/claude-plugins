@@ -26,7 +26,7 @@ SELECT *,
   multiIf(
     match(ua, '(?i)GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|anthropic-ai|PerplexityBot|Perplexity-User|Bytespider|meta-externalagent|meta-externalfetcher|Amazonbot|CCBot|Google-Extended|Applebot-Extended|cohere-ai|Diffbot|DuckAssistBot|MistralAI-User'), 'ai',
     match(ua, '(?i)Googlebot|bingbot|YandexBot|DuckDuckBot|Baiduspider|Applebot|Slurp|SeznamBot|Qwantbot|PetalBot'), 'search',
-    match(ua, '(?i)bot|crawl|spider|slurp|scrapy|curl|wget|python-requests|python-urllib|go-http|okhttp|java/|libwww|httpclient|headless|axios|node-fetch') OR ua IN ('', '-'), 'other-bot',
+    match(ua, '(?i)bot|crawl|spider|slurp|scrapy|curl|wget|python-requests|python-urllib|go-http|okhttp|java/|libwww|httpclient|headless|axios|node-fetch|facebookexternalhit|Pingdom') OR ua IN ('', '-'), 'other-bot',
     'human') AS agent_class,
   multiIf(
     agent_class = 'human', 'browsers',
