@@ -1,0 +1,3 @@
+bin/
+# Generated from client logs: keep out of git.
+results/
