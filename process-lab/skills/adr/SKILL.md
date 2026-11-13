@@ -1,10 +1,10 @@
 ---
 name: adr
 description: >
-  Capture an Architecture Decision Record — context, options considered, decision,
-  consequences — into the Neurons vault at Architecture/ADRs/. Use for tool selection,
-  retirement, process changes, and documenting why something was NOT done. Not for
-  checking what a project's process still requires (process-lab:lint).
+  Record an Architecture Decision Record (ADR) for a decision that is hard to reverse,
+  surprising without context, and a real trade-off. Writes to the repository's docs/adr/,
+  or to the Neurons vault outside a repository. Not for checking what a project's process
+  still requires (process-lab:lint).
 allowed-tools: Bash, Read, Write
 ---
 
@@ -14,82 +14,63 @@ allowed-tools: Bash, Read, Write
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> Capture an Architecture Decision Record (ADR) for a design choice, tool selection, retirement, or process change. Prompts for context, options considered, decision, and consequences. Stores to Neurons vault at Architecture/ADRs/. Use when making a significant technical decision, retiring a tool, choosing between approaches, or documenting why something was NOT done. Trigger phrases: "architecture decision", "adr", "document this decision", "record this decision", "why we chose", "process-lab:adr".
+> Record why a project made a decision, so the next developer or agent doesn't argue it again or "fix" something that was deliberate. Use for architectural shape, integration patterns, technology choices with lock-in, boundary and scope decisions, deliberate deviations from the obvious path, constraints not visible in the code, and documenting why something was NOT done. Trigger phrases: "architecture decision", "adr", "document this decision", "record this decision", "why we chose", "process-lab:adr".
 
-Capture a lightweight ADR and store it to the Neurons vault.
+## Step 1: Test the decision
 
-## Step 1: Gather fields
+Write an ADR only when all three are true:
 
-If not in `$ARGUMENTS`, ask for these. Gather all before writing.
+1. **Hard to reverse:** changing your mind later has a real cost.
+2. **Surprising without context:** a future reader would ask "why did they do it this way?"
+3. **A real trade-off:** there were genuine alternatives, and one was picked for specific reasons.
 
-| Field | Description |
-|---|---|
-| `title` | Short decision title |
-| `status` | `proposed`, `accepted`, `superseded`, or `deprecated` |
-| `context` | What situation prompted this decision? |
-| `options` | What alternatives were considered? |
-| `decision` | What was decided and why? |
-| `consequences` | Results and trade-offs |
-| `supersedes` | (Optional) Title of an ADR this replaces |
+If any is false, name the condition that failed, say you won't write it, and stop. An easy-to-reverse choice gets reversed; an unsurprising one raises no question; one with no alternative has nothing to record.
 
-Extract what you can from `$ARGUMENTS` and ask only for what's missing.
+When the user explicitly asks to record it anyway ("record this decision"), write it and note which condition it failed.
 
-## Step 2: Generate date and slug
+## Step 2: Gather fields
 
-```bash
-date +%Y-%m-%d
-```
+Extract what you can from `$ARGUMENTS` and the conversation; ask only for what's missing.
 
-Slug: lowercase title, spaces → hyphens, strip special characters, max 50 chars.
+| Field | Required | Description |
+|---|---|---|
+| `title` | yes | Short decision title |
+| `summary` | yes | One to three sentences: the context, what was decided, and why |
+| `status` | no | `proposed`, `accepted` (default), `deprecated`, or `superseded` |
+| `options` | no | Only when the rejected alternatives are worth remembering |
+| `consequences` | no | Only when non-obvious downstream effects need calling out |
+| `supersedes` | no | The ADR this replaces |
 
-## Step 3: Format
+## Step 3: Choose where it goes
+
+- **Repository (default).** When `git rev-parse --show-toplevel` succeeds, write to `docs/adr/` at that root. Create the folder on first use. Number the file after the highest existing one: `NNNN-<slug>.md`, starting at `0001`. This is an edit to the repository, so it follows the project's worktree rules like any other edit.
+- **Vault.** When not in a repository, or when the user asks for the vault (cross-project decisions), write to `$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}/Architecture/ADRs/<YYYY-MM-DD>-<slug>.md`.
+
+Slug: lowercase title, spaces to hyphens, special characters stripped, at most 50 characters.
+
+## Step 4: Write it
 
 ```markdown
 ---
 title: {title}
 date: {YYYY-MM-DD}
 status: {status}
-{supersedes: {old-adr-title}   ← only if provided}
+{supersedes: {old ADR}   ← only if provided}
 ---
 
 # {title}
 
-## Status
+{summary}
 
-{Status} — {YYYY-MM-DD}
+{## Considered options   ← only if provided}
 
-## Context
-
-{context}
-
-## Options Considered
-
-{options — list with brief pros/cons per option}
-
-## Decision
-
-{decision}
-
-## Consequences
-
-{consequences — positives (+) and negatives (-) explicit}
+{## Consequences   ← only if provided}
 ```
 
-## Step 4: Store to Neurons vault
+An ADR can be a single paragraph. Its value is recording that a decision was made, and why.
 
-Path: `Architecture/ADRs/{YYYY-MM-DD}-{slug}.md`
-
-```bash
-VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-ADR_PATH="Architecture/ADRs/{YYYY-MM-DD}-{slug}.md"
-mkdir -p "$VAULT_ROOT/Architecture/ADRs"
-cat > "$VAULT_ROOT/$ADR_PATH" << 'EOF'
-<formatted ADR content>
-EOF
-```
-
-On failure: output the formatted ADR in conversation so it is not lost, then report the error.
+On a write failure, print the formatted ADR in the conversation so it is not lost, then report the error.
 
 ## Step 5: Confirm
 
-Report title, status, and vault path. If `supersedes` was set, offer to update the old ADR's status to `superseded` with a link to the new one.
+Report the title, status and path. If `supersedes` was set, offer to set the old ADR's status to `superseded` and add a line to its body linking the new one.

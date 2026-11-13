@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0 — 2026-11-13
+
+- `adr` writes to the repository's `docs/adr/NNNN-<slug>.md` by default, so teammates and agents working in the repository find the decision. Outside a repository, or when asked, it writes to the vault as before.
+- `adr` first tests the decision: it writes only when the decision is hard to reverse, surprising without context, and a real trade-off. Otherwise it names the failed condition and stops, unless asked to record it anyway. The three-condition test and the shorter template (a title and one to three sentences, with options and consequences optional) come from Matt Pocock's `domain-modeling` skill (github.com/mattpocock/skills, Matt Pocock, MIT).
+
 ## 0.2.0 — 2026-11-13
 
 - New `adr` skill, moved unchanged from `ideate:adr`, apart from its name and a description that now ends with a "Not for" clause naming `process-lab:lint`.
