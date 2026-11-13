@@ -1,6 +1,6 @@
 {
     "name": "research-lab",
-    "version": "5.9.1",
+    "version": "5.10.0",
     "description": "Knowledge-work verbs as standalone compositional primitives: frame, gather, understand, synthesize, interrogate, experiment, teach. Each has a preflight-first input contract and suggests next steps but never auto-invokes another. consult is the one opt-in coordinator: a librarian that runs a whole research job through the verbs, keeps an engagement record, and stops only at the user's gates.",
     "author": {
         "name": "Chris Weber"

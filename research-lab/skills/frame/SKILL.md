@@ -38,7 +38,17 @@ Four moves:
 
 ### 1. Find the real question
 
-A topic ("Drupal caching") is not a question. Push until you have a question with a verb and a decidable answer. Ask one or two pointed questions if intent is ambiguous — prefer a reasonable inference the user can correct over an interrogation.
+A topic ("Drupal caching") is not a question. Push until you have a question with a verb and a decidable answer.
+
+Ask in rounds. A round holds every open question whose answer does not depend on another open question; one that does waits for a later round. Number each question, give it a short title, and put your recommended answer on its own line, worded so "yes" accepts it:
+
+```
+❓ **Q1 - <title>**: <question, with the options if there are several>
+
+➡️ <recommended answer>
+```
+
+Facts are your job, decisions are the user's. Don't ask what the conversation or a file you can `Read` already answers; read it and state what you found. After each round, recompute what is still open and ask the next round. Most frames need one round.
 
 ### 2. Draw the scope line
 
@@ -56,7 +66,7 @@ The sharpest question carries its own kill switch: **what evidence would change 
 
 ## Output
 
-Write `01-frame.md` to the engagement directory when one exists (otherwise present inline):
+When no question is open, show the frame and ask the user to confirm it. Only then write `01-frame.md` to the engagement directory when one exists (otherwise present inline). The **Settled** section lists every question the user answered, with the answer as given, so the next skill or a teammate reuses it instead of asking again:
 
 ```markdown
 # Frame: <topic>
@@ -75,6 +85,9 @@ Write `01-frame.md` to the engagement directory when one exists (otherwise prese
 
 ## Falsification criteria — what would change my mind
 - ...
+
+## Settled
+- Q1 <title>: <the user's answer>
 ```
 
 ---

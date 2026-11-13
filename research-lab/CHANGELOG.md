@@ -1,5 +1,9 @@
 # research-lab Changelog
 
+## 5.10.0 — 2026-11-13
+
+- **`frame` asks in rounds and records the answers.** Each round holds every open question that doesn't depend on another, numbered, with a recommended answer worded so "yes" accepts it. It reads what a file in reach already answers instead of asking, confirms the frame before writing it, and the new **Settled** section of `01-frame.md` lists every answer so the next skill or a teammate reuses it. The round format comes from Matt Pocock's `grilling` skill (github.com/mattpocock/skills, MIT). On a headless fixture (2 runs per side), the new text asked a numbered round with recommendations and wrote no frame before confirmation in 2/2 runs, and listed every answer under Settled in 2/2; the old text wrote the whole frame on the first turn in 2/2.
+
 ## 5.9.1 — 2026-11-10
 
 - **Judged captures: the limit-reply check reads shape, not topic.** A capture is refused when the whole of it is a line or two stating a limit or error, including "limit reached · resets Mon 9am", `RESOURCE_EXHAUSTED`, "Prompt is too long", "Credit balance is too low" and "Error: Request timed out". Short text that only discusses limits, such as a rate limiter's README or a "Usage limits" section, is accepted. On 17 saved cases the old pattern refused 6 of 12 bad replies and 2 of 5 good texts; the new one refuses 12 of 12 and 0 of 5 (`tests/test_limit_reply.py`).
