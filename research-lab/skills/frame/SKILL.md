@@ -66,7 +66,7 @@ The sharpest question carries its own kill switch: **what evidence would change 
 
 ## Output
 
-When no question is open, show the frame and ask the user to confirm it. Only then write `01-frame.md` to the engagement directory when one exists (otherwise present inline). The **Settled** section lists every question the user answered, with the answer as given, so the next skill or a teammate reuses it instead of asking again:
+When no question is open, show the frame and ask the user to confirm it. Only then write `01-frame.md` to the engagement directory when one exists (otherwise present inline). The **Settled** section lists every question the user answered with what was decided (the recommendation itself when the answer was "yes"), so the next skill or a teammate reuses it instead of asking again:
 
 ```markdown
 # Frame: <topic>
@@ -87,7 +87,7 @@ When no question is open, show the frame and ask the user to confirm it. Only th
 - ...
 
 ## Settled
-- Q1 <title>: <the user's answer>
+- Q1 <title>: <what was decided>
 ```
 
 ---
