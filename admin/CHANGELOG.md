@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.6 — 2026-11-13
+
+- `scaffold` templates say project decisions live in the repository's `docs/adr/`, and cross-project ones in the vault.
+
 ## 5.0.5 — 2026-11-13
 
 - `scaffold` templates point to `/process-lab:adr`, which replaces `/ideate:adr`.
