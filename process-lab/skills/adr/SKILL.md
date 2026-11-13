@@ -3,17 +3,18 @@ name: adr
 description: >
   Capture an Architecture Decision Record — context, options considered, decision,
   consequences — into the Neurons vault at Architecture/ADRs/. Use for tool selection,
-  retirement, process changes, and documenting why something was NOT done.
+  retirement, process changes, and documenting why something was NOT done. Not for
+  checking what a project's process still requires (process-lab:lint).
 allowed-tools: Bash, Read, Write
 ---
 
-# ideate:adr — Architecture Decision Record
+# process-lab:adr — Architecture Decision Record
 
 ## When to use
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> Capture an Architecture Decision Record (ADR) for a design choice, tool selection, retirement, or process change. Prompts for context, options considered, decision, and consequences. Stores to Neurons vault at Architecture/ADRs/. Use when making a significant technical decision, retiring a tool, choosing between approaches, or documenting why something was NOT done. Trigger phrases: "architecture decision", "adr", "document this decision", "record this decision", "why we chose", "ideate:adr".
+> Capture an Architecture Decision Record (ADR) for a design choice, tool selection, retirement, or process change. Prompts for context, options considered, decision, and consequences. Stores to Neurons vault at Architecture/ADRs/. Use when making a significant technical decision, retiring a tool, choosing between approaches, or documenting why something was NOT done. Trigger phrases: "architecture decision", "adr", "document this decision", "record this decision", "why we chose", "process-lab:adr".
 
 Capture a lightweight ADR and store it to the Neurons vault.
 
