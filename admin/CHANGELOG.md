@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.5 — 2026-11-13
+
+- `scaffold` templates point to `/process-lab:adr`, which replaces `/ideate:adr`.
+
 ## 5.0.4 — 2026-11-11
 
 - `install` drops the dependency map entry for the removed `test-lab:accessibility-scan`.

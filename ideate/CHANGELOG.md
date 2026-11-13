@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.0 — 2026-11-13
+
+- **Breaking: `adr` moved to `process-lab:adr`.** Same behavior; call `/process-lab:adr` instead of `/ideate:adr`. ideate keeps the skills that come before a plan exists, and recording a decision belongs with a project's process.
+
 ## 4.1.1 — 2026-11-05
 
 - `compare` archives comparisons, and `diagram` files dependency maps, under `Research-Lab/Topics/<topic>/` instead of `Research/<topic>/`.

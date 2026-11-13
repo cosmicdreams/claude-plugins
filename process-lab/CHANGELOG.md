@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0 — 2026-11-13
+
+- New `adr` skill, moved unchanged from `ideate:adr`, apart from its name and a description that now ends with a "Not for" clause naming `process-lab:lint`.
+
 ## 0.1.2 — 2026-11-10
 
 - `retro` step 5 no longer invents a check for a judgment call. A lesson becomes an enforced action item only when a check could decide it from what the team already records, such as a branch name or a file in the change. When only a person can decide it, it stays a prose lesson or a team agreement with an owner, and the step says not to propose a new field or marker to make it checkable. On a saved retro fixture the 0.1.1 text gave the judgment lesson an invented enforcer in 2 of 3 runs; this text did in 0 of 3, and both enforceable lessons still became checks handed to `workshop:harden` in 3 of 3.

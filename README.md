@@ -38,9 +38,9 @@ Meta-tooling for developing and maintaining Claude Code plugins.
 Skills: `agent-team`, `bump-version`, `changelog`, `create-worktree`, `install`, `new-agent`, `optimize-agents`, `scaffold`, `update-plugins`
 
 ### `ideate`
-Pre-work ideation: brainstorm canvas, structured comparison, reality checks, diagrams, ADRs.
+Pre-work ideation: brainstorm canvas, structured comparison, reality checks, diagrams.
 
-Skills: `adr`, `brainstorm`, `compare`, `diagram`, `reality-check`
+Skills: `brainstorm`, `compare`, `diagram`, `reality-check`
 
 ### `drupal-lab`
 Drupal development against DDEV: issue analysis, patch validation, contrib module scaffolding, performance profiling.
@@ -71,9 +71,9 @@ Composable research pipeline built around seven knowledge-work verbs: frame, gat
 Skills: `experiment`, `frame`, `gather`, `interrogate`, `synthesize`, `teach`, `understand`
 
 ### `process-lab`
-Keeps agent-assisted work aligned with each project's workflow: reads its Confluence process, records required steps and waivers, and runs retrospectives against it.
+Keeps agent-assisted work aligned with each project's workflow: reads its Confluence process, records required steps and waivers, records architecture decisions, and runs retrospectives against it.
 
-Skills: `initialize`, `lint`, `advance`, `retro`, `codify`, `recommend-tickets`
+Skills: `initialize`, `lint`, `advance`, `retro`, `codify`, `recommend-tickets`, `adr`
 
 ### `ideas-funnel`
 Passive knowledge capture pipeline — Karpathy-derived LLM Wiki with Fable-supervised singleton Workflow, cost-aware worker delegation, bounded ingest, confidence decay, graph-aware consolidation, and Obsidian wiki output.
