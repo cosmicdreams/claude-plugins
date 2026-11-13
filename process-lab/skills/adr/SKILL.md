@@ -73,4 +73,4 @@ On a write failure, print the formatted ADR in the conversation so it is not los
 
 ## Step 5: Confirm
 
-Report the title, status and path. If `supersedes` was set, offer to set the old ADR's status to `superseded by <new ADR>`.
+Report the title, status and path. If `supersedes` was set, offer to set the old ADR's status to `superseded` and add a line to its body linking the new one.
