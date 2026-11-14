@@ -1,7 +1,7 @@
 {
   "name": "drupal-lab",
-  "version": "5.1.0",
-  "description": "Drupal-specific development skills and agents.",
+  "version": "5.2.0",
+  "description": "Drupal contribution workflows with drupalorg-cli, DDEV validation, issue analysis and merge-request inspection.",
   "author": {
     "name": "Chris Weber"
   },
@@ -10,7 +10,8 @@
     "drupal",
     "ddev",
     "phpunit",
-    "phpcs"
+    "phpcs",
+    "drupalorg-cli"
   ],
   "skills": "./skills/",
   "interface": {

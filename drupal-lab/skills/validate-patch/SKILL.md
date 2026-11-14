@@ -2,8 +2,8 @@
 name: validate-patch
 description: >
   Run every quality gate against a Drupal patch or merge request before submission —
-  phpcs, phpstan, phpunit, and coverage review via DDEV. Not for issue research
-  (drupal-lab:analyze-issue).
+  phpcs, phpstan, phpunit, and coverage review via DDEV. Not for remote merge-request inspection
+  (drupal-lab:inspect-merge-request).
 ---
 
 # Validate Patch
@@ -16,8 +16,7 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 Run all quality gates on a Drupal implementation in a worktree using DDEV.
 
-All phpcs/phpstan/phpunit commands run inside DDEV containers. See `drupal-lab:ddev` for the
-full command reference.
+All phpcs/phpstan/phpunit commands run inside DDEV containers. See `drupal-lab:ddev` for the full command reference.
 
 ## Input
 
@@ -28,11 +27,10 @@ Resolve project root from `~/.claude/drupal-lab.json`. See `drupal-lab/reference
 
 ## Prerequisites
 
-DDEV must be running. Follow `drupal-lab:process-lifecycle` to bootstrap and verify the
-environment. Check readiness:
+DDEV must be running. Follow `drupal-lab:process-lifecycle` to bootstrap and verify the environment. Check readiness:
 
 ```bash
-cd ./worktrees/{issue_number}
+cd <actual-dedicated-worktree>
 STATUS=$(ddev describe --json-output 2>/dev/null | jq -r '.raw.status')
 [ "$STATUS" = "running" ] && echo "READY" || echo "Run: ddev start (status: $STATUS)"
 ```
@@ -41,16 +39,14 @@ STATUS=$(ddev describe --json-output 2>/dev/null | jq -r '.raw.status')
 
 ## Phase 0: Test Design Review (BEFORE DDEV)
 
-**Purpose**: Catch test design issues statically before spinning up DDEV. This phase runs
-without infrastructure and prevents the most common validation failures (50% of failures in
-session 2026-02-16 were test design, not code regression).
+**Purpose**: Catch test design issues statically before spinning up DDEV. This phase runs without infrastructure and prevents the most common validation failures (50% of failures in session 2026-02-16 were test design, not code regression).
 
 **Time**: 5–10 minutes. No DDEV required.
 
 ### 0.1 Identify Changed Test Files
 
 ```bash
-cd ./worktrees/{issue_number}
+cd <actual-dedicated-worktree>
 git diff --name-only main -- '*.php' | grep -i test
 ```
 
@@ -131,8 +127,7 @@ Even if no test files changed, verify:
 - Send fixes to developer before spinning up DDEV
 - Report: `phase0 fail | [issue list] | fixes proposed`
 
-**Expected Impact**: Catching these issues saves 20–30 min of DDEV spin-up, test execution,
-debugging, and re-testing per failure. Target: 80%+ first-pass validation rate (baseline: 56%).
+**Expected Impact**: Catching these issues saves 20–30 min of DDEV spin-up, test execution, debugging, and re-testing per failure. Target: 80%+ first-pass validation rate (baseline: 56%).
 
 ---
 
@@ -141,7 +136,7 @@ debugging, and re-testing per failure. Target: 80%+ first-pass validation rate (
 ### 1. Identify Changed Files
 
 ```bash
-cd ./worktrees/{issue_number}
+cd <actual-dedicated-worktree>
 git diff --name-only main
 ```
 
@@ -232,3 +227,7 @@ Fail: `val fail | phpcs: 3 errors (file.php:45,67,89) | needs fix`
 | Unit Tests | `ddev phpunit --testsuite unit` | All pass |
 | Module Tests | `ddev phpunit core/modules/{module}/tests/` | All pass |
 | Coverage | Manual review | New code covered |
+
+## Upstream context and canonical handoff
+
+For an issue contribution, read `drupal-lab/references/drupalorg-cli.md` and `issue-handoffs.md`. Resolve the canonical identity and project-qualified artifact directory. If a merge request exists, attach fresh `pipeline-context` evidence separately from local gate results. Account for all failed jobs and verify the pipeline revision relationship. Remote success never replaces the local checks above; upstream access is not a dependency for running those local checks. Use the task's actual base in place of illustrative `main` commands when it differs.

@@ -12,7 +12,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | design-lab | Node 24 / npm, [Figma](#figma) | Pinned Node dependencies and Chromium via `node scripts/lab_setup.ts install playwright` (shared cache); [ddev](#ddev) (Drupal usage counts) |
 | golden-rule | macOS (`/usr/bin/sandbox-exec`), [python3](#python3) (`/usr/bin/python3`), Claude Code 2.1.287 or later (mods) | none |
 | drover | [python3](#python3), [Acquia credentials](#acli-acquia-command-line-tool) | [node / npm](#node--npm) (web-page reports), [Chrome or Chromium](#chrome-or-chromium) (Portable Document Format reports), [TypeSafe](#typesafe-api-key), [clickhouse](#clickhouse) (access-log trends) |
-| drupal-lab | [python3](#python3), [ddev](#ddev), [jq](#jq) | [twg](#twg) (`sprint-start`, `release-cut`, `branch-audit`), [Beads](#bd-beads) (development-environment slot tracking), [Obsidian](#obsidian), [headroom and rtk](#headroom-and-rtk) |
+| drupal-lab | [python3](#python3), [ddev](#ddev), [jq](#jq) | [drupalorg-cli](#drupalorg-cli) (upstream contribution workflows), [twg](#twg) (`sprint-start`, `release-cut`, `branch-audit`), [Beads](#bd-beads) (development-environment slot tracking), [Obsidian](#obsidian), [headroom and rtk](#headroom-and-rtk) |
 | ideas-funnel | [python3](#python3), [Obsidian](#obsidian) | [Beads](#bd-beads), [TypeSafe](#typesafe-api-key), [headroom](#headroom-and-rtk) |
 | ideate | [node / npm](#node--npm) (`brainstorm`; `diagram` needs Node 22+ for the [Excalidraw CLI](#excalidraw-cli)) | [Obsidian](#obsidian) (archiving) |
 | process-lab | [python3](#python3) | [headroom and rtk](#headroom-and-rtk) |
@@ -404,3 +404,7 @@ npm install -g headroom-ai
 `rtk` shortens verbose command output. Several unrelated projects share the name; install the "Rust Token Killer" and check with `rtk gain`.
 
 **Used by:** optionally admin, drupal-lab (`ddev`), ideas-funnel (`ingest`), research-lab (`gather`)
+
+## drupalorg-cli
+
+Required for drupal-lab's Drupal.org/GitLab contribution features; unrelated DDEV/Drush site operations work without it. `drupal-lab:config` provisions a checksum-pinned PHAR inside a dedicated feature worktree and executes it through DDEV. Do not install or run host PHP for this dependency. Read `drupal-lab/references/drupalorg-cli.md` for setup, runtime selection, credentials and exact command examples. Existing GitLab access through `DRUPALORG_GITLAB_TOKEN` or `glab` is reused without saving secrets in config. Anonymous discovery does not prove permission to read discussion or post.

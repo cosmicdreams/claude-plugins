@@ -16,15 +16,15 @@ You review someone else's fix with no memory of how it was written. That is the 
 
 The issue number and its worktree. Use whatever of these exists, in this order of authority:
 
-1. The drupal.org issue page — the reported behavior and any constraints maintainers set.
-2. `analysis-reports/drupal-issue/<issue>/analysis.json` or the `drupal-lab:analyze-issue` report, if one was written.
+1. Fresh canonical upstream issue/discussion and merge-request context — the reported behavior, maintainer decisions and unresolved reviews. Read `drupal-lab/references/drupalorg-cli.md` and use its shared adapter, preserving missing evidence and source links.
+2. `analysis-reports/drupal-issue/<project>/<id>/analysis.json` or the `drupal-lab:analyze-issue` report, if one was written.
 3. Acceptance criteria the caller passes in.
 
 Schemas are in `drupal-lab/references/issue-handoffs.md`. If no acceptance criteria were given, derive them from the issue page and say so in the results.
 
 ## 1. Does it solve the right problem?
 
-Read the diff (`git diff main...HEAD` plus uncommitted changes). Decide, citing code:
+Read the diff against the actual task base (plus uncommitted changes). Decide, citing code:
 
 - Is the reported problem addressed?
 - Is the root cause fixed, or only the symptom?
@@ -40,4 +40,6 @@ For each changed public method, check with LSP `findReferences` whether a test e
 
 ## Results
 
-Write `analysis-reports/drupal-issue/<issue>/results.json` per `issue-handoffs.md`, with verdict `pass`, `fail-spec`, or `fail-quality`, the gate output, coverage gaps, and each finding with file and line. Your final reply is a short verdict plus the findings, numbered so the author can answer them one by one.
+Write `analysis-reports/drupal-issue/<project>/<id>/results.json` per `issue-handoffs.md`, with verdict `pass`, `fail-spec`, or `fail-quality`, the gate output, coverage gaps, and each finding with file and line. Your final reply is a short verdict plus the findings, numbered so the author can answer them one by one.
+
+Refresh remote pipeline context when a merge request exists. Account for all blocking failures and verify its revision relationship; retain inaccessible logs as missing evidence. Record `remote` separately from local gates and cite raw evidence paths. A remote-only inspection does not constitute this full local review. Read legacy artifacts only when the source project matches, per `issue-handoffs.md`.

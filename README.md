@@ -47,6 +47,8 @@ Drupal development against DDEV: issue analysis, patch validation, contrib modul
 
 Skills: `analyze-issue`, `branch-audit`, `browse-drupal-issues`, `config`, `ddev`, `finish-issue`, `issue-summary`, `module-dev-starter`, `perf-measure`, `process-lifecycle`, `release-cut`, `sprint-start`, `validate-patch`
 
+Drupal.org/GitLab work uses the shared drupalorg-cli integration for classic/migrated issue discovery, source-linked analysis, fork discovery, merge-request review, complete pipeline diagnosis and release lookup. Use `work-on-issue` to start implementation and `inspect-merge-request` for remote review. DDEV and Drush retain local environment, validation and site operations. Setup and examples: [contribution interface](drupal-lab/references/drupalorg-cli.md).
+
 ### `lib`
 Thin CLI-wrapper skills (data-layer only — no summarization). Slack, Jira, GitHub, TestRail, Obsidian vault, logs, and media utilities.
 

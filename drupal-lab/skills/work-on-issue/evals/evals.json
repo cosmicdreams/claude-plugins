@@ -1,0 +1,33 @@
+{
+  "skill_name": "work-on-issue",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Work on settings_tray#2901667 and prepare the existing proposal for testing.",
+      "expected_output": "Resolve migrated identity and prior discussion, preserve the correct fork/base/worktree, invoke existing DDEV lifecycle; do not assume posting authority.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Fix Drupal issue 2860607 without repeating an approach maintainers rejected.",
+      "expected_output": "Analyze history/source comments before code, inspect patches and all proposals, run local validation/review before delivery.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Clear the Drupal caches with Drush in this worktree.",
+      "should_trigger": false,
+      "expected_owner": "drupal-lab:ddev",
+      "expected_output": "Use existing local DDEV/Drush tooling without invoking upstream contribution integration or credentials.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Run the local Drupal quality gates for these changed files.",
+      "should_trigger": false,
+      "expected_owner": "drupal-lab:validate-patch",
+      "expected_output": "Run local DDEV checks; do not require an upstream issue, merge request or token.",
+      "files": []
+    }
+  ]
+}

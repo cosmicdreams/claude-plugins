@@ -1,0 +1,33 @@
+{
+  "skill_name": "inspect-merge-request",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Why did https://git.drupalcode.org/project/drupal/-/merge_requests/17820 fail?",
+      "expected_output": "Enumerate all jobs including the omitted blocking phpstan job and full causal trace, cite pipeline/job/revision.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Review project/drupal!17820 and tell me what still blocks it.",
+      "expected_output": "Inspect actual closing issue, diff, author, unresolved discussions, mergeability and revision-specific pipeline; remote inspection does not forge a local pass.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Clear the Drupal caches with Drush in this worktree.",
+      "should_trigger": false,
+      "expected_owner": "drupal-lab:ddev",
+      "expected_output": "Use existing local DDEV/Drush tooling without invoking upstream contribution integration or credentials.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Run the local Drupal quality gates for these changed files.",
+      "should_trigger": false,
+      "expected_owner": "drupal-lab:validate-patch",
+      "expected_output": "Run local DDEV checks; do not require an upstream issue, merge request or token.",
+      "files": []
+    }
+  ]
+}

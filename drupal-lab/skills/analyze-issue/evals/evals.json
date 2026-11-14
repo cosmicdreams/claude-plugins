@@ -1,0 +1,17 @@
+{
+  "skill_name": "analyze-issue",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Which Webform release contains commit 19b86bcb011c857f67d7898929df98d58db95c4e?",
+      "expected_output": "Use analyze-issue release-question route and contains; report source branches/tags, without requiring a new issue workspace.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Investigate settings_tray#2901667 before we decide whether to implement anything.",
+      "expected_output": "Use analyze-issue, preserve migrated project identity and original source notes; no implementation, posting or checkout.",
+      "files": []
+    }
+  ]
+}
