@@ -1,98 +1,25 @@
 ---
 name: analyze-issue
 description: >
-  Analyze one Drupal.org issue by number into a structured report — fetches the issue,
-  filters comments, finds patches and merge requests, assesses complexity. Not for
-  browsing or listing issues (drupal-lab:browse-drupal-issues).
+  Investigate one Drupal.org issue or migrated GitLab work item: retrieve full history, source comments, patches and merge requests; inspect affected code and write a structured analysis. Also use for questions about which project release contains a fix or commit. Not for starting implementation and preparing its worktree (drupal-lab:work-on-issue).
 ---
 
-# Analyze Drupal Issue
+# Analyze a Drupal issue
 
-## When to use
+Read `drupal-lab/references/project-context.md`, `drupalorg-cli.md` and `issue-handoffs.md`. Accept a number, issue URL or project-qualified work-item reference. Resolve migration and project identity before deriving paths or invoking fork/merge-request operations.
 
-Full routing detail, kept out of the always-loaded skill listing:
+For a standalone release/commit question, run `releases`, `release-notes` or `contains` as documented in the shared reference and answer from their evidence; no issue number or local code change is required. For issue investigation:
 
-> Analyze a Drupal.org issue and produce a structured analysis report. Use when asked to analyze, research, or investigate a drupal.org issue number -- e.g. "analyze issue 2901667", "look into this Drupal bug", "research this drupal.org issue". Fetches issue data, filters comments, discovers patches/MRs, assesses complexity, and saves a report to analysis-reports/. Do NOT use for browsing or listing issues -- use drupal-lab:browse-drupal-issues instead.
-
-Analyze a Drupal issue and produce `analysis.json` plus a human-readable render.
-
-## Input
-
-Issue number or URL from drupal.org (e.g., `2901667`,
-`https://www.drupal.org/project/drupal/issues/2901667`)
-
-Resolve project root from `~/.claude/drupal-lab.json`. See
-`drupal-lab/references/project-context.md`.
-
-## Workflow
-
-### 1. Fetch Issue Data
-
-Fetch from `https://www.drupal.org/project/drupal/issues/{issue_number}`.
-
-Extract: title, status, priority, component, version, assigned users, created/updated dates.
-
-### 2. Comment Analysis
-
-Prioritize: maintainer responses, comments with patches/MRs/code, solution proposals,
-status changes. Skip: "+1" comments, "thank you" messages, non-technical content.
-Include the latest 3–5 substantive comments.
-
-### 3. Patch and MR Discovery
-
-Find most recent `.patch` files and interdiffs. Extract GitLab MR links, status, branch
-info, and review feedback. Summarize scope of changes (files affected, line counts).
-
-### 4. Analyze Affected Code
-
-Use LSP for code navigation where PHP-aware traversal is valuable:
-- `goToDefinition` to trace a class or method to its source — not `Grep "class Foo"`
-- `findReferences` to map all callers of a changed method (reveals blast radius)
-- `goToImplementation` to find all implementations of an interface affected by the issue
-- `hover` to check method signatures and return types when assessing API compatibility
-
-Fall back to Grep for string literals, config keys, hook names, and non-PHP files.
-
-Identify jQuery patterns, conversion opportunities, or bug root causes. Note API changes,
-dependencies, and backwards compatibility implications.
-
-### 5. Assess Complexity
-
-- **Simple**: 1–3 files, straightforward fix, clear approach
-- **Medium**: 4–10 files, multiple concerns, needs tests
-- **Complex**: 10+ files, architectural decisions, cross-module impact
-
-### 6. Write Output
-
-Write `analysis-reports/drupal-issue/<issue>/analysis.json`. Full schema in
-`drupal-lab/references/issue-handoffs.md`.
-
-Also render a human-readable summary to `analysis-reports/drupal-issue/<issue>.md`.
-
-## Obsidian Archive
-
-Archive to the Neurons vault at:
-```
-~/Vaults/Neurons/OpenSource/Drupal.org/<project>/<issue-number>-<kebab-slug-of-title>.md
+```sh
+python3 <plugin>/scripts/drupalorg.py --output <fresh-run-dir> issue-context <issue-reference>
 ```
 
-Extract the project name from the issue URL:
-- `https://www.drupal.org/project/drupal/issues/3345989` → project = `drupal`
-- `https://www.drupal.org/project/webform/issues/3401234` → project = `webform`
+Read the returned issue, complete source discussion and supplemental change/attachment evidence. Prioritize maintainer decisions, previous attempts, unresolved objections and substantive recent comments without losing older constraints. Use stable source comment links, never formatter-generated sequential numbers. Inspect relevant system/bot changes, attached patches and interdiffs. Partial retrieval requires resolving any missing evidence that affects the conclusions; do not invent a clean history.
 
-```bash
-VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-DEST_PATH="OpenSource/Drupal.org/${DRUPAL_PROJECT}/${ISSUE_NUMBER}-${ISSUE_SLUG}.md"
-mkdir -p "$VAULT_ROOT/$(dirname "$DEST_PATH")"
-```
+Review all-state merge-request and fork results. Select the relevant proposal explicitly, keeping alternatives visible. Use `merge-request-context` for its review discussions, files, diff and complete pipeline evidence. Check `releases`, `release-notes` or `contains` when determining whether the fix already shipped or which versions are affected.
 
-Prepend YAML frontmatter:
-```yaml
----
-drupal_project: drupal
-issue_number: 3345989
-issue_title: "Loading indicator accessibility"
-date: 2026-03-07
-tags: [drupal, issue-analysis, <project>]
----
-```
+Inspect affected local code and tests. Prefer language-server definition/reference/implementation navigation for PHP; use text search for configuration, hooks and literals or when that facility is unavailable. Identify the actual cause, affected callers, compatibility implications and relevant test requirements. Do not assume every issue involves jQuery or modernization.
+
+Write the canonical schema-version-2 `analysis.json` and a human-readable render under `analysis-reports/drupal-issue/<project>/<id>/`. Preserve current analysis fields, add canonical `identity` and evidence references, and use `root_cause: null` when not established by code. Record prior patches/merge requests, unresolved decisions and missing access. Complexity is simple (1–3 straightforward files), medium (4–10/multiple concerns) or complex (architectural/cross-module work), adjusted by the actual change rather than file count alone.
+
+Archive the completed analysis to `~/Vaults/Neurons/OpenSource/Drupal.org/<project>/<id>-<title-slug>.md` using the existing vault conventions, including project, issue, title, date and tags. The repository artifact remains the machine-readable handoff; do not parse the Markdown render. A request to implement continues through `work-on-issue` rather than stopping after the report.

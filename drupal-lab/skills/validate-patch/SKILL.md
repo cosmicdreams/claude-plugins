@@ -2,8 +2,8 @@
 name: validate-patch
 description: >
   Run every quality gate against a Drupal patch or merge request before submission —
-  phpcs, phpstan, phpunit, and coverage review via DDEV. Not for issue research
-  (drupal-lab:analyze-issue).
+  phpcs, phpstan, phpunit, and coverage review via DDEV. Not for remote merge-request inspection
+  (drupal-lab:inspect-merge-request).
 ---
 
 # Validate Patch
@@ -32,7 +32,7 @@ DDEV must be running. Follow `drupal-lab:process-lifecycle` to bootstrap and ver
 environment. Check readiness:
 
 ```bash
-cd ./worktrees/{issue_number}
+cd <actual-dedicated-worktree>
 STATUS=$(ddev describe --json-output 2>/dev/null | jq -r '.raw.status')
 [ "$STATUS" = "running" ] && echo "READY" || echo "Run: ddev start (status: $STATUS)"
 ```
@@ -50,7 +50,7 @@ session 2026-02-16 were test design, not code regression).
 ### 0.1 Identify Changed Test Files
 
 ```bash
-cd ./worktrees/{issue_number}
+cd <actual-dedicated-worktree>
 git diff --name-only main -- '*.php' | grep -i test
 ```
 
@@ -141,7 +141,7 @@ debugging, and re-testing per failure. Target: 80%+ first-pass validation rate (
 ### 1. Identify Changed Files
 
 ```bash
-cd ./worktrees/{issue_number}
+cd <actual-dedicated-worktree>
 git diff --name-only main
 ```
 
@@ -232,3 +232,7 @@ Fail: `val fail | phpcs: 3 errors (file.php:45,67,89) | needs fix`
 | Unit Tests | `ddev phpunit --testsuite unit` | All pass |
 | Module Tests | `ddev phpunit core/modules/{module}/tests/` | All pass |
 | Coverage | Manual review | New code covered |
+
+## Upstream context and canonical handoff
+
+For an issue contribution, read `drupal-lab/references/drupalorg-cli.md` and `issue-handoffs.md`. Resolve the canonical identity and project-qualified artifact directory. If a merge request exists, attach fresh `pipeline-context` evidence separately from local gate results. Account for all failed jobs and verify the pipeline revision relationship. Remote success never replaces the local checks above; upstream access is not a dependency for running those local checks. Use the task's actual base in place of illustrative `main` commands when it differs.

@@ -1,178 +1,30 @@
 ---
 name: finish-issue
 description: >
-  Close out a Drupal issue worktree with a deliberate decision — submit as merge request,
-  submit as patch, park as work-in-progress, or discard — then shut down DDEV and clean
-  up. The final step, not for mid-implementation.
-allowed-tools: Bash, Read, Grep
+  Finish a Drupal contribution worktree: prepare or submit its merge request or patch under current authority, preserve verified upstream and local results, or park/discard work as requested. Not for preparing a new issue workspace (drupal-lab:work-on-issue).
 ---
 
-# Finish Issue
+# Finish a Drupal issue
 
-## When to use
+Read `drupal-lab/references/project-context.md`, `drupalorg-cli.md` and `issue-handoffs.md`. Resolve the actual dedicated worktree, canonical issue, task base and current branch. Read the canonical analysis/review artifacts, refreshing fork and merge-request context before submission. Do not guess origin, target project or branch from a core URL template.
 
-Full routing detail, kept out of the always-loaded skill listing:
+Use the user's existing disposition: submit a merge request, provide a patch, park, or discard. If it is unspecified, present the concrete state and the relevant choices. Do not ask again for authority already granted. Commit/push/publication authority follows the active task and host; a tool credential does not provide it.
 
-> Close out a Drupal issue worktree with a deliberate decision -- submit as MR, submit as patch, park as WIP, or discard. Use when done with an issue -- e.g. "finish the issue", "close out the worktree", "submit the patch", "done with this issue", "discard the worktree". Checks state, presents options, handles DDEV shutdown and cleanup. Do NOT use mid-implementation -- this is the final step after work is complete or abandoned.
+## Merge request
 
-Closes out a Drupal issue worktree with a deliberate decision. No worktree drifts open
-indefinitely — every session ends with an explicit choice.
+Run local validation and the required reviewer; draft the contribution through `issue-summary`. Resolve the actual fork remote, source branch and target project/base from upstream context and Git. Inspect draft/conflict/mergeability state, unresolved discussions, revision relationship and all blocking pipeline failures through `merge-request-context`. Unknown evidence cannot certify readiness.
 
----
+Commit and push only when authorized. Create/update the request through the available authorized GitLab/host workflow, or supply the exact resolved destination and commands if submission capability/authority is absent. Do not claim submission based on a generated URL. Never push to another contributor's proposal without the required knowledge, disclosure and authority. Remote fork/access creation and requested state updates use the shared adapter's authenticated dispatcher and existing posting policy. Re-read asynchronous results before retrying.
 
-## Step 1: Assess Current State
+## Patch or interdiff
 
-Run from the **project root** (the directory containing `worktrees/`).
+Select the actual task base and intended changes, verify their scope, and generate the patch explicitly with Git from the dedicated worktree. Include binary changes when needed. Record whether uncommitted changes are included, the base revision, artifact path and source issue. Generate an interdiff only against the specific previous patch/proposal being compared. Do not let a shortcut infer the wrong base or make commits.
 
-```bash
-ISSUE=<issue-number>
+Prepare the same validated contribution draft. Upload/post only under current authority and maintainer policy; otherwise hand over the concrete artifact and facts.
 
-# Verify worktree exists
-ls worktrees/$ISSUE/ 2>/dev/null || echo "Worktree not found"
+## Park or discard
 
-# Check for uncommitted changes
-git -C worktrees/$ISSUE status --short
-
-# Check commits ahead of main
-git -C worktrees/$ISSUE log main..HEAD --oneline
-
-# Check DDEV status
-ddev describe 2>/dev/null | grep -E "status|name" | head -5
-```
-
-Report:
-- Uncommitted changes (if any — these need attention before most paths)
-- Commits ahead of main (the actual work)
-- Whether DDEV is running
-
----
-
-## Step 2: Choose a Path
-
-Present these four options and wait for the user's choice:
-
-```
-How do you want to finish this issue?
-
-A) Submit as MR    — push branch to drupal.org GitLab and create a merge request
-B) Submit as patch — generate a .patch file for manual upload to the issue
-C) Keep as WIP     — park the worktree for a future session; optionally stop DDEV
-D) Discard         — work is not going forward; remove the worktree entirely
-```
-
-If review has passed, suggest A or B. If review failed or work is early, surface C or D.
-
----
-
-## Path A: Submit as MR
-
-### A1 — Verify clean state
-```bash
-git -C worktrees/$ISSUE status --short
-```
-If uncommitted changes exist: stop. Ask the user to commit or stash before proceeding.
-
-### A2 — Generate contribution comment
-Invoke `drupal-lab:issue-summary` to produce the drupal.org-ready comment before pushing.
-The comment documents the problem, approach, changed files, and test instructions.
-
-### A3 — Provide push command for user
-The git guard prevents agents from pushing. Provide this command for the user to run in a
-separate terminal:
-
-```bash
-cd worktrees/<issue-number>
-git push origin issue-<issue-number>
-```
-
-After pushing, the MR URL follows this pattern:
-```
-https://git.drupalcode.org/project/drupal/-/merge_requests/new?merge_request[source_branch]=issue-<issue-number>
-```
-
-For contributed modules, the remote URL will differ — check with:
-```bash
-git -C worktrees/$ISSUE remote get-url origin
-```
-
-### A4 — Stop DDEV
-```bash
-cd worktrees/$ISSUE && ddev stop
-```
-
-### A5 — Confirm to user
-- Branch pushed: `issue-<issue-number>`
-- MR URL (or instructions to open one)
-- Contribution comment: ready to paste into the drupal.org issue
-- DDEV: stopped
-- Worktree: preserved (branch still available for follow-up)
-
----
-
-## Path B: Submit as Patch
-
-### B1 — Verify clean state
-```bash
-git -C worktrees/$ISSUE status --short
-```
-Uncommitted changes will be included in the patch. Flag any unintentional files.
-
-### B2 — Generate patch
-```bash
-git -C worktrees/$ISSUE diff main > /tmp/issue-$ISSUE.patch
-wc -l /tmp/issue-$ISSUE.patch
-```
-
-Move to project root for easy access:
-```bash
-mv /tmp/issue-$ISSUE.patch ./issue-$ISSUE.patch
-```
-
-### B3 — Generate contribution comment
-Invoke `drupal-lab:issue-summary` to produce the drupal.org-ready comment.
-
-### B4 — Stop DDEV
-```bash
-cd worktrees/$ISSUE && ddev stop
-```
-
-### B5 — Confirm to user
-- Patch file: `./issue-$ISSUE.patch` (line count, ready to attach to issue)
-- Contribution comment: ready to paste
-- DDEV: stopped
-- Worktree: preserved
-
----
-
-## Path C: Keep as WIP
-
-Work continues in a future session. The worktree stays active.
-
-### C1 — Document current state
-Note in the kanban card or analysis report:
-- What is done
-- What remains
-- Any blockers or open questions
-- Last test run result
-
-### C2 — Optionally stop DDEV
-Ask: "Do you want to stop DDEV to free resources? You'll restart it next session."
-
-If yes:
-```bash
-cd worktrees/$ISSUE && ddev stop
-```
-
-### C3 — Confirm to user
-- Worktree: active at `worktrees/$ISSUE/`
-- DDEV: stopped (or still running — whichever applies)
-- Next session: run `drupal-lab:process-lifecycle` INIT to resume
-
----
-
-## Path D: Discard
-
-Work is not going forward. Confirm before removing anything.
+For parked work, record the branch/base, source context, changes completed, last validation and remaining issue-specific work in Beads. Preserve the worktree. For discard, identify the actual worktree and branch and apply the confirmation below; never remove unrelated changes or environments.
 
 ### D1 — Confirm twice
 State explicitly what will be deleted:
@@ -185,37 +37,6 @@ Type 'discard' to confirm.
 
 Wait for the user to confirm before proceeding.
 
-### D2 — Stop DDEV
-```bash
-cd worktrees/$ISSUE && ddev stop && ddev delete --omit-snapshot -y 2>/dev/null || true
-```
+After confirmation, use the existing lifecycle for shutdown and removal. Ask separately before deleting the branch; preserve it otherwise.
 
-### D3 — Remove worktree
-```bash
-# From project root
-git worktree remove worktrees/$ISSUE --force
-```
-
-### D4 — Optionally delete the branch
-```bash
-# From worktrees/main
-git -C worktrees/main branch -d issue-$ISSUE 2>/dev/null || \
-  git -C worktrees/main branch -D issue-$ISSUE
-```
-
-Ask before deleting the branch — the user may want to keep it for reference.
-
-### D5 — Confirm to user
-- Worktree removed: `worktrees/$ISSUE/`
-- Branch: deleted or preserved (per user choice)
-- DDEV: stopped and cleaned up
-
----
-
-## Context Awareness
-
-All relative paths assume execution from the **project root** — the directory containing
-`worktrees/`. If you are inside a worktree, `cd ../..` first.
-
-The git guard blocks `git push` from agents. Paths A and B provide the push/upload command
-for the user to run manually in a separate terminal.
+Use `process-lifecycle` for environment shutdown and slot metadata. Keep the worktree unless deletion is authorized. Finish with the actual submission/artifact state, canonical handoff paths, validation, remote evidence and environment disposition.

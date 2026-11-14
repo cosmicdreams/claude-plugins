@@ -1,0 +1,17 @@
+{
+  "skill_name": "browse-drupal-issues",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Find open critical Drupal core issues in the block component, most recently updated first.",
+      "expected_output": "Use browse-drupal-issues with exact classic filters and ordering; retain canonical links.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Show me open Settings Tray work items and what needs review.",
+      "expected_output": "Use browse-drupal-issues through migrated GitLab discovery, with supported status labels and explicit unsupported filters.",
+      "files": []
+    }
+  ]
+}

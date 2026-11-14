@@ -21,7 +21,7 @@
     },
     {
       "name": "drupal-lab",
-      "description": "Drupal-specific development skills and agents (DDEV, Analysis, Validation, Scaffolding)",
+      "description": "Drupal.org/GitLab contribution workflows, merge-request review, DDEV validation and Drupal tooling",
       "source": "./drupal-lab",
       "category": "development"
     },

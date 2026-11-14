@@ -3,7 +3,8 @@ name: issue-summary
 description: >
   Write a short Drupal.org contribution comment (what was fixed, the proof, what was not
   checked) once the fix passes the worth-it gate, from the analysis report and the git
-  diff. Run only after drupal-lab:validate-patch passes.
+  diff after local validation and review. Not for finishing or submitting the worktree
+  (drupal-lab:finish-issue).
 ---
 
 # Issue Summary
@@ -18,15 +19,17 @@ Generate a drupal.org contribution comment that summarizes what was fixed and ho
 
 ## Input
 
-Issue number. The worktree path is inferred as `./worktrees/{issue_number}/`.
+Canonical issue reference and actual dedicated worktree. Read `drupal-lab/references/drupalorg-cli.md` and `issue-handoffs.md`; resolve the project-qualified artifact location rather than inferring a numeric worktree path.
 
 ## Workflow
 
 ### 1. Read Context
 
-- Analysis report: `./analysis-reports/{issue_number}.md` — problem description and root cause
-- Git diff: `git diff main` from inside the worktree — what actually changed
+- Canonical `analysis.json` and `results.json` — problem, code evidence and fresh local review; read legacy artifacts only when their project matches
+- Git diff against the actual task base from inside the dedicated worktree — what actually changed
 - Test files added or modified in the diff
+
+Refresh relevant upstream discussion and merge-request evidence through the shared adapter. Cite stable source links and literal local/remote results separately. Resolve new maintainer objections before drafting; record inaccessible evidence instead of implying it passed.
 
 ### 2. Run the worth-it gate
 

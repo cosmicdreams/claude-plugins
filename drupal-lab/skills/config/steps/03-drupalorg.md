@@ -1,45 +1,26 @@
-# Step 3 — Drupal.org Credentials
+# Step 3 — Drupal.org and GitLab contribution access
 
-These are needed for MR submission and contribution comment generation.
+Read `drupal-lab/references/drupalorg-cli.md`. Preserve existing username/remote settings. Determine each project's canonical Drupal machine name and upstream GitLab path, verifying actual remotes rather than assuming core.
 
-## Username
+Select the dedicated feature worktree whose DDEV environment will run the upstream tool. Check its repository, branch, sibling main and DDEV readiness; never install in a main reference checkout or borrow an unrelated project's runtime. Prepare it through the existing worktree/lifecycle skills when necessary.
 
-Ask: "What is your Drupal.org username? (shown on your profile at drupal.org/u/...)"
+Run the shared adapter's `install` operation with that explicit runtime worktree, then `doctor`. The installer pins/checksums the PHAR and ignores its local DDEV tooling directory. Record the returned container path and runtime worktree in `drupal_org.cli` or the project's `drupal_org_cli` override. The supported command list is a capability check, not evidence that private endpoints are accessible.
 
-This is used to:
-- Generate MR URLs: `https://git.drupalcode.org/project/drupal/-/merge_requests`
-- Pre-fill contribution comments in `drupal-lab:issue-summary`
+Reuse existing host/container `DRUPALORG_GITLAB_TOKEN` or host `glab` access for `git.drupalcode.org`. Credentials are transported through private temporary requests to the child environment, never saved in this config. Probe the requested read capability. Ask through the host's secret mechanism only when needed access is genuinely unavailable; do not echo tokens or dump environment settings. Anonymous discovery may work when discussion access does not.
 
-## Git remote
-
-Check the git remote in the main worktree of each configured project:
-
-```bash
-git -C <project_root>/worktrees/main remote -v 2>/dev/null | head -4
-```
-
-If the remote is `origin` pointing to `git.drupalcode.org` or `git.drupal.org` → use `origin`.
-
-If the remote name differs, ask: "What git remote do you push to for Drupal.org? (default: origin)"
-
-Store per-project if different, or as a global default if the same across projects.
-
-## Result
-
-```json
-"drupal_org": {
-  "username": "cweber",
-  "gitlab_remote": "origin"
-}
-```
-
-These fields can also be overridden per-project if needed:
+Example non-secret configuration:
 
 ```json
 {
-  "alias": "drupal-core",
-  ...
-  "drupal_org_username": "cweber",
-  "gitlab_remote": "origin"
+  "drupal_org": {
+    "username": "cweber",
+    "gitlab_remote": "origin",
+    "cli": {
+      "runtime_worktree": "/absolute/project/worktrees/issue-topic",
+      "phar": "/mnt/ddev_config/drupalorg/0.15.1/drupalorg.phar"
+    }
+  }
 }
 ```
+
+Per-project fields `upstream_project` and `drupal_org_cli` identify the source project and optional runtime override. Store the actual fork remote for the specific issue when known; an origin pointing at the main project is not necessarily a push destination. Authentication never grants permission to assign, label, comment, commit or push. Local DDEV/Drush tasks continue without these optional upstream settings.

@@ -30,3 +30,5 @@ Record tool availability. If `ddev` is not found, warn:
 > "DDEV not found. drupal-lab skills require DDEV for running PHP tools. Install from https://ddev.com before proceeding."
 
 Proceed to Step 2 regardless — the config may still be useful for project path mapping.
+
+For Drupal.org contribution features, read `drupalorg-cli.md` and probe the selected feature worktree through the adapter's `doctor` after setup. Do not probe by executing host PHP or infer container authentication from the host alone. Preserve unrelated project settings when merging config; local/site operations require no upstream credential.

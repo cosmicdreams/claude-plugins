@@ -4,7 +4,7 @@ description: >
   Discover and configure drupal-lab integrations into ~/.claude/drupal-lab.json — probes
   DDEV and Acquia CLI, finds Drupal project roots, asks about naming conventions and
   Drupal.org credentials. Run on first setup or when a drupal-lab skill cannot find its
-  project.
+  project. Not for starting an issue worktree (drupal-lab:work-on-issue).
 allowed-tools: Bash, Read, Write, AskUserQuestion
 ---
 
@@ -31,7 +31,7 @@ Builds `~/.claude/drupal-lab.json` by probing the system and consulting the user
 
 2. **Projects** — discover Drupal project roots and DDEV conventions → Read `steps/02-projects.md`
 
-3. **Drupal.org** — username and git remote for MR submission → Read `steps/03-drupalorg.md`
+3. **Drupal.org** — username, upstream project, drupalorg-cli runtime and authentication → Read `steps/03-drupalorg.md`
 
 4. **Write config** — assemble and save `~/.claude/drupal-lab.json` → See schema in `references/schema.md`
 

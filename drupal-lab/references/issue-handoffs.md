@@ -5,15 +5,18 @@ Stages of issue work hand off through JSON artifacts, not markdown narrative. Th
 Locations (relative to the project root):
 
 ```
-analysis-reports/drupal-issue/<issue>/analysis.json   # produced by the analyze stage
-analysis-reports/drupal-issue/<issue>/results.json    # produced by the reviewer
-analysis-reports/drupal-issue/<issue>.md              # human-readable render
+analysis-reports/drupal-issue/<project>/<id>/analysis.json   # produced by the analyze stage
+analysis-reports/drupal-issue/<project>/<id>/results.json    # produced by the reviewer
+analysis-reports/drupal-issue/<project>/<id>/analysis.md              # human-readable render
 ```
 
 ## analysis.json
 
 ```json
 {
+  "schema_version": 2,
+  "identity": {"project": "drupal", "id": 3456789, "backend": "drupal", "ref": "3456789"},
+  "evidence": ["upstream-run/result.json"],
   "issue": 3456789,
   "url": "https://www.drupal.org/project/drupal/issues/3456789",
   "title": "string",
@@ -36,6 +39,9 @@ analysis-reports/drupal-issue/<issue>.md              # human-readable render
 
 ```json
 {
+  "schema_version": 2,
+  "identity": {"project": "drupal", "id": 3456789, "backend": "drupal", "ref": "3456789"},
+  "evidence": ["upstream-run/result.json"],
   "issue": 3456789,
   "verdict": "pass | fail-spec | fail-quality",
   "spec_compliance": {
@@ -56,3 +62,13 @@ analysis-reports/drupal-issue/<issue>.md              # human-readable render
 ```
 
 When a review fails, the author answers each finding by number so the reviewer can match response to report.
+
+## Upstream context and compatibility
+
+Read `drupalorg-cli.md` and capture a fresh `issue-context` or `merge-request-context` run. Keep raw request evidence under its run directory and reference it from `evidence`. The source context preserves stable comment/note URLs, original bodies, attachments, prior proposals and explicit missing access; it is not an analysis or a passing review. Set root cause only from code evidence.
+
+Write canonical project-qualified paths only. Existing numeric `analysis-reports/drupal-issue/<id>/analysis.json` or `results.json` can be read when their recorded project matches the resolved identity; never select them just because the number matches. The shared adapter's `analysis_path()` implements this rule for analysis artifacts. Keep old files as historical evidence rather than writing two current copies. Review artifacts without identity require checking their associated analysis project before reuse.
+
+Schema version 2 preserves existing analysis/review fields and adds `identity` and `evidence`. Add remote pipeline details under `remote` in review artifacts, separately from existing local `gates`: source URL, pipeline/revision, all failed jobs, trace evidence and missing facts. Local pass with inaccessible or failing remote evidence is not submission readiness. Original-bug proof still requires fresh local checks through DDEV.
+
+Each analysis patch entry may add `source_comment_id` and `source_url`; a legacy numeric `comment` is optional and must be a verified source number, never an upstream formatter's sequence. For GitLab work items retain `backend`, source project path and actual issue URL rather than fabricating a Drupal.org URL.

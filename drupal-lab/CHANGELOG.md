@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.2.0 — 2026-11-14
+
+- Integrate drupalorg-cli across discovery, analysis, review and contribution handoffs. Add `work-on-issue` and `inspect-merge-request`; keep DDEV, Drush and explicit Git worktree operations in their existing roles.
+- Add a checksum-pinned DDEV runner with secure credential transport, canonical migrated references and project-qualified handoffs with legacy reads. Preserve source comment IDs, recover skipped comments/attachments, and enumerate complete pipeline jobs and full failed traces instead of relying on truncated summaries.
+- Preserve classic queue filters/order while supporting migrated GitLab queues, title/maintainer searches, release notes and commit containment. Local site operations require no upstream credential.
+
 ## 5.1.0 — 2026-11-09
 
 - `issue-summary` runs the worth-it gate before drafting and writes a short comment (at most 150 words, no headings): the fix and its cause, the failing-then-passing test with its literal result, verification steps only when needed, and what was not checked. Without proof of the root cause it stops and asks for a stack trace. For projects whose maintainers asked for human-written posts it hands Chris the facts instead.
