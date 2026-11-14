@@ -16,8 +16,7 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 Run all quality gates on a Drupal implementation in a worktree using DDEV.
 
-All phpcs/phpstan/phpunit commands run inside DDEV containers. See `drupal-lab:ddev` for the
-full command reference.
+All phpcs/phpstan/phpunit commands run inside DDEV containers. See `drupal-lab:ddev` for the full command reference.
 
 ## Input
 
@@ -28,8 +27,7 @@ Resolve project root from `~/.claude/drupal-lab.json`. See `drupal-lab/reference
 
 ## Prerequisites
 
-DDEV must be running. Follow `drupal-lab:process-lifecycle` to bootstrap and verify the
-environment. Check readiness:
+DDEV must be running. Follow `drupal-lab:process-lifecycle` to bootstrap and verify the environment. Check readiness:
 
 ```bash
 cd <actual-dedicated-worktree>
@@ -41,9 +39,7 @@ STATUS=$(ddev describe --json-output 2>/dev/null | jq -r '.raw.status')
 
 ## Phase 0: Test Design Review (BEFORE DDEV)
 
-**Purpose**: Catch test design issues statically before spinning up DDEV. This phase runs
-without infrastructure and prevents the most common validation failures (50% of failures in
-session 2026-02-16 were test design, not code regression).
+**Purpose**: Catch test design issues statically before spinning up DDEV. This phase runs without infrastructure and prevents the most common validation failures (50% of failures in session 2026-02-16 were test design, not code regression).
 
 **Time**: 5–10 minutes. No DDEV required.
 
@@ -131,8 +127,7 @@ Even if no test files changed, verify:
 - Send fixes to developer before spinning up DDEV
 - Report: `phase0 fail | [issue list] | fixes proposed`
 
-**Expected Impact**: Catching these issues saves 20–30 min of DDEV spin-up, test execution,
-debugging, and re-testing per failure. Target: 80%+ first-pass validation rate (baseline: 56%).
+**Expected Impact**: Catching these issues saves 20–30 min of DDEV spin-up, test execution, debugging, and re-testing per failure. Target: 80%+ first-pass validation rate (baseline: 56%).
 
 ---
 
