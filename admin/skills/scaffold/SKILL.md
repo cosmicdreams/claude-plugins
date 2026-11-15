@@ -2,7 +2,7 @@
 name: scaffold
 description: >
   Set up a generic project structure for agent-assisted work: creates .claude/,
-  analysis-reports/, plans/, and CLAUDE.md. Pass --silent to suppress the detection
+  analysis-reports/, plans/, and AGENTS.md. Pass --silent to suppress the detection
   prompt. Not for DDEV setup, worktrees, or an already-scaffolded project.
 allowed-tools: Read, Bash, Glob, Grep
 ---
@@ -13,7 +13,7 @@ allowed-tools: Read, Bash, Glob, Grep
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> Sets up a project directory structure for agent-assisted work. Creates .claude/, analysis-reports/, plans/, and CLAUDE.md. Use when a project is missing these directories or when asked to initialize, prepare, or scaffold a project for team or multi-agent use. Pass --silent to suppress the scaffold detection prompt without running the scaffold. Do not use if the project is already scaffolded, or for DDEV setup, git worktrees, or environment configuration.
+> Sets up a project directory structure for agent-assisted work. Creates .claude/, analysis-reports/, plans/, and AGENTS.md. Use when a project is missing these directories or when asked to initialize, prepare, or scaffold a project for team or multi-agent use. Pass --silent to suppress the scaffold detection prompt without running the scaffold. Do not use if the project is already scaffolded, or for DDEV setup, git worktrees, or environment configuration.
 
 Set up a generic project directory structure: configuration, analysis reports, plans, and project guidance.
 
@@ -78,7 +78,7 @@ Run these checks in order; use the first match as `PROJECT_NAME`:
 zsh "${CLAUDE_SKILL_DIR}/scaffold.sh" "$TARGET" "$PROJECT_NAME"
 ```
 
-The script creates all directories, writes CLAUDE.md and MEMORY.md from templates, and marks scaffold complete in `.claude/settings.json`. It is idempotent — existing files are skipped, not overwritten.
+The script creates all directories, writes AGENTS.md and MEMORY.md from templates, and marks scaffold complete in `.claude/settings.json`. It is idempotent — existing files are skipped, not overwritten. Existing legacy `CLAUDE.md` files are left untouched; new project instructions are written to `AGENTS.md`.
 
 ### 5. Report
 

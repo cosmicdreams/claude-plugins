@@ -57,16 +57,16 @@ echo "MODULE_STARTER_MODULE=$MODULE_NAME"
 make_dir "analysis-reports/drupal-issue"
 make_dir "tests"
 
-# --- Append Drupal contrib section to CLAUDE.md ---
-CLAUDE_MD="$TARGET/CLAUDE.md"
-if grep -q "## Drupal Contrib Module" "$CLAUDE_MD" 2>/dev/null; then
-  skipped+=("CLAUDE.md (Drupal section)")
+# --- Append Drupal contrib section to AGENTS.md ---
+AGENTS_MD="$TARGET/AGENTS.md"
+if grep -q "## Drupal Contrib Module" "$AGENTS_MD" 2>/dev/null; then
+  skipped+=("AGENTS.md (Drupal section)")
 else
   # Substitute MODULE_NAME and DDEV_NAME in template and append.
   # DDEV_NAME uses hyphens for DDEV compatibility.
   DDEV_NAME_TMPL="${MODULE_NAME//_/-}"
-  sed -e "s/MODULE_NAME/$MODULE_NAME/g" -e "s/DDEV_NAME/$DDEV_NAME_TMPL/g" "$SCRIPT_DIR/drupal-section.md.tmpl" >> "$CLAUDE_MD"
-  created+=("CLAUDE.md (Drupal section appended)")
+  sed -e "s/MODULE_NAME/$MODULE_NAME/g" -e "s/DDEV_NAME/$DDEV_NAME_TMPL/g" "$SCRIPT_DIR/drupal-section.md.tmpl" >> "$AGENTS_MD"
+  created+=("AGENTS.md (Drupal section appended)")
 fi
 
 # --- Gate: validate worktrees/main/ ---

@@ -31,7 +31,7 @@ Invoke `admin:scaffold` with the same `$ARGUMENTS`. This handles:
 - Target validation and resolution
 - Directory structure (`.claude/memory/`, `kanban/`, `analysis-reports/`, `plans/`, `worktrees/`)
 - Project name detection
-- CLAUDE.md and MEMORY.md generation
+- AGENTS.md and MEMORY.md generation
 - Idempotency
 
 Continue with the steps below regardless of whether scaffold created or skipped files. Capture the `SCAFFOLD_TARGET` value from its output — use that as `TARGET` for all subsequent steps.
@@ -47,7 +47,7 @@ bash "${CLAUDE_SKILL_DIR}/module-dev-starter.sh" "$TARGET"
 The script performs:
 - **Module name detection**: from `worktrees/main/composer.json`, `worktrees/main/*.info.yml`, or directory basename
 - **Drupal directories**: creates `analysis-reports/drupal-issue/` and `tests/`
-- **CLAUDE.md section**: appends the Drupal contrib block (skips if already present)
+- **AGENTS.md section**: appends the Drupal contrib block (skips if already present)
 - **worktrees/main/ gate**: validates presence and git status before attempting DDEV
 - **DDEV setup**: `ddev config`, `config.local.yaml`, addons, `ddev start`, `ddev poser`, `ddev symlink-project`
 - **settings.json**: marks `drupalScaffoldComplete` so scaffold-detect stops prompting

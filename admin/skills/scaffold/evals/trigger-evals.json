@@ -1,7 +1,7 @@
 [
   {"query": "I want to start using sprint mode for this project", "should_trigger": true},
   {"query": "Can you get my new repo ready for team agents?", "should_trigger": true},
-  {"query": "set up the kanban boards and CLAUDE.md for this codebase", "should_trigger": true},
+  {"query": "set up the kanban boards and AGENTS.md for this codebase", "should_trigger": true},
   {"query": "I'm starting a new project and want to use the agent workflows", "should_trigger": true},
   {"query": "prepare this project for multi-agent work", "should_trigger": true},
   {"query": "my project is missing the kanban and analysis-reports directories, can you fix that", "should_trigger": true},
@@ -11,7 +11,7 @@
   {"query": "run a sprint on this project", "should_trigger": false},
   {"query": "create a worktree for this feature branch", "should_trigger": false},
   {"query": "set up DDEV for my Drupal project", "should_trigger": false},
-  {"query": "I need to add a CLAUDE.md file with instructions for this repo", "should_trigger": false},
+  {"query": "I need to add an AGENTS.md file with instructions for this repo", "should_trigger": false},
   {"query": "what's the kanban board lane structure?", "should_trigger": false},
   {"query": "scaffold a new skill for logging errors", "should_trigger": false},
   {"query": "configure git worktrees for isolated development", "should_trigger": false},
