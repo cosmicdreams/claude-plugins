@@ -54,7 +54,7 @@ make_dir "worktrees"
 write_file ".claude/progress.jsonl" "" ""
 
 # --- Files from templates ---
-write_file "CLAUDE.md"          "$SCRIPT_DIR/CLAUDE.md.tmpl" ""
+write_file "AGENTS.md"          "$SCRIPT_DIR/AGENTS.md.tmpl" ""
 write_file ".claude/memory/MEMORY.md" "$SCRIPT_DIR/MEMORY.md.tmpl" ""
 
 # --- settings.json: mark scaffold complete ---
