@@ -232,6 +232,26 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(run(self.vault,'status',owner)['index']['items']['Raw/Inbox/test/no.md']['state'],'collected')
         run(self.vault,'close',owner)
 
+    def test_skip_only_after_a_failed_retry_and_is_terminal(self):
+        folder=self.vault/'Raw/Inbox/test';folder.mkdir(parents=True)
+        (folder/'a.md').write_text('url: https://example.com/a')
+        item='Raw/Inbox/test/a.md'
+        self.index(migrate(self.vault))
+        owner=run(self.vault,'acquire')['owner']
+        run(self.vault,'claim',owner,item)
+        with self.assertRaises(ValueError):run(self.vault,'skip',owner,item,error='first failure')
+        run(self.vault,'fail',owner,item,error='fetch failed')
+        run(self.vault,'claim',owner,item)
+        with self.assertRaises(ValueError):run(self.vault,'skip',owner,item)
+        record=run(self.vault,'skip',owner,item,error='fetch failed again')
+        self.assertEqual(record['state'],'skipped')
+        self.assertEqual(record['error'],'fetch failed again')
+        self.assertNotIn('prior_state',record)
+        self.assertIn('skipped_at',record)
+        with self.assertRaises(ValueError):run(self.vault,'claim',owner,item)
+        self.assertTrue((folder/'a.md').exists())
+        run(self.vault,'close',owner)
+
     def test_template_nulls_and_invalid_domains_do_not_abort(self):
         self.index()
         template=Path(__file__).parents[1]/'templates/domain.yaml'

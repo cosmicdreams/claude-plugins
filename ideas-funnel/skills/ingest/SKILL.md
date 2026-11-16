@@ -57,7 +57,7 @@ done)
 
 For each domain in scope, list `Raw/Inbox/<domain>/*.md`. Also list `Raw/*.md` (daily notes, domain-less).
 
-The versioned canonical index is authoritative for scheduled work; only collected/failed states are eligible. Legacy manual items are unprocessed if:
+The versioned canonical index is authoritative for scheduled work; only collected items (Daily) and failed items (Weekly's single retry) are eligible; skipped items are never retried automatically. Legacy manual items are unprocessed if:
 - It is not listed in `Raw/.manifest.json` as an ingested entry, AND
 - Its frontmatter lacks `status: ingested`.
 
