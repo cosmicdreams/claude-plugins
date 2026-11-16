@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.4.0 — 2026-11-16
+
+- New terminal item state `skipped`. `pipeline.py skip --owner <token> --item <path> --error <reason>` applies only to a claimed item that was `failed` before the claim, records the reason and `skipped_at`, and keeps the raw file. `claim` never takes a skipped item.
+- Daily selects only `collected` items, so items that keep failing no longer crowd out new ones.
+- Weekly first retries up to 50 failed items once. A success is finished as usual; a second failure is skipped, not failed again, and the run appends one `retry` entry to `log.md` listing each skipped path and reason.
+- `health.py` counts `skipped` and leaves skipped items out of each domain's `waiting`.
+- Claude and Codex manifests share version 3.4.0.
+
 ## 3.3.1 — 2026-11-05
 
 - `query` may search `Research-Lab/` for questions about research done in the vault, starting from its index, but reads and cites only: it never writes, tags or links there, and never files an answer back into it.
