@@ -54,13 +54,13 @@ def snapshot(vault, command, max_age=360):
     inbox = vault / 'Raw/Inbox'
     for domain in sorted(p for p in inbox.glob('*') if p.is_dir()):
         files = [p for p in domain.glob('*.md') if p.name.lower() != 'readme.md']
-        waiting = [p for p in files if records.get(str(p.relative_to(vault)), {}).get('state') != 'ingested']
+        waiting = [p for p in files if records.get(str(p.relative_to(vault)), {}).get('state') not in ('ingested', 'skipped')]
         domains[domain.name] = {'waiting': len(waiting),
             'stale_over_7_days': sum(now.timestamp() - p.stat().st_mtime > 7 * 86400 for p in waiting),
             'unindexed': [str(p.relative_to(vault)) for p in files if str(p.relative_to(vault)) not in records][:20]}
     lease = load('_meta/ideas-funnel-owner.json', {})
     states = {state: sum(r.get('state') == state for r in records.values())
-              for state in ('collected', 'processing', 'ingested', 'failed')}
+              for state in ('collected', 'processing', 'ingested', 'failed', 'skipped')}
     summary = {'states': states, 'conflicts': index.get('conflicts', [])[:20],
                'conflict_count': len(index.get('conflicts', [])), 'error': index.get('error')}
     return {'run_owner': lease, 'url_index': summary, 'last_pull': runs, 'generated_at': now.isoformat(), 'domains': domains, 'allowance': pools,

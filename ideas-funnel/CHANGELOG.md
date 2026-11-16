@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.4.0 — 2026-11-16
+
+- New terminal item state `skipped`. `pipeline.py skip --owner <token> --item <path> --error <reason>` applies only to a claimed item that was `failed` before the claim, records the reason and `skipped_at`, and keeps the raw file. `claim` never takes a skipped item.
+- Daily selects only `collected` items, so items that keep failing no longer crowd out new ones.
+- Weekly first retries up to 50 failed items once. A success is finished as usual; a second failure is skipped, not failed again, and the run appends one `retry` entry to `log.md` listing each skipped path and reason.
+- `health.py` counts `skipped` and leaves skipped items out of each domain's `waiting`.
+- Claude and Codex manifests share version 3.4.0.
+
 ## 3.3.2 — 2026-11-16
 
 - `ingest` fetches articles with `defuddle parse <url> --md` when Defuddle is installed, falling back to WebFetch. It named `obsidian:defuddle` before, but never said how to run it or what to do without it.

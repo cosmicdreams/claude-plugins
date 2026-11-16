@@ -61,5 +61,16 @@ class BacklogTests(unittest.TestCase):
             self.assertEqual(result['domains']['test']['waiting'],1)
             self.assertEqual(result['domains']['test']['unindexed'],['Raw/Inbox/test/orphan.md'])
 
+    def test_skipped_items_are_counted_and_not_waiting(self):
+        with tempfile.TemporaryDirectory() as temp:
+            v=Path(temp); inbox=v/'Raw/Inbox/test';inbox.mkdir(parents=True)
+            (inbox/'gave-up.md').write_text('note')
+            (inbox/'failed.md').write_text('note')
+            (v/'Raw/.url-index.json').write_text(json.dumps({'items':{'Raw/Inbox/test/gave-up.md':{'state':'skipped'},'Raw/Inbox/test/failed.md':{'state':'failed'}},'urls':{},'conflicts':[]}))
+            result=health.snapshot(v,v/'missing')
+            self.assertEqual(result['domains']['test']['waiting'],1)
+            self.assertEqual(result['url_index']['states']['skipped'],1)
+            self.assertEqual(result['url_index']['states']['failed'],1)
+
 if __name__ == '__main__':
     unittest.main()
