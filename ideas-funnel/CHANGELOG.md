@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.3.2 — 2026-11-16
+
+- `ingest` fetches articles with `defuddle parse <url> --md` when Defuddle is installed, falling back to WebFetch. It named `obsidian:defuddle` before, but never said how to run it or what to do without it.
+- Claude and Codex manifests share version 3.3.2.
+
 ## 3.3.1 — 2026-11-05
 
 - `query` may search `Research-Lab/` for questions about research done in the vault, starting from its index, but reads and cites only: it never writes, tags or links there, and never files an answer back into it.

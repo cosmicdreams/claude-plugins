@@ -104,7 +104,8 @@ For each distinct article, link, or idea:
 
 For items that are primarily a URL with little commentary:
 
-- Fetch via WebFetch (or `obsidian:defuddle` for articles).
+- Articles: if `defuddle` is on `PATH`, run `defuddle parse <url> --md` (the `obsidian:defuddle` skill); it strips navigation and ads. Otherwise, or if it errors or returns little text, use WebFetch.
+- Everything else: WebFetch.
 - GitHub repos: read README + repo description.
 - Blog posts: extract thesis + key points.
 - YouTube: fetch page title + description.

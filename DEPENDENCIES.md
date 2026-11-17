@@ -202,16 +202,18 @@ op signin
 
 ## Obsidian
 
-Skills that archive output write into an Obsidian vault. Most write files straight into the vault folder; `lib:vault-store` and `drupal-lab:issue-summary` also call the `obsidian` command-line tool.
+Skills that archive output write into an Obsidian vault. Most write files straight into the vault folder; `lib:vault-store` and `drupal-lab:issue-summary` also call the `obsidian` command-line tool, and `workshop:organize` and `workshop:obsidian-lint` move notes with it so links are updated.
 
 1. Install the [Obsidian](https://obsidian.md) desktop app and open your vault at least once.
-2. In Obsidian, install and enable the **Local REST API** community plugin.
-3. Install the command-line tool:
+2. Turn on the `obsidian` command-line tool that ships with the app, as described at https://help.obsidian.md/cli. Do not install the unrelated npm packages named `obsidian-cli`. The tool talks to the running app, so Obsidian must be open.
+3. For link-safe moves, turn on Settings → Files and links → Automatically update internal links. Otherwise every move waits on a dialog in Obsidian.
 
 ```bash
-npm i -g @obsidian-tools/obsidian-cli
-obsidian help   # verify
+obsidian help    # verify
+obsidian vault   # prints the vault the current directory belongs to
 ```
+
+Optional: [Defuddle](https://github.com/kepano/defuddle) (`npm i -g defuddle`) gives `ideas-funnel:ingest` cleaner article text than WebFetch. The official agent skills for Obsidian syntax, Bases, Canvas and the CLI come from `claude plugin install obsidian@obsidian-skills` (marketplace `obsidianmd/obsidian-skills`).
 
 **Vault configuration:** skills default to a vault named `Neurons` at `~/Vaults/Neurons`. Override with the `OBSIDIAN_VAULT_NAME` environment variable.
 
