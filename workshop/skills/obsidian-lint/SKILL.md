@@ -14,7 +14,7 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 > Audits the Obsidian vault against obsidian-rules.md and corrects violations: misplaced files, wrong folder structure, legacy shared/ prefixes, and naming that doesn't follow conventions. Runs a dry-run by default — shows proposed moves before applying anything. Trigger phrases: "lint my vault", "audit the vault", "fix vault structure", "check vault paths", "vault has wrong folders", "clean up vault structure", "remove shared/ from vault".
 
-Audit and correct vault structure against `obsidian-rules.md`. Filesystem-only — Obsidian does not need to be running.
+Audit and correct vault structure against `obsidian-rules.md`. The audit reads files only and works without Obsidian; applying moves needs Obsidian open on the vault (Step 3).
 
 ## Setup
 
