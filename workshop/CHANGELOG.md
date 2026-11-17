@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.1 — 2026-11-16
+
+- `organize` and `obsidian-lint` move notes with `obsidian move` instead of `mv`, so Obsidian rewrites links to them. The vault links by path, so every `mv` broke inbound links. Both check that Obsidian is open on the vault and that automatic link updating is on (otherwise the move waits on a dialog), count a move only when the CLI prints `Moved:` (it exits 0 on failure), and list pending moves instead of falling back to `mv`.
+- Claude and Codex manifests share version 3.0.1.
+
 ## 3.0.0 — 2026-11-10
 
 **Breaking: Slack, Gmail and Google Calendar are reached only through the host's connectors.** The `agent-slack` and `gws` command-line tools are no longer used anywhere, and there is no fallback to them.

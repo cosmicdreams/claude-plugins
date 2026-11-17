@@ -72,10 +72,19 @@ Show count by violation type. Ask:
 
 Only run after user confirmation.
 
+Move with the Obsidian CLI so Obsidian rewrites every link to the note. This vault links by path (`[[Folder/Note]]`), so a plain `mv` breaks those links. Run from the vault root so the CLI targets this vault:
+
 ```bash
-mkdir -p "$VAULT_ROOT/$(dirname "<destination>")"
-mv "$VAULT_ROOT/<source>" "$VAULT_ROOT/<destination>"
+cd "$VAULT_ROOT"
+obsidian vault                                   # must print this vault's path
+obsidian eval code="app.vault.getConfig('alwaysUpdateLinks')"   # must print => true
+obsidian move path="<source>" to="<destination>"
 ```
+
+- If `alwaysUpdateLinks` is not `true`, each move stops on an "Update links?" dialog in Obsidian and the command waits. Ask the user to turn on Settings → Files and links → Automatically update internal links first.
+- The CLI exits 0 even when a move fails. Count a move only when it prints `Moved:` and the file exists at the new path; report any `Error:` line.
+- If `obsidian` is missing or Obsidian is not open on this vault, do not fall back to `mv`. List the pending moves for the user and stop.
+- Create no folders first; `obsidian move` creates them. Obsidian may rewrite moved links in its configured link format (shortest path by default); they still resolve.
 
 After all moves, remove empty directories:
 ```bash
