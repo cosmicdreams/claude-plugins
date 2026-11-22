@@ -97,6 +97,15 @@ def run(vault, action, owner=None, item=None, pages=None, error=None, url=None):
                 record['state'] = record.pop('prior_state', 'collected')
             elif action == 'fail':
                 record.update(state='failed', error=str(error or 'item failed')[:1000])
+            elif action == 'skip':
+                # Terminal: a failed item that failed again on its one retry. Never claimable.
+                if record.get('prior_state') != 'failed':
+                    raise ValueError('skip applies only to a retried failed item; use fail')
+                if not error:
+                    raise ValueError('skip requires --error with the reason')
+                record.pop('prior_state', None)
+                record.update(state='skipped', error=str(error)[:1000],
+                              skipped_at=dt.datetime.now(dt.timezone.utc).isoformat())
             else:
                 raise ValueError('unknown action')
         atomic_json(index_path, index)
@@ -160,7 +169,7 @@ def resolve(vault, index, index_path, url, pages):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--vault', type=Path, required=True)
-    parser.add_argument('action', choices=['acquire','status','index','claim','finish','fail','release','close','recover','resolve'])
+    parser.add_argument('action', choices=['acquire','status','index','claim','finish','fail','skip','release','close','recover','resolve'])
     parser.add_argument('--owner')
     parser.add_argument('--item')
     parser.add_argument('--pages', nargs='+')
