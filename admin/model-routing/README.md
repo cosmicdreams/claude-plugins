@@ -28,4 +28,4 @@ Each run with `--snapshot-dir` saves `<fetchedAt>Z-<sourceHash>.json` (Claude, G
 
 ## Changing the rules
 
-Edit `config.json` through a reviewed change. Add a new family (for example Gemini 4 Carbon) under `families`, and remove the Argon substitution and ceiling when Carbon replaces it. Tier floors are fixed on purpose; the weekly review proposes new floors only after a rescale.
+Edit `config.json` through a reviewed change. Add a new family under `families`, with an `effort_ceiling` if Chris caps it. Families Chris has decided not to route go under `ignored_families` with the reason. Tier floors are fixed on purpose; the weekly review proposes new floors only after a rescale.
