@@ -4,6 +4,7 @@ Fixtures copy the shape of real Screaming Frog 25.1 output with made-up URLs.
 """
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -11,6 +12,9 @@ import unittest
 import unittest.mock
 from pathlib import Path
 from types import SimpleNamespace
+
+# Tests never start Screaming Frog; any existing file stands in for its launcher.
+os.environ["FROG_LAUNCHER"] = sys.executable
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
