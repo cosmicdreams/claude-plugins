@@ -1,0 +1,19 @@
+{
+  "set": {
+    "mCrawlConfig.mCrawlerMode": "RENDER",
+    "mCrawlConfig.mInspectAccessibility": true,
+    "mCrawlConfig.mCrawlExternalLinks": false,
+    "mCrawlConfig.mStoreExternalLinks": false,
+    "mCrawlConfig.mFollowInternalNoFollow": true,
+    "mCrawlConfig.mRespectNoindex": false,
+    "mCrawlConfig.mRobotsTxtMode": "IGNORE_AND_REPORT",
+    "mCrawlConfig.mCrawlSitemaps": true,
+    "mCrawlConfig.mAllowRenderScreenShots": false,
+    "mCrawlConfig.mRenderWindowConfig.mWidth": 1280,
+    "mCrawlConfig.mRenderWindowConfig.mHeight": 800,
+    "mCrawlConfig.mRenderWindowConfig.mIsMobile": false,
+    "mCrawlConfig.mRenderWindowConfig.mTouchEnabled": false,
+    "mCrawlConfig.mSearchTotalLimit": 20000,
+    "mExcludeManger.mRawExcludeListString": ".*/user/logout.*\n.*/admin/.*\n.*\\?.*"
+  }
+}
