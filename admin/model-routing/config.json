@@ -18,6 +18,7 @@
     "claude-sonnet-5-5": {"pool": "anthropic", "cli": "claude-sonnet-5-5"},
     "claude-opus-5-5": {"pool": "anthropic", "cli": "claude-opus-5-5"},
     "claude-fable-5-1": {"pool": "anthropic", "cli": "claude-fable-5-1"},
+    "claude-fable-5-2": {"pool": "anthropic", "cli": "claude-fable-5-2"},
     "gemini-3-8-flash": {"pool": "google", "cli": "gemini-3.8-flash"},
     "gemini-4-argon": {"pool": "google", "cli": "gemini-4-argon"},
     "gemini-4-hydrogen": {"pool": "google", "cli": "gemini-4-hydrogen"},
