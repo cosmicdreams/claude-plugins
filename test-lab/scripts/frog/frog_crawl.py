@@ -302,16 +302,34 @@ def _db_row(task_name: str, run=subprocess.run) -> dict:
 
 
 PROBE_PAGE = """<!doctype html><html lang="en"><head><title>frog render self-test</title>
-<link rel="stylesheet" href="{ext}/style.css"><script src="{ext}/script.js"></script></head>
+<link rel="stylesheet" href="{ext}/style.css"><script src="{ext}/script.js"></script>
+<style>@font-face {{ font-family: probe; src: url({ext}/font.woff2) format("woff2"); }} h1 {{ font-family: probe; }}</style></head>
 <body><h1>self-test</h1><img src="{ext}/img.png" alt="probe"><iframe src="{ext}/frame.html" title="probe"></iframe>
 <script>fetch('/render-ok').catch(function(){{}}); fetch('{ext}/fetch').catch(function(){{}});
 var i = new Image(); i.src = '{ext}/jsimg.png';</script></body></html>"""
 
 
+# Off-site asset types a caller may opt into, and the probe paths that stand
+# for them. Scripts, documents, iframes, fetch/XHR and non-GET requests are
+# never allowed.
+OFFSITE_ASSETS = {"stylesheet": {"/style.css"}, "font": {"/font.woff2"}, "image": {"/img.png", "/jsimg.png"}}
+
+
 def _server(hits: list, body: str | None = None) -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
+        def _record(self):
+            hits.append(f"{self.command} {self.path}")
+            length = int(self.headers.get("Content-Length") or 0)
+            if length:
+                self.rfile.read(length)
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        do_POST = do_PUT = do_DELETE = do_PATCH = do_OPTIONS = do_HEAD = _record
+
         def do_GET(self):
-            hits.append(self.path)
+            hits.append(f"GET {self.path}")
             data = (body if body is not None and self.path == "/" else "ok").encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html" if self.path == "/" else "text/plain")
@@ -327,15 +345,20 @@ def _server(hits: list, body: str | None = None) -> ThreadingHTTPServer:
     return srv
 
 
-def render_selftest(config: Path, run=subprocess.run, timeout: int = 600) -> dict:
+def render_selftest(config: Path, run=subprocess.run, timeout: int = 600, allow_offsite=()) -> dict:
     """Prove this config renders JavaScript and requests nothing off-site.
 
     Serves a page on 127.0.0.1 that loads a script, stylesheet, image, iframe,
     link, fetch() and a script-made image from a second local server reached
     as "localhost" (a different host, so external to Screaming Frog). The crawl
     must hit /render-ok on the page's own host, which only executed JavaScript
-    does, and must send nothing at all to the second server.
+    does, and must send nothing to the second server except GETs of the asset
+    types in `allow_offsite` (see OFFSITE_ASSETS).
     """
+    unknown = set(allow_offsite) - set(OFFSITE_ASSETS)
+    if unknown:
+        raise FrogError(f"unknown off-site asset type(s) {sorted(unknown)}; choose from {sorted(OFFSITE_ASSETS)}", 2)
+    allowed = {f"GET {path}" for kind in allow_offsite for path in OFFSITE_ASSETS[kind]}
     ext_hits: list = []
     site_hits: list = []
     ext = _server(ext_hits)
@@ -354,18 +377,21 @@ def render_selftest(config: Path, run=subprocess.run, timeout: int = 600) -> dic
     finally:
         site.shutdown()
         ext.shutdown()
-    if ext_hits:
-        raise FrogError(f"render self-test: the config let Screaming Frog request off-site URLs {sorted(set(ext_hits))}")
-    if "/render-ok" not in site_hits:
+    refused = sorted(set(ext_hits) - allowed)
+    if refused:
+        raise FrogError(f"render self-test: the config let Screaming Frog make off-site requests {refused}"
+                        + (f" (allowed: {sorted(allow_offsite)})" if allow_offsite else ""))
+    if "GET /render-ok" not in site_hits:
         raise FrogError("render self-test: the page's JavaScript never ran, so rendering isn't working")
     version = VERSION_RE.search(log)
-    return {"passed": True, "offsite_requests": 0, "javascript_ran": True,
+    return {"passed": True, "offsite_requests": sorted(set(ext_hits)), "allowed_offsite_assets": sorted(allow_offsite),
+            "javascript_ran": True,
             "sf_version": version.group(1) if version else None}
 
 
 def crawl(project_root, output, config_path, url_list=None,
           tabs=(), bulk=(), reports=(), required=None, start=True, timeout=4 * 3600,
-          run=subprocess.run) -> dict:
+          run=subprocess.run, allow_offsite_assets=()) -> dict:
     setup = check_setup()
     target = ddev_guard.resolve(project_root, start=start)
     list_path = None
@@ -374,7 +400,7 @@ def crawl(project_root, output, config_path, url_list=None,
         list_path = Path(url_list).resolve()
     config, from_config = resolve_config(config_path)
     render = from_config.get("mCrawlerMode") in ("RENDER", "AJAX")
-    selftest = render_selftest(config, run) if render else None
+    selftest = render_selftest(config, run, allow_offsite=allow_offsite_assets) if render else None
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     task = f"{config.stem}-{stamp}"
     args = crawl_args(target.primary_url, list_path, config, Path(output).resolve(),
@@ -460,6 +486,7 @@ def main(argv=None) -> int:
     c.add_argument("--save-report")
     c.add_argument("--require", action="append")
     c.add_argument("--no-start", action="store_true")
+    c.add_argument("--allow-offsite-assets", help="rendering only: comma list of stylesheet,font,image that may be fetched off-site")
     m = sub.add_parser("compare")
     m.add_argument("--previous", required=True)
     m.add_argument("--current", required=True)
@@ -473,7 +500,8 @@ def main(argv=None) -> int:
         elif a.cmd == "crawl":
             result = crawl(a.project, a.output, a.config, a.crawl_list,
                            _csv(a.export_tabs), _csv(a.bulk_export), _csv(a.save_report),
-                           _required(a.require), start=not a.no_start)
+                           _required(a.require), start=not a.no_start,
+                           allow_offsite_assets=_csv(a.allow_offsite_assets))
         else:
             result = compare(a.previous, a.current, a.output, _csv(a.export_tabs), _csv(a.save_report))
     except (FrogError, ddev_guard.GuardError) as e:

@@ -20,7 +20,9 @@ Each skill commits its own JSON config. Screaming Frog exits 0 even when the con
 3. Text-only crawls run under `localonly.sb`, a macOS `sandbox-exec` profile that allows only loopback connections and local sockets. Other platforms are refused.
 4. JavaScript-rendering crawls (`crawlerMode` `RENDER`) can't run in that sandbox, because Chrome fails to start its own nested sandbox and every page fails to render. Before each rendering crawl, `render_selftest` crawls a local probe page with the caller's exact config. The page loads a script, CSS, image, iframe, link, `fetch()` and a script-made image from a second local host. The test passes only if the page's JavaScript ran and the second host received nothing. Then the real crawl runs outside the sandbox. Any `Failed to render` line in the log fails the run.
 
-Tested on 25.1.0: with `crawlExternalLinks` false, a rendering crawl made 0 off-site requests, and with it true, 8. `inspectAccessibility: true` makes Screaming Frog fetch off-site stylesheets even with external links off, so that config fails the self-test.
+Tested on 25.1.0: with `crawlExternalLinks` false, a rendering crawl made 0 off-site requests, and with it true, 8. `inspectAccessibility: true` makes Screaming Frog fetch off-site stylesheets even with external links off, so that config fails the strict self-test.
+
+`--allow-offsite-assets stylesheet,font` (Python: `allow_offsite_assets=("stylesheet", "font")`) is an explicit opt-in for rendering crawls. The self-test then accepts off-site GETs of those types (`image` is also accepted as a type). It still fails on off-site scripts, documents, iframes, fetch/XHR and any request that isn't a GET. The result's `render_selftest.offsite_requests` lists what the probe actually requested. The real crawl runs outside the sandbox, so the wrapper can't observe its off-site requests; read candidates from Screaming Frog's link exports. The DDEV-only crawl target doesn't change.
 
 ## Crawl and compare
 

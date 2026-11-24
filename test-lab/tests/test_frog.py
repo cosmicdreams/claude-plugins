@@ -285,7 +285,10 @@ class RenderSelfTest(unittest.TestCase):
                 urllib.request.urlopen(url + "render-ok").read()
             if leak:
                 ext = re.search(r'href="(http://localhost:\d+)/style.css"', page).group(1)
-                urllib.request.urlopen(ext + leak).read()
+                method, _, path = leak.rpartition(" ")
+                req = urllib.request.Request(ext + path, data=b"x" if method == "POST" else None,
+                                             method=method or "GET")
+                urllib.request.urlopen(req).read()
             stdout.write(LOG)
             (Path(cmd[cmd.index("--output-folder") + 1]) / "2026.11.24.12.00.00").mkdir()
             return SimpleNamespace(returncode=0)
@@ -301,6 +304,23 @@ class RenderSelfTest(unittest.TestCase):
             with self.assertRaises(frog.FrogError) as e:
                 frog.render_selftest(Path("/cfg.json"), self.fake_sf(leak="/style.css"))
         self.assertIn("/style.css", str(e.exception))
+
+    def test_allowed_offsite_asset_passes_and_is_reported(self):
+        result = frog.render_selftest(Path("/cfg.json"), self.fake_sf(leak="/style.css"),
+                                      allow_offsite=("stylesheet", "font"))
+        self.assertEqual(result["offsite_requests"], ["GET /style.css"])
+
+    def test_allowance_never_covers_other_types_or_methods(self):
+        for leak, allow in (("/script.js", ("stylesheet", "font", "image")),
+                            ("/fetch", ("stylesheet",)),
+                            ("POST /style.css", ("stylesheet",)),
+                            ("/style.css", ("font",))):
+            with self.assertRaises(frog.FrogError, msg=leak):
+                frog.render_selftest(Path("/cfg.json"), self.fake_sf(leak=leak), allow_offsite=allow)
+
+    def test_unknown_asset_type_is_refused(self):
+        with self.assertRaises(frog.FrogError):
+            frog.render_selftest(Path("/cfg.json"), self.fake_sf(), allow_offsite=("script",))
 
     def test_javascript_not_running_fails(self):
         with unittest.mock.patch.dict("os.environ", {"FROG_LAUNCHER": sys.executable}):
