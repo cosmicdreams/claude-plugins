@@ -39,6 +39,9 @@ CONFIG = SKILL / "config" / "accessibility-local.json"
 TABS = ["Internal:All", "Accessibility:All", "Custom Extraction:All"]
 BULK = ["Accessibility:All Violations", "Accessibility:All Incomplete"]
 REPORTS = ["Accessibility:Accessibility Violations Summary"]
+# Rendering may fetch the page's own off-site stylesheets and fonts so axe sees real styles
+# (approved 2026-11-24). Everything else off-site stays refused by the wrapper's self-test.
+OFFSITE_ASSETS = ("stylesheet", "font")
 REQUIRED = {"mCrawlerMode": "RENDER", "mInspectAccessibility": "true", "mCrawlExternalLinks": "false"}
 
 
@@ -55,7 +58,8 @@ def crawl(args, out):
     import frog_crawl  # the shared wrapper: test-lab/scripts/frog/frog_crawl.py
     try:
         res = frog_crawl.crawl(args.project, out / "frog", str(CONFIG), url_list=args.crawl_list,
-                               tabs=TABS, bulk=BULK, reports=REPORTS, required=REQUIRED)
+                               tabs=TABS, bulk=BULK, reports=REPORTS, required=REQUIRED,
+                               allow_offsite_assets=OFFSITE_ASSETS)
     except (frog_crawl.FrogError, frog_crawl.ddev_guard.GuardError) as e:
         sys.exit(f"crawl refused or failed: {e}")
     (out / "frog-result.json").write_text(json.dumps(res, indent=1))

@@ -429,7 +429,7 @@ def render(report, template):
       <h2 class="section" id="method-h">Method and scope</h2>
       <dl class="facts">
         <div><dt>Site tested</dt><dd>{E(report.get("baseline") or "")}</dd></div>
-        <div><dt>Crawl</dt><dd>Screaming Frog SEO Spider {E(str(m.get("sf_version", "?")))} with JavaScript rendering: {npages} HTML pages; axe-core ran on {cov["axe_ran_on"]}. Requests outside the local site were blocked.</dd></div>
+        <div><dt>Crawl</dt><dd>Screaming Frog SEO Spider {E(str(m.get("sf_version", "?")))} with JavaScript rendering: {npages} HTML pages; axe-core ran on {cov["axe_ran_on"]}. External links were not crawled. Rendering could fetch the pages&#39; own off-site stylesheets and fonts; the wrapper&#39;s self-test refused every other off-site request type.</dd></div>
         <div><dt>Browser checks</dt><dd>Playwright keyboard, focus, zoom, reflow, text-spacing, hover, orientation and shortcut checks in {E(", ".join(cov["browsers"]) or "no browsers")} on one page from each of {cov["templates_sampled"]} templates, covering {cov["pages_covered_by_sampled_templates"]} of {npages} pages{f"; {len(not_sampled)} smaller templates were not sampled" if not_sampled else ""}. The accessibility tree stands in for a screen reader; no screen reader was run.</dd></div>
         <div><dt>Not applicable</dt><dd>{"Decided from a full-crawl inventory of media, forms and inputs." if cov["inventory_available"] else "No inventory columns in the crawl, so nothing was marked not applicable automatically."}</dd></div>
         <div><dt>Severity</dt><dd>axe-core impact (critical → Critical, serious → High, moderate → Medium, minor → Low); browser-check and manual failures default to High; recorded findings keep their own.</dd></div>
