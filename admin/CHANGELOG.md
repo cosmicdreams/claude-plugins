@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.7 — 2026-11-24
+
+- `install` dependency map lists what `test-lab:assess-accessibility` needs: a licensed Screaming Frog SEO Spider, DDEV, and its own Playwright browsers.
+
 ## 5.0.6 — 2026-11-13
 
 - `scaffold` templates say project decisions live in the repository's `docs/adr/`, and cross-project ones in the vault.

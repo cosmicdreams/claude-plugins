@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0 — 2026-11-24
+
+- New `assess-accessibility` skill: a WCAG 2.1 Level AA assessment of a local DDEV site.
+  - Screaming Frog crawls every page with JavaScript rendering and axe-core, through the shared wrapper and DDEV guard.
+  - Playwright runs keyboard, focus, zoom, reflow, text-spacing, hover, orientation and shortcut checks on one page per template in Chromium, Firefox and WebKit, after a self-test that must fail every detector.
+  - All 50 A and AA criteria get a verdict: not compliant, compliant, not applicable, or needs manual check.
+  - A criterion passes only on evidence that decides it; the score reports proven criteria, never a percentage of automated checks.
+  - Also: a manual-check worksheet, `manual.json` reviews and dismissals, recorded findings, and a before/after comparison.
+
 ## 0.7.0 — 2026-11-24
 
 - New shared scripts for local-only site scanning with Screaming Frog SEO Spider, used by the SEO and accessibility skills (see `scripts/frog/README.md`):
