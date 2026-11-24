@@ -11,33 +11,31 @@
   "families": {
     "gpt-6-luna": {"pool": "openai", "cli": "gpt-6-luna"},
     "gpt-6-1-terra": {"pool": "openai", "cli": "gpt-6.1-terra"},
-    "gpt-6-1-sol": {"pool": "openai", "cli": "gpt-6.1-sol"},
-    "gpt-6-astra": {"pool": "openai", "cli": "gpt-6-astra"},
+    "gpt-6-2-sol": {"pool": "openai", "cli": "gpt-6.2-sol"},
+    "gpt-6-2-astra": {"pool": "openai", "cli": "gpt-6.2-astra"},
     "claude-haiku-5-5": {"pool": "anthropic", "cli": "claude-haiku-5-5"},
     "claude-sonnet-5": {"pool": "anthropic", "cli": "claude-sonnet-5"},
     "claude-sonnet-5-5": {"pool": "anthropic", "cli": "claude-sonnet-5-5"},
     "claude-opus-5-5": {"pool": "anthropic", "cli": "claude-opus-5-5"},
     "claude-fable-5-1": {"pool": "anthropic", "cli": "claude-fable-5-1"},
     "gemini-3-8-flash": {"pool": "google", "cli": "gemini-3.8-flash"},
-    "gemini-4-argon": {"pool": "google", "cli": "gemini-4-argon"}
+    "gemini-4-argon": {"pool": "google", "cli": "gemini-4-argon"},
+    "gemini-4-hydrogen": {"pool": "google", "cli": "gemini-4-hydrogen"},
+    "gemini-4-neon": {"pool": "google", "cli": "gemini-4-neon"}
   },
   "denied": {
     "claude-fable-5-1": "Denied for the Velir Engineering Claude account by ~/.claude/model-access.md."
   },
   "ignored_families": {
+    "gemini-4-carbon": "Dominated by Neon at the efforts Chris allows; not tier-routed (AGENTS.md, 2026-11-24).",
     "kimi-k3-1-pro": "Chris has no access to Kimi 3.1."
   },
   "effort_ceiling": {
-    "gemini-4-argon": "medium"
+    "gemini-4-argon": "medium",
+    "gemini-4-hydrogen": "medium",
+    "gemini-4-neon": "medium"
   },
-  "substitutions": [
-    {
-      "family": "gemini-4-argon",
-      "route_effort": "medium",
-      "scored_effort": "high",
-      "reason": "Argon is capped at medium for allowance; Slopalytics only scores high. Route medium using high's scores until medium is scored or Gemini 4 Carbon replaces Argon."
-    }
-  ],
+  "substitutions": [],
   "tiers": [
     {"tier": 1, "floor": 15, "label": "Mechanical formatting, triage, trivial lookups"},
     {"tier": 2, "floor": 25, "label": "Bulk edits and simple scripts"},
