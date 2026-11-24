@@ -104,7 +104,7 @@ BEST_PRACTICE_LEADS = {
     "frame-tested": "4.1.2", "presentation-role-conflict": "4.1.2", "meta-viewport-large": "1.4.4",
     "scope-attr-valid": "1.3.1", "table-duplicate-name": "1.3.1", "aria-text": "4.1.2",
     "aria-treeitem-name": "4.1.2", "aria-dialog-name": "4.1.2", "landmark-unique": "1.3.1",
-    "identical-links-same-purpose": "2.4.4",
+    "identical-links-same-purpose": "2.4.4", "image-redundant-alt": "1.1.1",
 }
 
 # Criteria a site-wide axe pass decides on its own: no violation of these rules on any

@@ -98,13 +98,23 @@ export async function run({ page, check }) {
     }];
   }, '320x640');
 
+  // Orientation fails when content shown in one orientation disappears in the other, or the
+  // page locks orientation. A page with no h1 at all is not an orientation problem.
+  const states = {};
   for (const [width, height] of [[390, 844], [844, 390]]) {
+    await page.setViewportSize({ width, height });
+    states[`${width}x${height}`] = {
+      main: await page.locator('main:visible,[role="main"]:visible').count(),
+      heading: await page.locator('h1:visible').count(),
+      locked: Boolean(await page.evaluate(() => window.__assessOrientationLock)),
+    };
+  }
+  const [portrait, landscape] = Object.keys(states);
+  for (const [view, other] of [[portrait, landscape], [landscape, portrait]]) {
     await check('1.3.4', 'phone-orientation', async () => {
-      await page.setViewportSize({ width, height });
-      const main = await page.locator('main:visible,[role="main"]:visible').count();
-      const heading = await page.locator('h1:visible').count();
-      const locked = await page.evaluate(() => window.__assessOrientationLock);
-      return [Boolean(main && heading && !locked), { main, heading, locked }];
-    }, `${width}x${height}`);
+      const here = states[view], there = states[other];
+      const lost = here.main < there.main || here.heading < there.heading;
+      return [!lost && !here.locked, { ...here, comparedWith: { view: other, ...there } }];
+    }, view);
   }
 }

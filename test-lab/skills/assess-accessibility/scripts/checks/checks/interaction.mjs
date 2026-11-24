@@ -108,6 +108,10 @@ async function shortcuts(page, check, reset) {
           .map(state => node.getAttribute('aria-' + state))]),
     }));
     const findings = [];
+    // Fields that change with no key pressed (clocks, tickers, live data) cannot show a
+    // shortcut; they are excluded and reported, and the check is inconclusive if they hide everything.
+    const noisy = new Set();
+    const differ = (a, b) => Object.keys(a).filter(field => JSON.stringify(a[field]) !== JSON.stringify(b[field]));
     for (let code = 32; code <= 126; code++) {
       await page.evaluate(() => {
         document.body.tabIndex = -1;
@@ -115,16 +119,21 @@ async function shortcuts(page, check, reset) {
       });
       const key = String.fromCharCode(code);
       const before = await snapshot();
+      await page.waitForTimeout(20);
+      const control = await snapshot();
+      differ(before, control).forEach(field => noisy.add(field));
       await page.keyboard.press(key === ' ' ? 'Space' : key);
       await page.waitForTimeout(20);
       const after = await snapshot();
-      const changes = Object.keys(before).filter(field => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
+      const changes = differ(control, after).filter(field => !noisy.has(field));
       if (changes.length) {
         findings.push({ key, changes });
         await reset();
       }
     }
-    return [!findings.length, { tested: 'ASCII 32–126', findings: findings.slice(0, 8) }];
+    const evidence = { tested: 'ASCII 32–126', findings: findings.slice(0, 8), ignoredBackgroundChanges: [...noisy] };
+    if (findings.length) return [false, evidence];
+    return [noisy.size ? null : true, evidence];
   });
 }
 
