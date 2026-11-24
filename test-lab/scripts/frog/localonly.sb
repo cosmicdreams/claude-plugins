@@ -1,0 +1,10 @@
+(version 1)
+; Screaming Frog runs under this macOS sandbox profile so it can only reach
+; loopback addresses (DDEV's router listens on 127.0.0.1) and local Unix sockets
+; (mDNSResponder resolves *.ddev.site). Every other outbound connection fails
+; with "Operation not permitted", including the JavaScript-rendering browser,
+; which inherits the sandbox.
+(allow default)
+(deny network-outbound)
+(allow network-outbound (remote ip "localhost:*"))
+(allow network-outbound (remote unix-socket))
