@@ -3,15 +3,16 @@
 
 Shared by test-lab's SEO and accessibility skills. The target comes from the
 DDEV guard, never from a URL argument. Screaming Frog runs inside a macOS
-sandbox that blocks every non-loopback connection, with a saved config that
-must also have external crawling off. After the run the wrapper checks, from
-Screaming Frog's own log, that the effective settings match what the caller
-requires, that the crawl finished, and that every requested export file exists.
-A missing file is always an error, never "zero issues".
+sandbox that blocks every non-loopback connection. The config is a partial
+JSON file in Screaming Frog's own config schema (the one its MCP server
+documents), applied over the defaults; it must also turn external crawling off.
+After the run the wrapper checks, from Screaming Frog's own log, that the config
+loaded without unknown fields, that every value it sets took effect, that the
+crawl finished, and that every requested export file exists. A missing file is
+always an error, never "zero issues".
 
   frog_crawl.py check
-  frog_crawl.py build-config --spec seo-local.json --name seo-local
-  frog_crawl.py crawl --project <root> --config-name seo-local --output <dir>
+  frog_crawl.py crawl --project <root> --config seo-local.json --output <dir>
         [--crawl-list urls.txt] [--export-tabs "Internal:All,..."]
         [--bulk-export "Issues:All,..."] [--save-report "Crawl Overview,..."]
         [--require mCrawlSitemaps=true ...]
@@ -31,6 +32,9 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -39,7 +43,6 @@ import ddev_guard  # noqa: E402
 HERE = Path(__file__).resolve().parent
 APP = Path("/Applications/Screaming Frog SEO Spider.app/Contents")
 SF_HOME = Path.home() / ".ScreamingFrogSEOSpider"
-CONFIG_DIR = Path(os.environ.get("FROG_CONFIG_DIR", Path.home() / ".config/test-lab/screaming-frog"))
 SANDBOX = HERE / "localonly.sb"
 ALWAYS_REQUIRED = {"mCrawlExternalLinks": "false"}
 
@@ -58,6 +61,8 @@ FILE_OVERRIDES = {
 
 CONFIG_RE = re.compile(r"\b(m[A-Z][A-Za-z0-9]*)=([^,\[\]\s]*)")
 UNKNOWN_RE = re.compile(r"Unknown export: '([^']*)'")
+RENDER_FAIL_RE = re.compile(r"Failed to render[^\n]*")
+CONFIG_FAIL_RE = re.compile(r"Ignoring unknown config field '[^']*'|Failed to load config[^\n]*")
 GIVING_UP_RE = re.compile(r"Giving up on ([^:\s]+)")
 VERSION_RE = re.compile(r"Running: Screaming Frog SEO Spider ([0-9.]+)")
 
@@ -78,12 +83,37 @@ def effective_config(log: str) -> dict[str, list[str]]:
     return seen
 
 
-def check_required(config: dict[str, list[str]], required: dict[str, str]) -> list[str]:
+def config_requirements(config: dict) -> dict[str, str]:
+    """mField=value pairs a JSON config should produce in SF's startup dump.
+
+    JSON keys map to fields by prefixing "m" (crawlExternalLinks ->
+    mCrawlExternalLinks). Only scalars are checked; lists and free text are not.
+    """
+    out: dict[str, str] = {}
+
+    def walk(obj):
+        for key, value in obj.items():
+            if isinstance(value, dict):
+                walk(value)
+            elif isinstance(value, bool):
+                out["m" + key[0].upper() + key[1:]] = "true" if value else "false"
+            elif isinstance(value, (int, float)) or (isinstance(value, str) and value and not any(c.isspace() for c in value)):
+                out["m" + key[0].upper() + key[1:]] = str(value)
+
+    walk(config)
+    return out
+
+
+def check_required(config: dict[str, list[str]], required: dict[str, str],
+                   optional: dict[str, str] | None = None) -> list[str]:
+    """Mismatches. `required` keys must appear in the dump; `optional` keys
+    (derived from a JSON config) are checked only when the dump prints them."""
     problems = []
-    for key, want in {**ALWAYS_REQUIRED, **required}.items():
+    for key, want in {**(optional or {}), **ALWAYS_REQUIRED, **required}.items():
         got = config.get(key)
         if not got:
-            problems.append(f"{key} not found in Screaming Frog's config dump")
+            if key in ALWAYS_REQUIRED or key in required:
+                problems.append(f"{key} not found in Screaming Frog's config dump")
         elif any(v != want for v in got):
             problems.append(f"{key}={','.join(sorted(set(got)))} (need {want})")
     return problems
@@ -167,21 +197,34 @@ def check_setup() -> dict:
     spider = SF_HOME / "spider.config"
     if not spider.is_file() or "eula.accepted" not in spider.read_text(errors="ignore"):
         raise FrogError("Screaming Frog's licence agreement isn't accepted: open the app once and accept it", 2)
-    return {"launcher": str(exe), "sandbox": str(SANDBOX), "config_dir": str(CONFIG_DIR)}
+    return {"launcher": str(exe), "sandbox": str(SANDBOX)}
 
 
-def resolve_config(name: str | None, path: str | None) -> Path:
-    cfg = Path(path).expanduser() if path else CONFIG_DIR / f"{name}.seospiderconfig"
+def resolve_config(path: str) -> tuple[Path, dict[str, str]]:
+    """The config file and the field values it must produce."""
+    cfg = Path(path).expanduser().resolve()
     if not cfg.is_file():
-        raise FrogError(
-            f"config {cfg} is missing; build it with: frog_crawl.py build-config --spec <skill spec> --name {name or cfg.stem}",
-            2,
-        )
-    return cfg
+        raise FrogError(f"config {cfg} is missing", 2)
+    if cfg.suffix == ".json":
+        try:
+            return cfg, config_requirements(json.loads(cfg.read_text()))
+        except json.JSONDecodeError as e:
+            raise FrogError(f"config {cfg} is not valid JSON: {e}", 2) from None
+    if cfg.suffix == ".seospiderconfig":
+        return cfg, {}
+    raise FrogError(f"config {cfg} must be .json or .seospiderconfig", 2)
 
 
-def _sandboxed(args: list[str]) -> list[str]:
-    return ["sandbox-exec", "-f", str(SANDBOX), str(launcher()), *args]
+def _sandboxed(args: list[str], sandbox: bool = True) -> list[str]:
+    """The launcher command, inside the loopback-only sandbox unless rendering.
+
+    Chrome can't start its own sandbox inside sandbox-exec, so JavaScript
+    rendering runs outside it. Those runs rely on crawlExternalLinks=false,
+    which Screaming Frog applies to every request Chrome makes, and on
+    render_selftest proving that before the crawl.
+    """
+    cmd = [str(launcher()), *args]
+    return ["sandbox-exec", "-f", str(SANDBOX), *cmd] if sandbox else cmd
 
 
 def _join(items) -> str:
@@ -203,20 +246,27 @@ def crawl_args(start: str, url_list: Path | None, config: Path, folder: Path,
     return args
 
 
-def _run_sf(args: list[str], folder: Path, timeout: int, run=subprocess.run) -> tuple[Path, str]:
+def _run_sf(args: list[str], folder: Path, timeout: int, run=subprocess.run,
+            sandbox: bool = True) -> tuple[Path, str]:
     """Run SF, return the new timestamped output folder and the log text."""
     folder.mkdir(parents=True, exist_ok=True)
     before = {p.name for p in folder.iterdir()}
     log_path = folder / f".frog-{dt.datetime.now():%Y%m%d%H%M%S}.log"
     try:
         with log_path.open("w") as log:
-            proc = run(_sandboxed(args), stdout=log, stderr=subprocess.STDOUT, timeout=timeout)
+            proc = run(_sandboxed(args, sandbox), stdout=log, stderr=subprocess.STDOUT, timeout=timeout)
     except subprocess.TimeoutExpired:
         raise FrogError(f"Screaming Frog ran longer than {timeout}s and was stopped; log {log_path}") from None
     text = log_path.read_text(errors="ignore")
     new = [folder / n for n in {p.name for p in folder.iterdir()} - before if (folder / n).is_dir()]
     if proc.returncode != 0:
         raise FrogError(f"Screaming Frog exited {proc.returncode}; log {log_path}")
+    bad_config = CONFIG_FAIL_RE.findall(text)
+    if bad_config:
+        raise FrogError(f"Screaming Frog didn't load the config cleanly: {bad_config[:3]}. Log {log_path}")
+    failed_renders = RENDER_FAIL_RE.findall(text)
+    if failed_renders:
+        raise FrogError(f"{len(failed_renders)} page(s) failed to render, e.g. {failed_renders[0][:200]}. Log {log_path}")
     unknown = UNKNOWN_RE.findall(text)
     if unknown:
         raise FrogError(f"Screaming Frog rejected export name(s) {unknown}; nothing was written. Log {log_path}")
@@ -251,7 +301,69 @@ def _db_row(task_name: str, run=subprocess.run) -> dict:
     return matches[0]
 
 
-def crawl(project_root, output, config_name=None, config_path=None, url_list=None,
+PROBE_PAGE = """<!doctype html><html lang="en"><head><title>frog render self-test</title>
+<link rel="stylesheet" href="{ext}/style.css"><script src="{ext}/script.js"></script></head>
+<body><h1>self-test</h1><img src="{ext}/img.png" alt="probe"><iframe src="{ext}/frame.html" title="probe"></iframe>
+<script>fetch('/render-ok').catch(function(){{}}); fetch('{ext}/fetch').catch(function(){{}});
+var i = new Image(); i.src = '{ext}/jsimg.png';</script></body></html>"""
+
+
+def _server(hits: list, body: str | None = None) -> ThreadingHTTPServer:
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            hits.append(self.path)
+            data = (body if body is not None and self.path == "/" else "ok").encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html" if self.path == "/" else "text/plain")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def log_message(self, *args):
+            pass
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
+def render_selftest(config: Path, run=subprocess.run, timeout: int = 600) -> dict:
+    """Prove this config renders JavaScript and requests nothing off-site.
+
+    Serves a page on 127.0.0.1 that loads a script, stylesheet, image, iframe,
+    link, fetch() and a script-made image from a second local server reached
+    as "localhost" (a different host, so external to Screaming Frog). The crawl
+    must hit /render-ok on the page's own host, which only executed JavaScript
+    does, and must send nothing at all to the second server.
+    """
+    ext_hits: list = []
+    site_hits: list = []
+    ext = _server(ext_hits)
+    ext_url = f"http://localhost:{ext.server_address[1]}"
+    site = _server(site_hits, PROBE_PAGE.format(ext=ext_url))
+    task = f"render-selftest-{dt.datetime.now():%Y%m%d%H%M%S}"
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            args = ["--headless", "--config", str(config), "--crawl", f"http://127.0.0.1:{site.server_address[1]}/",
+                    "--task-name", task, "--output-folder", tmp, "--timestamped-output",
+                    "--export-tabs", "Internal:All"]
+            try:
+                _, log = _run_sf(args, Path(tmp), timeout, run, sandbox=False)
+            except FrogError as e:
+                raise FrogError(f"render self-test failed: {e}") from None
+    finally:
+        site.shutdown()
+        ext.shutdown()
+    if ext_hits:
+        raise FrogError(f"render self-test: the config let Screaming Frog request off-site URLs {sorted(set(ext_hits))}")
+    if "/render-ok" not in site_hits:
+        raise FrogError("render self-test: the page's JavaScript never ran, so rendering isn't working")
+    version = VERSION_RE.search(log)
+    return {"passed": True, "offsite_requests": 0, "javascript_ran": True,
+            "sf_version": version.group(1) if version else None}
+
+
+def crawl(project_root, output, config_path, url_list=None,
           tabs=(), bulk=(), reports=(), required=None, start=True, timeout=4 * 3600,
           run=subprocess.run) -> dict:
     setup = check_setup()
@@ -260,14 +372,17 @@ def crawl(project_root, output, config_name=None, config_path=None, url_list=Non
     if url_list:
         ddev_guard.check_list(url_list, target)
         list_path = Path(url_list).resolve()
-    config = resolve_config(config_name, config_path)
+    config, from_config = resolve_config(config_path)
+    render = from_config.get("mCrawlerMode") in ("RENDER", "AJAX")
+    selftest = render_selftest(config, run) if render else None
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    task = f"{config_name or config.stem}-{stamp}"
+    task = f"{config.stem}-{stamp}"
     args = crawl_args(target.primary_url, list_path, config, Path(output).resolve(),
                       target.name, task, tabs, bulk, reports)
-    out, log = _run_sf(args, Path(output).resolve(), timeout, run)
+    out, log = _run_sf(args, Path(output).resolve(), timeout, run, sandbox=not render)
     eff = effective_config(log)
-    problems = check_required(eff, required or {})
+    problems = check_required(eff, required or {}, from_config)
+    unverified = sorted(k for k in from_config if k not in eff)
     if problems:
         raise FrogError("config check failed: " + "; ".join(problems) + f". Log {out / 'frog.log'}")
     row = _db_row(task, run)
@@ -288,6 +403,9 @@ def crawl(project_root, output, config_name=None, config_path=None, url_list=Non
         "config_path": str(config),
         "effective_config": {k: v[0] for k, v in eff.items() if len(set(v)) == 1},
         "warnings": warnings,
+        "unverified_settings": unverified,
+        "sandboxed": not render,
+        "render_selftest": selftest,
         "launcher": setup["launcher"],
     }
 
@@ -312,20 +430,6 @@ def compare(previous, current, output, tabs=(), reports=(), timeout=3600, run=su
     }
 
 
-def build_config(spec: str, name: str, run=subprocess.run) -> dict:
-    java = APP / "jre/bin/java"
-    jar = APP / "Java/ScreamingFrogSEOSpider.jar"
-    if not java.exists() or not jar.exists():
-        raise FrogError(f"Screaming Frog's bundled Java or jar is missing under {APP}", 2)
-    out = CONFIG_DIR / f"{name}.seospiderconfig"
-    cp = f"{jar}{os.pathsep}{APP / 'Java/lib'}/*"
-    proc = run([str(java), "-cp", cp, str(HERE / "BuildConfig.java"), str(Path(spec).resolve()), str(out)],
-               capture_output=True, text=True, timeout=300)
-    if proc.returncode != 0:
-        raise FrogError(f"config build failed: {(proc.stderr or proc.stdout).strip()[-500:]}", 2)
-    return {"config_path": str(out), "spec": str(Path(spec).resolve())}
-
-
 # ---------------------------------------------------------------- CLI
 
 def _csv(value: str | None) -> list[str]:
@@ -346,15 +450,10 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check")
-    b = sub.add_parser("build-config")
-    b.add_argument("--spec", required=True)
-    b.add_argument("--name", required=True)
     c = sub.add_parser("crawl")
     c.add_argument("--project", default=".")
     c.add_argument("--output", required=True)
-    g = c.add_mutually_exclusive_group(required=True)
-    g.add_argument("--config-name")
-    g.add_argument("--config")
+    c.add_argument("--config", required=True, help="partial JSON config (or a .seospiderconfig)")
     c.add_argument("--crawl-list")
     c.add_argument("--export-tabs")
     c.add_argument("--bulk-export")
@@ -371,10 +470,8 @@ def main(argv=None) -> int:
     try:
         if a.cmd == "check":
             result = check_setup()
-        elif a.cmd == "build-config":
-            result = build_config(a.spec, a.name)
         elif a.cmd == "crawl":
-            result = crawl(a.project, a.output, a.config_name, a.config, a.crawl_list,
+            result = crawl(a.project, a.output, a.config, a.crawl_list,
                            _csv(a.export_tabs), _csv(a.bulk_export), _csv(a.save_report),
                            _required(a.require), start=not a.no_start)
         else:

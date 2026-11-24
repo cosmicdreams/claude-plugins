@@ -215,6 +215,94 @@ class FrogParsingTest(unittest.TestCase):
         profile = frog.SANDBOX.read_text()
         self.assertIn("(deny network-outbound)", profile)
         self.assertIn('(allow network-outbound (remote ip "localhost:*"))', profile)
+        with unittest.mock.patch.dict("os.environ", {"FROG_LAUNCHER": sys.executable}):
+            self.assertEqual(frog._sandboxed(["--headless"], sandbox=False), [sys.executable, "--headless"])
+
+
+class FrogConfigTest(unittest.TestCase):
+    def test_json_config_becomes_field_checks(self):
+        req = frog.config_requirements({
+            "crawlConfig": {"crawlExternalLinks": False, "crawlerMode": "RENDER", "crawlTotalLimit": 20000,
+                            "renderWindowConfig": {"width": 1280}},
+            "excludeManager": {"rawExcludeListString": ".*/admin/.*\n.*\\?.*"},
+            "customExtractionConfig": {"filters": [{"name": "video"}]},
+        })
+        self.assertEqual(req, {"mCrawlExternalLinks": "false", "mCrawlerMode": "RENDER",
+                               "mCrawlTotalLimit": "20000", "mWidth": "1280"})
+
+    def test_settings_the_dump_does_not_print_are_not_failures(self):
+        cfg = frog.effective_config(LOG)
+        self.assertEqual(frog.check_required(cfg, {}, {"mWidth": "1280"}), [])
+        self.assertTrue(frog.check_required(cfg, {}, {"mCrawlSitemaps": "false"}))
+        self.assertTrue(frog.check_required(cfg, {"mWidth": "1280"}, {}))
+
+    def test_resolve_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            good = Path(tmp) / "seo.json"
+            good.write_text('{"crawlConfig": {"crawlExternalLinks": false}}')
+            self.assertEqual(frog.resolve_config(str(good))[1], {"mCrawlExternalLinks": "false"})
+            bad = Path(tmp) / "bad.json"
+            bad.write_text("{nope")
+            for path in (bad, Path(tmp) / "missing.json", Path(tmp) / "x.yaml"):
+                if path.name == "x.yaml":
+                    path.write_text("a: 1")
+                with self.assertRaises(frog.FrogError):
+                    frog.resolve_config(str(path))
+
+    def _run_with_log(self, text):
+        with tempfile.TemporaryDirectory() as tmp:
+            def run(cmd, stdout=None, **_):
+                stdout.write(text)
+                (Path(tmp) / "2026.11.24.12.00.00").mkdir()
+                return SimpleNamespace(returncode=0)
+            return frog._run_sf(["--headless"], Path(tmp), 10, run)
+
+    def test_config_that_did_not_load_cleanly_fails(self):
+        for line in ("WARN  - Ignoring unknown config field 'crawlExternalLinkz'",
+                     "StartupException: Failed to load config: Config validation failed:",
+                     "WARN  - Failed to render https://demo.ddev.site/ Websocket disconnected"):
+            with self.assertRaises(frog.FrogError, msg=line):
+                self._run_with_log(LOG + line + "\n")
+        out, text = self._run_with_log(LOG)
+        self.assertIn("Config loaded", text)
+
+
+class RenderSelfTest(unittest.TestCase):
+    """A fake Screaming Frog that fetches the probe page like the real one would."""
+
+    def fake_sf(self, leak=None, run_js=True):
+        import re
+        import urllib.request
+
+        def run(cmd, stdout=None, **_):
+            url = cmd[cmd.index("--crawl") + 1]
+            page = urllib.request.urlopen(url).read().decode()
+            if run_js:
+                urllib.request.urlopen(url + "render-ok").read()
+            if leak:
+                ext = re.search(r'href="(http://localhost:\d+)/style.css"', page).group(1)
+                urllib.request.urlopen(ext + leak).read()
+            stdout.write(LOG)
+            (Path(cmd[cmd.index("--output-folder") + 1]) / "2026.11.24.12.00.00").mkdir()
+            return SimpleNamespace(returncode=0)
+        return run
+
+    def test_clean_config_passes(self):
+        with unittest.mock.patch.dict("os.environ", {"FROG_LAUNCHER": sys.executable}):
+            result = frog.render_selftest(Path("/cfg.json"), self.fake_sf())
+        self.assertTrue(result["passed"])
+
+    def test_offsite_request_fails(self):
+        with unittest.mock.patch.dict("os.environ", {"FROG_LAUNCHER": sys.executable}):
+            with self.assertRaises(frog.FrogError) as e:
+                frog.render_selftest(Path("/cfg.json"), self.fake_sf(leak="/style.css"))
+        self.assertIn("/style.css", str(e.exception))
+
+    def test_javascript_not_running_fails(self):
+        with unittest.mock.patch.dict("os.environ", {"FROG_LAUNCHER": sys.executable}):
+            with self.assertRaises(frog.FrogError) as e:
+                frog.render_selftest(Path("/cfg.json"), self.fake_sf(run_js=False))
+        self.assertIn("never ran", str(e.exception))
 
 
 if __name__ == "__main__":
