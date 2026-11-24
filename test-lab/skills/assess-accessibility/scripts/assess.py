@@ -75,8 +75,10 @@ def reduce(frog, pages_doc, checks, findings, manual):
         r["sc"].update(scs)
         if not scs:
             r["bp"] = C.BEST_PRACTICE_LEADS.get(v["rule"])
-            if not r["bp"] and not re.search(r"WCAG 2\.2|AAA", v["guidelines"]):
-                unmapped.add(v["rule"] or v["issue"])  # WCAG 2.2-only and AAA rules are out of scope
+            # Only an unmapped rule tagged WCAG 2.0/2.1 A or AA matters; best-practice, 2.2-only
+            # and AAA rules are out of scope for a 2.1 AA verdict.
+            if not r["bp"] and re.search(r"WCAG 2\.[01] AA?\b", v["guidelines"]):
+                unmapped.add(v["rule"] or v["issue"])
     for rid, r in by_rule.items():
         if r["sc"]:
             for sc in r["sc"]:

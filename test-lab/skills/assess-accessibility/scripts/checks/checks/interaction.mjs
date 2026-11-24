@@ -44,8 +44,12 @@ async function menus({ page, check, reset }) {
       await settle(page);
       const after = await triggerState(trigger);
       const visibleAfter = await visible(targets).count();
-      return [JSON.stringify(before) !== JSON.stringify(after) || visibleBefore !== visibleAfter,
-        { element, before, after, visibleBefore, visibleAfter }];
+      const changed = JSON.stringify(before) !== JSON.stringify(after) || visibleBefore !== visibleAfter;
+      // An already-open control (a selected tab, an expanded panel) may rightly ignore Enter, so
+      // no change there proves nothing; only a closed control that stays closed fails.
+      const alreadyOn = [before.expanded, before.pressed, before.selected].includes('true');
+      return [changed ? true : alreadyOn ? null : false,
+        { element, before, after, visibleBefore, visibleAfter, alreadyOn }];
     });
     if (activation && await visible(targets).count() > visibleBefore) {
       const opened = visible(targets).first();
@@ -112,7 +116,8 @@ async function shortcuts(page, check, reset) {
     // shortcut; they are excluded and reported, and the check is inconclusive if they hide everything.
     const noisy = new Set();
     const differ = (a, b) => Object.keys(a).filter(field => JSON.stringify(a[field]) !== JSON.stringify(b[field]));
-    for (let code = 32; code <= 126; code++) {
+    // Space (32) is skipped: it scrolls the page by default, which is not a content shortcut.
+    for (let code = 33; code <= 126; code++) {
       await page.evaluate(() => {
         document.body.tabIndex = -1;
         document.body.focus();
@@ -131,7 +136,7 @@ async function shortcuts(page, check, reset) {
         await reset();
       }
     }
-    const evidence = { tested: 'ASCII 32–126', findings: findings.slice(0, 8), ignoredBackgroundChanges: [...noisy] };
+    const evidence = { tested: 'ASCII 33–126', findings: findings.slice(0, 8), ignoredBackgroundChanges: [...noisy] };
     if (findings.length) return [false, evidence];
     return [noisy.size ? null : true, evidence];
   });
