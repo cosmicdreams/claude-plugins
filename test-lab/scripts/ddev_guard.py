@@ -49,7 +49,8 @@ class Target:
 
 
 def _run(cmd, cwd):
-    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
 
 
 def describe(project_root: str | Path, run=_run) -> dict:

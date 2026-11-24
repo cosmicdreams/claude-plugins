@@ -105,6 +105,12 @@ class DdevGuardTest(unittest.TestCase):
             with self.assertRaises(ddev_guard.GuardError):
                 ddev_guard.resolve(other, run=fake_run([]))
 
+    def test_non_utf8_command_output_does_not_crash(self):
+        # ddev start printed byte 0x9f on a real run and crashed the guard.
+        proc = ddev_guard._run([sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'start \\x9f done')"], None)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("done", proc.stdout)
+
     def test_url_checks(self):
         t = ddev_guard._target(RAW)
         self.assertTrue(t.allows("https://demo.ddev.site/about"))

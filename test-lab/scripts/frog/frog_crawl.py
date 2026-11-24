@@ -294,7 +294,8 @@ def _verify_files(out: Path, tabs, bulk, reports) -> dict:
 
 
 def _db_row(task_name: str, run=subprocess.run) -> dict:
-    proc = run(_sandboxed(["--headless", "--list-crawls"]), capture_output=True, text=True, timeout=300)
+    proc = run(_sandboxed(["--headless", "--list-crawls"]), capture_output=True, text=True,
+               encoding="utf-8", errors="replace", timeout=300)
     matches = [r for r in parse_list_crawls(proc.stdout) if r["name"] == task_name]
     if not matches:
         raise FrogError(f"crawl {task_name!r} not in --list-crawls; is Screaming Frog in database storage mode?")
