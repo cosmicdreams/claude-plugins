@@ -66,6 +66,7 @@ export async function run({ page, check, browser, reset }) {
     const seen = new Set();
     let complete = false;
     let trap;
+    let loop;
     const key = direction === 'forward' ? tab : `Shift+${tab}`;
     for (let step = 0; step < 100; step++) {
       const before = await focus(page);
@@ -85,7 +86,10 @@ export async function run({ page, check, browser, reset }) {
         break;
       }
       if (seen.has(active.id)) {
-        trap = active;
+        // Focus cycles back to an earlier stop before reaching the end of the page. That is a
+        // focus-order defect and leaves later content unreachable by Tab, but focus still moves,
+        // so it is not by itself a keyboard trap (2.1.2 requires focus that cannot move away).
+        loop = { from: before, to: active };
         break;
       }
       seen.add(active.id);
@@ -115,8 +119,12 @@ export async function run({ page, check, browser, reset }) {
         break;
       }
     }
+    // trap: focus did not move at all -> 2.1.2 fail. loop: focus cycled -> 2.4.3 fail, and
+    // 2.1.1/2.1.2 undecided (null) because later content may still be reachable another way.
     const result = trap ? false : complete ? true : null;
-    await check('2.1.2', 'tab-traversal-exit', async () => [result, { direction, stops: seen.size, trap }]);
-    await check('2.1.1', 'native-tab-traversal', async () => [result, { direction, stops: seen.size, trap }]);
+    await check('2.1.2', 'tab-traversal-exit', async () => [result, { direction, stops: seen.size, trap, loop }]);
+    await check('2.1.1', 'native-tab-traversal', async () => [trap ? false : complete ? true : null,
+      { direction, stops: seen.size, trap, loop }]);
+    if (loop) await check('2.4.3', 'tab-cycle-before-end', async () => [false, { direction, stops: seen.size, loop }]);
   }
 }

@@ -22,6 +22,7 @@ import frog_inputs  # noqa: E402
 DRUPAL = [
     (r"\bpath-frontpage\b", lambda m: "front"),
     (r"\bpage-node-type-([\w-]+)", lambda m: f"node:{m[1]}"),
+    (r"\bnode--type-([\w-]+)", lambda m: f"node:{m[1]}"),
     (r"\bpage-view-([\w-]+)", lambda m: f"view:{m[1]}"),
     (r"\bpath-taxonomy\b", lambda m: "taxonomy"),
     (r"\bpath-user\b", lambda m: "user"),

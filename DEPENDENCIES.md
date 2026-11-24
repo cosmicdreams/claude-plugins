@@ -18,7 +18,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | process-lab | [python3](#python3) | [headroom and rtk](#headroom-and-rtk) |
 | lib | Per skill: [gh](#gh-github-command-line-tool), [twg](#twg), [Slack connector](#connectors) (`slack`), [ddev](#ddev), [acli](#acli-acquia-command-line-tool), [python3](#python3), [ffmpeg](#ffmpeg), [jq](#jq), [Bun](#bun-and-image-tools), [TestRail credentials](#testrail-credentials), [Obsidian](#obsidian) | [op](#op-1password-command-line-tool), [Cloudflare credentials](#cloudflare-credentials), [image tools](#bun-and-image-tools), [logstream](#acli-acquia-command-line-tool) |
 | research-lab | [nlm](#nlm-notebooklm-command-line-tool), [python3](#python3) | [Obsidian](#obsidian), [headroom](#headroom-and-rtk) |
-| test-lab | [python3](#python3), [node / npm](#node--npm), [Playwright](#playwright) | [lighthouse](#lighthouse), [hyperfine](#hyperfine), [jq](#jq), [Chrome or Chromium](#chrome-or-chromium), [TestRail credentials](#testrail-credentials) (when TestRail is the source), [TypeSafe](#typesafe-api-key) |
+| test-lab | [python3](#python3), [node / npm](#node--npm), [Playwright](#playwright) | [Screaming Frog SEO Spider](#screaming-frog-seo-spider) and [ddev](#ddev) (`assess-accessibility`), [lighthouse](#lighthouse), [hyperfine](#hyperfine), [jq](#jq), [Chrome or Chromium](#chrome-or-chromium), [TestRail credentials](#testrail-credentials) (when TestRail is the source), [TypeSafe](#typesafe-api-key) |
 | workshop | [python3](#python3); per integration: [twg](#twg), [gh](#gh-github-command-line-tool), and the host's Slack, Gmail and Google Calendar [connectors](#connectors) | [Obsidian](#obsidian), [TypeSafe](#typesafe-api-key) |
 
 ## Quick install
@@ -259,7 +259,19 @@ npm i -D playwright
 npx playwright install chromium
 ```
 
-**Used by:** test-lab (running generated suites); optionally design-lab (`capture`)
+**Used by:** test-lab (running generated suites; `assess-accessibility` installs its own Chromium, Firefox and WebKit in its `scripts/checks` folder); optionally design-lab (`capture`)
+
+---
+
+## Screaming Frog SEO Spider
+
+Licensed desktop crawler, run headless from the command line. The licence unlocks the command line, JavaScript rendering and the accessibility checks. Accept the EULA in the app once.
+
+```bash
+brew install --cask screaming-frog-seo-spider
+```
+
+**Used by:** test-lab (`assess-accessibility`, through `scripts/frog/frog_crawl.py`)
 
 ---
 

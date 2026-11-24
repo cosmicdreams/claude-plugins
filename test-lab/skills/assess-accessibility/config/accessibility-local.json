@@ -1,19 +1,105 @@
 {
-  "set": {
-    "mCrawlConfig.mCrawlerMode": "RENDER",
-    "mCrawlConfig.mInspectAccessibility": true,
-    "mCrawlConfig.mCrawlExternalLinks": false,
-    "mCrawlConfig.mStoreExternalLinks": false,
-    "mCrawlConfig.mFollowInternalNoFollow": true,
-    "mCrawlConfig.mRespectNoindex": false,
-    "mCrawlConfig.mRobotsTxtMode": "IGNORE_AND_REPORT",
-    "mCrawlConfig.mCrawlSitemaps": true,
-    "mCrawlConfig.mAllowRenderScreenShots": false,
-    "mCrawlConfig.mRenderWindowConfig.mWidth": 1280,
-    "mCrawlConfig.mRenderWindowConfig.mHeight": 800,
-    "mCrawlConfig.mRenderWindowConfig.mIsMobile": false,
-    "mCrawlConfig.mRenderWindowConfig.mTouchEnabled": false,
-    "mCrawlConfig.mSearchTotalLimit": 20000,
-    "mExcludeManger.mRawExcludeListString": ".*/user/logout.*\n.*/admin/.*\n.*\\?.*"
+  "crawlConfig": {
+    "crawlerMode": "RENDER",
+    "inspectAccessibility": true,
+    "crawlExternalLinks": false,
+    "storeExternalLinks": false,
+    "followInternalNoFollow": true,
+    "respectNoindex": false,
+    "robotsTxtMode": "IGNORE_AND_REPORT",
+    "crawlSitemaps": true,
+    "allowRenderScreenShots": false,
+    "crawlTotalLimit": 20000,
+    "renderWindowConfig": {
+      "width": 1280,
+      "height": 800,
+      "isMobile": false,
+      "touchEnabled": false
+    }
+  },
+  "excludeManager": {
+    "rawExcludeListString": ".*/user/logout.*\n.*/admin/.*\n.*\\?.*"
+  },
+  "customExtractionConfig": {
+    "filters": [
+      {
+        "name": "video",
+        "extractionType": "XPATH",
+        "expression": "count(//video)",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "audio",
+        "extractionType": "XPATH",
+        "expression": "count(//audio)",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "captions",
+        "extractionType": "XPATH",
+        "expression": "count(//track[@kind='captions' or @kind='subtitles'])",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "media_iframe",
+        "extractionType": "XPATH",
+        "expression": "count(//iframe[contains(@src,'youtube') or contains(@src,'vimeo') or contains(@src,'brightcove') or contains(@src,'kaltura') or contains(@src,'wistia')])",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "iframe",
+        "extractionType": "XPATH",
+        "expression": "count(//iframe)",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "autoplay",
+        "extractionType": "XPATH",
+        "expression": "count(//*[@autoplay])",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "form",
+        "extractionType": "XPATH",
+        "expression": "count(//form)",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "input",
+        "extractionType": "XPATH",
+        "expression": "count(//input[not(@type='hidden') and not(@type='submit') and not(@type='button')] | //select | //textarea)",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "personal_input",
+        "extractionType": "XPATH",
+        "expression": "count(//input[@type='email' or @type='tel' or contains(@name,'name') or contains(@name,'mail') or contains(@name,'phone') or contains(@name,'address') or contains(@name,'zip')])",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "search",
+        "extractionType": "XPATH",
+        "expression": "count(//form[@role='search' or contains(@action,'search')] | //input[@type='search'])",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "accesskey",
+        "extractionType": "XPATH",
+        "expression": "count(//*[@accesskey])",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "meta_refresh",
+        "extractionType": "XPATH",
+        "expression": "count(//meta[translate(@http-equiv,'REFSH','refsh')='refresh'])",
+        "dataType": "FUNCTION_VALUE"
+      },
+      {
+        "name": "body_class",
+        "extractionType": "XPATH",
+        "expression": "//body/@class",
+        "dataType": "INNER_TEXT"
+      }
+    ]
   }
 }

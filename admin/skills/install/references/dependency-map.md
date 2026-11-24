@@ -178,6 +178,18 @@ No external tool installs needed beyond git and Python.
 
 ---
 
+## test-lab:assess-accessibility
+
+| Dependency | macOS | Linux sandbox |
+|---|---|---|
+| Screaming Frog SEO Spider (licensed) | `brew install --cask screaming-frog-seo-spider`, then enter the licence and accept the EULA in the app | Not supported |
+| DDEV | `brew install ddev/ddev/ddev` | Not supported |
+| Playwright browsers | `npm ci && npx playwright install chromium firefox webkit` in `test-lab/skills/assess-accessibility/scripts/checks` | Same |
+
+Note: macOS only, because the shared wrapper's sandbox uses `sandbox-exec`.
+
+---
+
 ## test-lab:perf-measure
 
 | Dependency | macOS | Linux sandbox |
