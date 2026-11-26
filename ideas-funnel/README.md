@@ -10,10 +10,12 @@ Read [ONBOARDING](ONBOARDING.md) before migration or registration. `ideas-funnel
 
 ## Runtime
 
-- `scripts/pull.py`: configured RSS/Atom and Hacker News Algolia endpoints, keyword filtering, bounded responses, two timed attempts, per-feed errors. RSS search feeds work; arbitrary web-search providers/authentication are unsupported and reported.
+- `scripts/pull.py`: configured RSS/Atom and Hacker News Algolia endpoints, keyword filtering, fenced bounded feed excerpts in raw files, opaque redirector filtering, bounded responses, two timed attempts, per-feed attributed errors. RSS search feeds work; arbitrary web-search providers/authentication are unsupported and reported.
+- `scripts/prefetch.py`: SSRF-safe, bounded article text prefetcher (validates public IP addresses before connect and on every redirect; no shell interpolation).
 - `scripts/runtime.py`: conservative URL normalization, atomic JSON replacement and one nonblocking operating-system lock.
-- `scripts/pipeline.py`: durable run owner with one-shot commands, file-keyed collected → processing → ingested/failed transitions, preserved legacy manifest, explicit interrupted-run recovery without automatic ownership expiry.
-- `scripts/health.py`: read-only backlog, stale items, URL conflicts/run failures and allowance freshness. Every model stage rechecks actual allowance; unknown/stale readings or any window below 20% skip work.
+- `scripts/pipeline.py`: durable run owner with one-shot commands, file-keyed collected → processing → ingested/failed/rejected/skipped transitions, compounding enforcement on `finish`, owner-gated `sweep-redirects`, preserved legacy manifest, explicit interrupted-run recovery without automatic ownership expiry.
+- `scripts/compounding.py`: deterministic read-only analyzer for shared Concept/Entity sync backlogs (bounded resumable batches), >=3-unrelated-origin promotion candidates (with `promote: false` opt-out), cross-domain Bridge candidates (`bridge_score >= 0.3`), and mixed-quota `refinery_plan`.
+- `scripts/health.py`: read-only backlog, stale items, URL conflicts/run failures, dead/failing feeds, adventure queue triage (`idea`/`ready` vs `ready_cap`), compounding summary, and allowance freshness. Every model stage rechecks actual allowance; unknown/stale readings or any window below 20% skip work.
 - `ideas-funnel:dispatch`: two domains × at most 12 items, one read-only delegate at a time, sole coordinator writes, conditional Refinery, weekly lint/decay/rescue and a five-line desk report. Shaping remains gated on a separate design.
 - Optional Jev ranking remains an ingest aid with its existing fallback and external cost; pulls never call it.
 
