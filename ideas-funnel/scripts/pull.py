@@ -3,6 +3,7 @@
 import argparse
 import datetime as dt
 import hashlib
+import html
 import json
 from pathlib import Path
 import re
@@ -15,15 +16,45 @@ import xml.etree.ElementTree as ET
 from runtime import atomic_json, canonical, hub, hubs, locked, read_json, require_idle
 
 LIMIT = 2 * 1024 * 1024
+EXCERPT_LIMIT = 3000
 URL = re.compile(r'https?://[^\s<>"\]\)]+')
+HTML_TAG = re.compile(r'<[^>]+>')
+WHITESPACE = re.compile(r'\s+')
+CONTENT_NS = '{http://purl.org/rss/1.0/modules/content/}'
+ATOM_NS = '{http://www.w3.org/2005/Atom}'
+
+
+def clean_excerpt(raw, limit=EXCERPT_LIMIT):
+    if not raw or not isinstance(raw, str):
+        return ''
+    text = HTML_TAG.sub(' ', html.unescape(raw))
+    text = WHITESPACE.sub(' ', text).strip()
+    if len(text) > limit:
+        text = text[:limit].rstrip() + '...'
+    return text
+
+
+def is_opaque_redirect(url):
+    p = urlsplit(url)
+    host = (p.hostname or '').lower()
+    return host == 'news.google.com' and p.path.startswith('/rss/articles/')
 
 
 def urls(path, extra=()):
-    # Only identity fields or a bare URL line: article links are not identities.
-    # Hubs (site roots, feeds, listed shared pages) never identify a source.
+    # Only identity fields or a bare URL line before untrusted feed excerpts:
+    # article/excerpt links are not identities. Hubs never identify a source.
     result = set()
+    in_fence = False
     for line in path.read_text().splitlines():
-        if re.match(r'^(?:url|source|origin):\s*', line) or line.startswith(('http://', 'https://')):
+        stripped = line.strip()
+        if stripped == '## Feed excerpt (untrusted)':
+            break
+        if stripped.startswith('```'):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if re.match(r'^(?:url|source|origin):[ \t]*', line) or line.startswith(('http://', 'https://')):
             for value in URL.findall(line):
                 try:
                     key = canonical(value.strip("'"))
@@ -97,11 +128,15 @@ class Redirects(urllib.request.HTTPRedirectHandler):
 
 def fetch(url):
     canonical(url)
+    headers = {
+        'User-Agent': 'ideas-funnel/3.0',
+        'Accept': 'application/rss+xml, application/atom+xml, application/json, text/xml;q=0.9, */*;q=0.8',
+    }
     for attempt in range(2):
         try:
             with urllib.request.build_opener(Redirects()).open(
-                    urllib.request.Request(url, headers={'User-Agent': 'ideas-funnel/3.0'}), timeout=10) as response:
-                deadline = time.monotonic() + 20
+                    urllib.request.Request(url, headers=headers), timeout=15) as response:
+                deadline = time.monotonic() + 30
                 chunks, size = [], 0
                 while size <= LIMIT:
                     if time.monotonic() >= deadline:
@@ -118,26 +153,54 @@ def fetch(url):
         except (OSError, urllib.error.URLError):
             if attempt:
                 raise
-            time.sleep(.2)
+            time.sleep(1.0)
 
 
-def parse(data, feed):
+def parse_items(data, feed):
     if urlsplit(feed).hostname == 'hn.algolia.com':
-        return [(h.get('url') or 'https://news.ycombinator.com/item?id=' + str(h['objectID']),
-                 h.get('title') or h.get('story_title') or '') for h in json.loads(data)['hits'][:100]]
+        items = []
+        for h in json.loads(data)['hits'][:100]:
+            hn_url = 'https://news.ycombinator.com/item?id=' + str(h['objectID'])
+            target = h.get('url') or hn_url
+            title = h.get('title') or h.get('story_title') or ''
+            parts = []
+            if h.get('story_text'):
+                parts.append(clean_excerpt(h['story_text']))
+            meta = []
+            if h.get('points') is not None:
+                meta.append(f"points: {h['points']}")
+            if h.get('num_comments') is not None:
+                meta.append(f"comments: {h['num_comments']}")
+            if h.get('url'):
+                meta.append(f"discussion: {hn_url}")
+            if meta:
+                parts.append(' | '.join(meta))
+            items.append((target, title, '\n\n'.join(p for p in parts if p)))
+        return items
     if b'<!DOCTYPE' in data.upper() or b'<!ENTITY' in data.upper():
         raise ValueError('XML declarations are unsupported')
     root = ET.fromstring(data)
     result = []
-    for item in list(root.findall('.//item')) + list(root.findall('{http://www.w3.org/2005/Atom}entry')):
-        title = item.findtext('title') or item.findtext('{http://www.w3.org/2005/Atom}title') or ''
+    for item in list(root.findall('.//item')) + list(root.findall(f'{ATOM_NS}entry')):
+        title = item.findtext('title') or item.findtext(f'{ATOM_NS}title') or ''
         link = item.findtext('link')
         if not link:
-            link = next((n.get('href') for n in item.findall('{http://www.w3.org/2005/Atom}link')
+            link = next((n.get('href') for n in item.findall(f'{ATOM_NS}link')
                          if n.get('rel', 'alternate') == 'alternate'), None)
+        raw_excerpt = (
+            item.findtext(f'{CONTENT_NS}encoded')
+            or item.findtext('description')
+            or item.findtext(f'{ATOM_NS}content')
+            or item.findtext(f'{ATOM_NS}summary')
+            or ''
+        )
         if link:
-            result.append((urljoin(feed, link), title))
+            result.append((urljoin(feed, link), title, clean_excerpt(raw_excerpt)))
     return result[:100]
+
+
+def parse(data, feed):
+    return [(url, title) for url, title, _ in parse_items(data, feed)]
 
 
 def collect(vault, config, getter=fetch):
@@ -152,7 +215,7 @@ def collect(vault, config, getter=fetch):
         raise ValueError('use the configured virtual-environment Python; install requirements.txt') from None
     reports = []
     for domain in sorted(config.glob('*.yaml')):
-        report = {'domain': domain.stem, 'created': 0, 'duplicates': 0, 'hubs': 0, 'errors': []}
+        report = {'domain': domain.stem, 'created': 0, 'duplicates': 0, 'hubs': 0, 'redirects_skipped': 0, 'errors': []}
         reports.append(report)
         try:
             conf = yaml.safe_load(domain.read_text()) or {}
@@ -180,11 +243,14 @@ def collect(vault, config, getter=fetch):
             try:
                 if feed in api and urlsplit(feed).hostname != 'hn.algolia.com':
                     raise ValueError('unsupported API provider')
-                for url, title in parse(getter(feed), feed):
+                for url, title, excerpt in parse_items(getter(feed), feed):
                     try:
                         key = canonical(url)
                     except (ValueError, TypeError) as exc:
                         report['errors'].append('item URL: ' + str(exc))
+                        continue
+                    if is_opaque_redirect(key):
+                        report['redirects_skipped'] += 1
                         continue
                     if hub(key, extra):
                         report['hubs'] += 1
@@ -202,15 +268,19 @@ def collect(vault, config, getter=fetch):
                     path.parent.mkdir(parents=True, exist_ok=True)
                     # Exclusive creation makes a crash between raw write and index save retryable.
                     if not path.exists():
+                        body = ('---\nurl: ' + json.dumps(key) + '\nstatus: collected\n---\n\n'
+                                + '# Untrusted feed data\n\n' + json.dumps(title) + '\n')
+                        if excerpt:
+                            safe_excerpt = re.sub(r'`{4,}', '```', excerpt)
+                            body += '\n## Feed excerpt (untrusted)\n\n````text\n' + safe_excerpt + '\n````\n'
                         with path.open('x') as stream:
-                            stream.write('---\nurl: ' + json.dumps(key) + '\nstatus: collected\n---\n\n'
-                                         + '# Untrusted feed data\n\n' + json.dumps(title) + '\n')
+                            stream.write(body)
                     index.setdefault('items', {})[str(path.relative_to(vault))] = {'urls': [key], 'state': 'collected'}
                     index['urls'][key] = {'state': 'collected', 'paths': [str(path.relative_to(vault))]}
                     atomic_json(index_path, index)
                     report['created'] += 1
             except (OSError, ValueError, KeyError, TypeError, ET.ParseError) as exc:
-                report['errors'].append(str(exc))
+                report['errors'].append(f'{feed}: {exc}')
     atomic_json(vault / '_meta/ideas-funnel-pull.json', {'domains': reports, 'at': dt.datetime.now(dt.timezone.utc).isoformat()})
     return reports
 

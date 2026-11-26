@@ -182,13 +182,15 @@ backlink_density: 0
 
 ### 4b. Concept pages — write to `Domains/<Label>/` (NOT shared `Concepts/`)
 
-The ingest agent never writes to vault-shared `Concepts/` or `Entities/`. Domain-specific concepts go to `Domains/<Label>/<Name>.md`. The Refinery promotes to `Concepts/` when a concept crosses ≥3 unrelated sources.
+The ingest agent never writes to vault-shared `Concepts/` or `Entities/`. Domain-specific concepts go to `Domains/<Label>/<Name>.md`. The Refinery promotes to `Concepts/` when a concept crosses ≥3 unrelated sources and keeps existing shared `Concepts/` synced as new sources cite them.
 
 For each concept identified:
 
-1. Check `Concepts/<Name>.md` — if it exists (Refinery-promoted), link to it from the Source page; do not modify it.
-2. Otherwise check `Domains/<Label>/<Name>.md` — if it exists, update it.
-3. Otherwise create it in `Domains/<Label>/<Name>.md`.
+1. Check `Concepts/<Name>.md` — if it exists (Refinery-promoted), link to it as `[[Concepts/<Name>]]` from the Source page and do not modify it directly (`compounding.py` automatically queues it for Refinery sync).
+2. Otherwise check `Domains/<Label>/<Name>.md` — if it exists, propose a concrete update (new claim, timeline entry, `## Sources` link).
+3. Otherwise propose creating it in `Domains/<Label>/<Name>.md`.
+
+`pipeline.py finish` enforces this: a Source-only proposal that neither updates a `Domains/<Label>/` page nor links to an existing `[[Concepts/...]]` or `[[Entities/...]]` page will be rejected unless an explicit override reason is justified. Distinguish transient fetch failures (`fail`, retryable) from off-topic, low-value, or duplicate items (`reject`, terminal on first pass).
 
 A confident Jev `dedup` verdict from Step 2 short-cuts the lookup: `duplicate` means link to the named page and add nothing; `augment` means update that page. An unconfident verdict changes nothing — follow the three checks above.
 
@@ -204,6 +206,7 @@ If the item describes something Chris could try, create `Next-Adventures/<date>-
 
 - First compare the canonical source URL against every existing adventure `source` field (run `<configured-venv-python> <plugin-root>/scripts/adventures.py --vault <vault> --source <source>`). An exact match updates/links the existing item, never creates another. Flag multiple matches for the coordinator. Then search `Next-Adventures/` for an existing item on the same idea. If there is one, add the new source to it instead of creating a duplicate.
 - Frontmatter: `type: adventure`, `title`, a one-line `summary` naming the productivity it could find, `date`, `status: idea`, `source`, and `tags`. Add `payoff` (1–5), `cost` (S/M/L), `tier` (1–5) and `first_step` when the source makes them clear. Leave them out rather than guess.
+- Include `rubric_score` (1–10) in the adventure proposal using the domain config's `scoring_rubric` (or general actionability + grounding to current work if the domain config omits a rubric) so the coordinator can apply the backlog admission gate (`>= 7` when `idea >= 20`).
 - New items are always `status: idea`. Only Chris or a shaping pass promotes them to `shaped` or `ready`.
 
 ## Step 5 — Detect concept-density threshold

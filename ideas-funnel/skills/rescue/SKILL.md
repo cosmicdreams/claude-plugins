@@ -28,10 +28,10 @@ Recover useful material without promoting noise.
 
 ## Actions
 
-1. For stale raw items: group by source/domain and recommend top-N for next coordinator-supervised ingest. Do not blindly process the whole backlog.
-2. For orphans: search for exact title mentions and add candidate links only when confidence is high. Never add links inside `Research-Lab/` (owned by research-lab); a mention there is not a link target.
+1. For stale raw items: group by source/domain and recommend top-N for next coordinator-supervised ingest. Exclude terminal `skipped` and `rejected` items. Do not blindly process the whole backlog.
+2. For orphans: search non-excluded wiki pages (`Sources/`, `Concepts/`, `Entities/`, `Domains/`) for exact title mentions and propose up to 15 high-confidence wikilink insertions per run so rescue actively reduces orphan count. Never add links inside `Research-Lab/` or `Archive/`.
 3. For `at_risk` pages: add them to the review lane or write a compact `log.md` rescue line if Beads is unavailable.
-4. For repeated stale themes: emit a recommendation for `ideas-funnel:supervise` to add a priority term or suppress a noisy feed.
+4. For repeated stale themes, feed timeouts, or skipped opaque redirects (`_meta/ideas-funnel-pull.json`): emit a concrete recommendation for `ideas-funnel:supervise` to add a priority term, suppress a noisy feed, or remove an unfetchable redirect feed.
 
 ## Output
 

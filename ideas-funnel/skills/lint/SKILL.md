@@ -30,16 +30,14 @@ Read `~/Vaults/Neurons/wiki-schema.md` and `~/Vaults/Neurons/index.md`.
 
 ## Step 1 — Raw/ staleness
 
-```bash
-cd ~/Vaults/Neurons/Raw
-find . -name "*.md" -type f -not -name "README.md"
-```
+Exclude `Archive/`, `Scratches/`, `Research-Lab/`, `.obsidian/`, and `.git/` from every lint scan.
 
-For each file:
-- Not listed in `Raw/.manifest.json` AND older than 7 days → **stale** warning.
+Check `Raw/.url-index.json` (falling back to `Raw/.manifest.json` for legacy root daily notes) for every non-`README.md` file under `Raw/`:
+- Terminal states (`ingested`, `skipped`, `rejected`) are not stale.
+- Non-terminal (`collected`, `failed`, `processing`) and older than 7 days → **stale** warning.
 - Empty file (0 bytes) → info.
 
-`Raw/Inbox/<domain>/*.md` items not in manifest after 7d indicate the ingest pipeline stalled for that domain.
+`Raw/Inbox/<domain>/*.md` items still waiting after 7d indicate the ingest pipeline stalled for that domain.
 
 ## Step 2 — Schema compliance
 
