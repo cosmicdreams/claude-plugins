@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.5.0 — 2026-11-25
+
+- New deterministic analyzer `scripts/compounding.py`: computes shared `Concepts/`/`Entities/`/`Bridges/` sync backlogs (`min_sync_sources=1`), ≥3-unrelated-origin promotion candidates (collapsing origin-less Sources to one bucket, normalizing hostnames, and honoring `promote: false` opt-outs), cross-domain Bridge candidates (≥2 backlinks in ≥2 domains, `bridge_score >= 0.3`, with `sources_batch`), and a mixed-quota 5-slot `refinery_plan` with 15-source resumable batches.
+- `pipeline.py finish` enforces compounding: refuses `Sources/`-only commits unless `--pages` includes a `Domains/`/`Concepts/`/`Entities/` page, the Source links to an existing shared `Concepts/` or `Entities/` page outside code blocks, or `--allow-source-only <reason>` is provided.
+- New terminal state `rejected` (`pipeline.py reject`) for first-pass off-topic, low-value, duplicate, or permanently blocked items, plus owner-gated `pipeline.py sweep-redirects` (with `--dry-run`) to clear legacy opaque redirects in bulk.
+- `pull.py` captures fenced, bounded feed excerpts (RSS, Atom, Hacker News Algolia), skips opaque `news.google.com/rss/articles/` redirects (`redirects_skipped`), stops `urls()` at `## Feed excerpt (untrusted)`, and prefixes feed errors with the failing feed URL.
+- New SSRF-safe `scripts/prefetch.py` validates global non-multicast IPs, disables environment proxies, pins sockets to the validated IP while preserving TLS SNI, and enforces timeout/size caps.
+- `health.py` adds `rejected`, `adventures_triage` (`idea`/`ready` counts vs `ready_cap`, oldest ideas), `dead_or_failing_feeds`, and `compounding` summary. Dispatch, ingest, refinery, lint, and rescue skills updated to match.
+- Claude and Codex manifests share version 3.5.0.
+
 ## 3.4.0 — 2026-11-16
 
 - New terminal item state `skipped`. `pipeline.py skip --owner <token> --item <path> --error <reason>` applies only to a claimed item that was `failed` before the claim, records the reason and `skipped_at`, and keeps the raw file. `claim` never takes a skipped item.
