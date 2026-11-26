@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0 — 2026-11-24
+
+- New shared scripts for local-only site scanning with Screaming Frog SEO Spider, used by the SEO and accessibility skills (see `scripts/frog/README.md`):
+  - `scripts/ddev_guard.py` takes the scan target from `ddev describe -j`, starts a stopped project, and refuses any URL that isn't on that project's DDEV host.
+  - `scripts/frog/frog_crawl.py` runs Screaming Frog headless with a committed partial JSON config, the schema Screaming Frog's MCP server documents. It requires external crawling off. Text-only crawls run in a macOS sandbox that allows only loopback connections. JavaScript-rendering crawls first pass a local self-test proving the config renders and requests nothing off-site. The script checks the effective config from Screaming Frog's log and the crawl's finish state, fails when any requested export file is missing, and also wraps crawl comparison.
+
 ## 0.6.0 — 2026-11-11
 
 - Removed the `accessibility-scan` skill and the `perf-measure --a11y` flag that passed through to it. No session used the skill, and its replacement will build reporting into the run. The skill remains in git history.
